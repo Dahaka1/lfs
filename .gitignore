@@ -1,0 +1,10 @@
+venv 
+.idea 
+.git 
+__pycache__
+app/__pycache__
+app/routers/__pycache__
+logs
+alembic/__pycache__
+.env
+services.py

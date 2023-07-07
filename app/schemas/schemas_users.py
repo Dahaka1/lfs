@@ -83,10 +83,10 @@ class UserUpdate(BaseModel):
 	)
 	disabled: Optional[bool] = Field(
 		description="False, если пользователь активен (не заблокирован)",
-		default=False
+		default=None
 	)
 	role: Optional[RoleEnum] = Field(
 		title="Права пользователя",
-		example=RoleEnum.MANAGER.value
+		example=RoleEnum.MANAGER.value,
+		default=None
 	)
-

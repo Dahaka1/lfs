@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional, Any
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, select, Enum, func, update
@@ -32,6 +33,30 @@ class User(Base):
 	registered_at = Column(DateTime(timezone=True), server_default=func.now())
 	last_action_at = Column(DateTime(timezone=True))
 	email_confirmed = Column(Boolean, default=False)
+
+	@staticmethod
+	async def update_user_last_action(user: schemas_users.User, db: AsyncSession) -> None:
+		"""
+		При каждом действии пользователя обновляется колонка last_action_at.
+
+		ВОЗМОЖНО, можно как-то обновлять время без передачи конкретного времени.
+		Например, если установить onupdate=func.now() и просто вызвать запрос без
+		 аргументов для обновления. Потом мб попробую.
+		"""
+		query = update(User).where(
+			User.id == user.id
+		).values(last_action_at=datetime.datetime.now())
+
+		await db.execute(query)
+
+	@staticmethod
+	def check_user_permissions(action_by_user: schemas_users.User, user_id: int) -> bool:
+		"""
+		Проверяет права пользователя на действие над ПОЛЬЗОВАТЕЛЕМ (put/delete методы и т.д.).
+		"""
+		if action_by_user.role != RoleEnum.SYSADMIN.value and action_by_user.id != user_id:
+			return False
+		return True
 
 	@staticmethod
 	async def get_user_by_email(db: AsyncSession, email: str) -> Optional[schemas_users.UserInDB]:

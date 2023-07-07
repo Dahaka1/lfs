@@ -2,11 +2,11 @@ from loguru import logger
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import services
 from ..schemas import schemas_users
 from ..models.users import User
 from ..utils import get_data_hash
 from ..utils import sa_objects_dicts_list, sa_object_to_dict
+from ..static.enums import RoleEnum
 
 
 async def get_users(db: AsyncSession):
@@ -16,6 +16,16 @@ async def get_users(db: AsyncSession):
 	query = select(User).order_by(User.registered_at)
 	result = await db.execute(query)
 	return sa_objects_dicts_list(result.scalars().all())
+
+
+async def get_user(user_id: int, db: AsyncSession):
+	"""
+	Возвращает данные пользователя с указанным ИД.
+	"""
+	query = select(User).where(User.id == user_id)
+	result = await db.execute(query)
+
+	return sa_object_to_dict(result.scalar())
 
 
 async def create_user(user: schemas_users.UserCreate, db: AsyncSession):
@@ -46,25 +56,40 @@ async def update_user(user: schemas_users.UserUpdate, user_id: int, action_by: s
 	"""
 	query = select(User).where(User.id == user_id)
 	result = await db.execute(query)
-	user_db = sa_object_to_dict(result.scalar())
+	user_in_db = sa_object_to_dict(result.scalar())
 	for key, val in user.dict().items():
 		if not val is None:
-			if key == "password":
-				if action_by.id != user_id:
-					pass  # only user can set a new password, not staff
-				else:
-					hashed_password = get_data_hash(val)
-					user_db["hashed_password"] = hashed_password
-			else:
-				user_db[key] = val
-	query = update(User).where(User.id == user_id).values(**user_db)
+			match key:
+				case "password":
+					if action_by.id != user_id:
+						pass  # только сам пользователь может изменить пароль, стафф не может
+					else:
+						hashed_password = get_data_hash(val)
+						user_in_db[key] = hashed_password
+				case "role":
+					if action_by.role != RoleEnum.SYSADMIN.value:
+						pass  # изменить роль пользователя может только SYSADMIN
+					else:
+						user_in_db[key] = val
+				case "disabled":
+					if action_by.role != RoleEnum.SYSADMIN.value:
+						pass  # изменить блокировку пользователя может только SYSADMIN
+				case _:
+					user_in_db[key] = val
+
+	query = update(User).where(User.id == user_id).values(**user_in_db)
 	await db.execute(query)
 	await db.commit()
 
-	logger.info(f"User {user_db['email']} (ID: {user_id}) was successfully updated by user "
-				f"{action_by.email} with ID {action_by.id}")
+	if action_by.id == user_id:
+		log_text = f"User {action_by.email} was successfully updated by himself"
+	else:
+		log_text = f"User {user_in_db['email']} was successfully updated by user with email" \
+				f"{action_by.email}"
 
-	return user_db
+	logger.info(log_text)
+
+	return user_in_db
 
 
 async def delete_user(user_id: int, action_by: schemas_users.User, db: AsyncSession) -> dict[str, int]:

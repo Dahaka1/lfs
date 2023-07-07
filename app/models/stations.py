@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
-	ForeignKeyConstraint, UUID
+	ForeignKeyConstraint, UUID, JSON
 
 from ..database import Base
 
@@ -46,6 +46,7 @@ class StationProgram(Base):
 	"""
 	Программы (дозировки) станции.
 
+	ID нужен для создания нескольких записей по одной и той же станции (несколько стиральных средств).
 	Program_step - номер метки (этапа/"шага") программы станции (11-15, 21-25, ...).
 	Program_number - номер программы станции (определяется по первой цифре шага программы, и наоборот).
 	Washing_agent_id - ИД стирального средства.
@@ -71,15 +72,10 @@ class StationControl(Base):
 	Может быть установлена программа ИЛИ средство + доза.
 
 	Status - статус станции.
+	Если статус "ожидание", то все параметры должны быть NONE.
 	Program_step - номер этапа программы (включает в себя информацию о номере программы).
 	Washing_machine_number - номер стиральной машины.
-	Washing_agent_number - номер стирального средства.
-	Dosage - доза подаваемого средства.
-
-	В данном варианте единовременно может быть только одна запись по станции на стиральную машину
-	 (подача одного средства в стиральную машину, стиральных машин может быть несколько).
-	Возможно, нужно будет добавить ID-колонку, чтобы можно было добавлять подачу нескольких средств по
-	 каждой стиральной машине.
+	Washing_agent_number_and_dosages - стиральные средства станции и дозировки ({1: 50, 2: 40, 3: 10, ...}).
 	"""
 	__tablename__ = "station_control"
 	__table_args__ = (
@@ -95,5 +91,4 @@ class StationControl(Base):
 	program_step = Column(Integer, ForeignKey("station_program.id", onupdate="CASCADE",
 											ondelete="CASCADE"))
 	washing_machine_number = Column(Integer, nullable=False)
-	washing_agent_number = Column(Integer)
-	dosage = Column(Integer)
+	washing_agent_number_and_dosages = Column(JSON)

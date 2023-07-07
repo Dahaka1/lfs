@@ -3,7 +3,7 @@ from typing import Any, Sequence
 
 from jose import jwt
 
-import config
+import config, services
 from .database import Base
 
 
@@ -21,7 +21,7 @@ def get_data_hash(data: str) -> str:
 	return config.pwd_context.hash(data)
 
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)):
+def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=services.ACCESS_TOKEN_EXPIRE_MINUTES)):
 	"""
 	Создание JWT-токена. "Живет" в течение переданного времени. По умолчанию время указывается в конфиге.
 	В data должен содержаться обязательный для JWT-токена параметр: "sub" (субъект - имя пользователя/email/...).

@@ -37,16 +37,22 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-	current_user: Annotated[schemas_users.User, Depends(get_current_user)]
+	current_user: Annotated[schemas_users.User, Depends(get_current_user)],
+	db: Annotated[AsyncSession, Depends(get_async_session)]
 ) -> schemas_users.User:
 	"""
 	Функция проверяет, заблокирован ли пользователь, сделавший запрос.
 	+ Подтвержден ли Email.
+
+	И обновляет время последнего действия пользователя.
 	"""
 	if current_user.disabled:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
 	if not current_user.email_confirmed:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User email is not confirmed")
+
+	await User.update_user_last_action(user=current_user, db=db)
+
 	return current_user
 
 

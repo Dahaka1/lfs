@@ -53,7 +53,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # jwt token params
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 JWT_SIGN_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # redis params
 REDIS_HOST = f"redis://{os.environ.get('REDIS_HOST')}"

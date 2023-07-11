@@ -2,6 +2,11 @@ import os
 import sys
 from passlib.context import CryptContext
 from dotenv import load_dotenv
+from geopy.geocoders import Nominatim
+
+# GEOLOCATION
+GEO_APP = "LFS-company server"
+geolocator_sync = Nominatim(user_agent=GEO_APP)
 
 STARTING_APP_FROM_CMD_DEBUG_ARG = "--debug"
 
@@ -58,9 +63,12 @@ JWT_SIGN_ALGORITHM = "HS256"
 REDIS_HOST = f"redis://{os.environ.get('REDIS_HOST')}"
 REDIS_PORT = os.environ.get("REDIS_PORT")
 REDIS_URL = f"{REDIS_HOST}:{REDIS_PORT}"
-REDIS_CACHE_PREFIX = "eztask-cache"
+REDIS_CACHE_PREFIX = "lfs-cache"
 
 
 # STATIC FILES DIR
 STATIC_FILES_DIR = "app/static"
 HTML_TEMPLATES_DIR = STATIC_FILES_DIR + "/templates"
+
+# FERNET SECRET KEY (WIFI DATA ENCRYPTING)
+FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")

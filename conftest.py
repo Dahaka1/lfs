@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY
 from sqlalchemy.pool import NullPool
 from app.database import Base
-# add imports!!!
+from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog
+from app.models.users import User
+from app.models.washing import WashingAgent, WashingMachine
+from app.models.stations import Station, StationSettings, StationProgram, StationControl
+from app.models.auth import RegistrationCode
 from app.dependencies import get_async_session
 from sqlalchemy.orm import sessionmaker
 import pytest
@@ -54,7 +58,6 @@ async def prepare_app():
 		await conn.run_sync(Base.metadata.create_all)
 
 	await fastapi_cache_init()  # для работы кеширования при тестах
-	# await init_db_strings(async_session_maker)
 
 	yield
 
@@ -86,15 +89,18 @@ async def generate_user(request):
 	"""
 	Генерирует новые данные пользователя для каждого класса тестов (scope='class').
 	"""
-	request.cls.email = f"autotest_{random.randrange(100)}@gmail.com"
+	request.cls.email = f"autotest_{random.randrange(10_000)}@gmail.com"
 	request.cls.password = str(random.randrange(10_000_000, 20_000_000))
 	request.cls.first_name = random.choice(
 		("Andrew", "Petr", "Ivan")
 	)
+	request.cls.last_name = random.choice(
+		("Petrov", "Sidorov", "Ivanov")
+	)
 
 
 @pytest.fixture(scope="function")
-async def generate_user_with_token(request):
+async def generate_confirmed_user_with_token(request):
 	"""
 	Генерация пользователя с готовым токеном авторизации для тестов,
 	где не проверяется получение токена.
@@ -103,18 +109,24 @@ async def generate_user_with_token(request):
 
 	В каждом тесте (функции) можно менять свободно данные, ибо scope='function'.
 	"""
-	request.cls.email = f"autotest_{random.randrange(10000)}@gmail.com"
+	request.cls.email = f"autotest_{random.randrange(10_000)}@gmail.com"
 	request.cls.password = str(random.randrange(10_000_000, 20_000_000))
 	request.cls.first_name = random.choice(
 		("Andrew", "Petr", "Ivan")
+	)
+	request.cls.last_name = random.choice(
+		("Petrov", "Sidorov", "Ivanov")
 	)
 	async with AsyncClient(app=app, base_url="http://test") as ac:
 		user_and_token_data = await create_user(
 			request.cls.email,
 			request.cls.password,
 			request.cls.first_name,
+			request.cls.last_name,
 			async_client=ac,
-			raise_error=True
+			raise_error=True,
+			confirm_email=True,
+			session=session
 		)
 	token = user_and_token_data.get("token")
 	user_id = user_and_token_data.get("id")

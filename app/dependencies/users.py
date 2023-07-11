@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import config
 from ..schemas import schemas_users, schemas_token
-from ..exceptions import CredentialsException
+from ..exceptions import CredentialsException, PermissionsError
 from ..models.users import User
 from . import oauth2_scheme, get_async_session
 
@@ -47,9 +47,9 @@ async def get_current_active_user(
 	И обновляет время последнего действия пользователя.
 	"""
 	if current_user.disabled:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
+		raise PermissionsError("Disabled user")
 	if not current_user.email_confirmed:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User email is not confirmed")
+		raise PermissionsError("User email is not confirmed")
 
 	await User.update_user_last_action(user=current_user, db=db)
 

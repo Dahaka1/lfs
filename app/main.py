@@ -5,12 +5,12 @@ from loguru import logger
 import config
 from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
-from .routers import auth, users
+from .routers import auth, users, stations
 from .static import app_description
 
 
 app = FastAPI(
-	title="EZTask",
+	title="LFS-company server",
 	openapi_url=config.OPENAPI_URL,
 	docs_url=config.API_DOCS_URL,
 	redoc_url=None,
@@ -24,7 +24,7 @@ app = FastAPI(
 )
 
 api_router = APIRouter(prefix="/api/v1")
-for r in (auth, users):
+for r in (auth, users, stations):
 	api_router.include_router(r.router)
 
 app.include_router(api_router)

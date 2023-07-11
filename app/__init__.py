@@ -2,17 +2,16 @@ import os
 import smtplib
 
 import psycopg2
+import redis
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 from loguru import logger
+from redis import asyncio as aioredis
 
 import config
 import services
 from .database import sync_db
 from .static.sql_queries import GET_ALL_TABLES
-
-import redis
-from redis import asyncio as aioredis
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
 
 
 def database_init() -> None:

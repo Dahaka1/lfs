@@ -1,0 +1,4 @@
+DEFAULT_ERROR_CODE = 0
+
+
+

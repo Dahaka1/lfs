@@ -1,4 +1,7 @@
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update
+from app.models.users import User
 
 
 async def get_user_token(
@@ -16,3 +19,18 @@ async def get_user_token(
 	)
 
 	return auth_response.json()["access_token"]
+
+
+async def confirm_user_email(
+	session: AsyncSession,
+	user_id: int
+):
+	"""
+	Ручное подтверждение email для пользователя.
+	"""
+	query = update(User).where(
+		User.id == user_id
+	).values(email_confirmed=True)
+
+	await session.execute(query)
+	await session.commit()

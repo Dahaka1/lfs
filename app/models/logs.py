@@ -1,8 +1,12 @@
 import json
 
-from sqlalchemy import JSON, Column, String, Integer, DateTime, func, ForeignKey, UUID
+from sqlalchemy import JSON, Column, String, Integer, DateTime, func, ForeignKey, UUID, insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from ..database import Base
+from ..schemas.schemas_users import User
+from ..schemas.schemas_stations import Station
 
 
 class ErrorsLog(Base):
@@ -52,8 +56,22 @@ class ChangesLog(Base):
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(DateTime(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="SET NULL", onupdate="CASCADE"), index=True)
-	user_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL", onupdate="CASCADE"))
+	user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL", onupdate="CASCADE"))
 	content = Column(String, nullable=False)
+
+	@staticmethod
+	async def log(db: AsyncSession, user: User, station: Station, content: str) -> None:
+		"""
+		Добавление записи в лог.
+		"""
+		query = insert(ChangesLog).values(
+			station_id=station.id, user_id=user.id, content=content
+		)
+
+		await db.execute(query)
+		await db.commit()
+
+		logger.info(content)
 
 
 class StationProgramsLog(Base):

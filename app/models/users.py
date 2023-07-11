@@ -21,7 +21,7 @@ class User(Base):
 	 Disabled - заблокирован или нет.
 	 Email_confirmed - подтвержден ли email.
 	"""
-	__tablename__ = "user"
+	__tablename__ = "users"
 
 	id = Column(Integer, primary_key=True, index=True)
 	email = Column(String(length=50), unique=True, index=True)

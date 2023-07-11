@@ -9,11 +9,12 @@ from ..schemas import schemas_users
 from ..crud import crud_users
 from ..dependencies import get_async_session
 from ..dependencies.users import get_current_active_user, get_user_id
+from ..dependencies.roles import get_sysadmin_user
 from ..exceptions import PermissionsError
 from ..models.users import User
-from ..static.enums import RoleEnum
 from .. import tasks
 from .config import CACHE_EXPIRING_DEFAULT
+
 
 router = APIRouter(
 	prefix="/users",
@@ -21,18 +22,16 @@ router = APIRouter(
 )
 
 
-@cache(expire=CACHE_EXPIRING_DEFAULT)
 @router.get("/", response_model=list[schemas_users.User])
+@cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_users(
-	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
+	current_user: Annotated[schemas_users.User, Depends(get_sysadmin_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
 	Получение списка всех пользователей.
 	Доступно для SYSADMIN-пользователей.
 	"""
-	if current_user.role != RoleEnum.SYSADMIN.value:
-		raise PermissionsError()
 	return await crud_users.get_users(db=db)
 
 
@@ -59,8 +58,19 @@ async def create_user(
 	return created_user
 
 
+@router.get("/me", response_model=schemas_users.User)
 @cache(expire=CACHE_EXPIRING_DEFAULT)
+async def read_users_me(
+	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)]
+):
+	"""
+	Получение данных пользователя самим пользователем.
+	"""
+	return current_user
+
+
 @router.get("/{user_id}", response_model=schemas_users.User)
+@cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_user(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
 	user_id: Annotated[int, Depends(get_user_id)],
@@ -75,18 +85,7 @@ async def read_user(
 	"""
 	if not User.check_user_permissions(action_by_user=current_user, user_id=user_id):
 		raise PermissionsError()
-	return crud_users.get_user(user_id=user_id, db=db)
-
-
-@cache(expire=CACHE_EXPIRING_DEFAULT)
-@router.get("/me", response_model=schemas_users.User)
-async def read_users_me(
-	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)]
-):
-	"""
-	Получение данных пользователя самим пользователем.
-	"""
-	return current_user
+	return await crud_users.get_user(user_id=user_id, db=db)
 
 
 @router.put("/{user_id}", response_model=schemas_users.User)
@@ -103,6 +102,8 @@ async def update_user(
 
 	Изменить роль пользователя может только пользователь с ролью SYSADMIN.
 	Изменить блокировку пользователя может только пользователь с ролью SYSADMIN.
+
+	Если изменился EMail - нужно заново его подтверждать.
 
 	Права проверяются методом check_user_permissions + в crud_users.
 	"""

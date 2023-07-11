@@ -74,6 +74,14 @@ async def update_user(user: schemas_users.UserUpdate, user_id: int, action_by: s
 				case "disabled":
 					if action_by.role != RoleEnum.SYSADMIN.value:
 						pass  # изменить блокировку пользователя может только SYSADMIN
+					else:
+						user_in_db[key] = val
+				case "email":
+					if action_by.id == user_id and user.email != action_by.email:
+						user_in_db["email_confirmed"] = False
+						user_in_db[key] = val
+					else:
+						pass  # изменить email может только сам пользователь
 				case _:
 					user_in_db[key] = val
 
@@ -82,7 +90,7 @@ async def update_user(user: schemas_users.UserUpdate, user_id: int, action_by: s
 	await db.commit()
 
 	if action_by.id == user_id:
-		log_text = f"User {action_by.email} was successfully updated by himself"
+		log_text = f"User {user.email} was successfully updated by himself"
 	else:
 		log_text = f"User {user_in_db['email']} was successfully updated by user with email" \
 				f"{action_by.email}"

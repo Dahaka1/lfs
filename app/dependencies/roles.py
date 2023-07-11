@@ -14,7 +14,7 @@ def get_sysadmin_user(
 	"""
 	Проверка SYSADMIN-прав пользователя.
 	"""
-	if current_user.role != RoleEnum.SYSADMIN.value:
+	if current_user.role.value != RoleEnum.SYSADMIN.value:
 		raise PermissionsError()
 	return current_user
 
@@ -25,7 +25,7 @@ def get_manager_user(
 	"""
 	Проверка MANAGER-прав пользователя.
 	"""
-	if current_user.role not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value):
+	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value):
 		raise PermissionsError()
 	return current_user
 
@@ -36,7 +36,7 @@ def get_installer_user(
 	"""
 	Проверка INSTALLER-прав пользователя.
 	"""
-	if current_user.role not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value, RoleEnum.INSTALLER.value):
+	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value, RoleEnum.INSTALLER.value):
 		raise PermissionsError()
 	return current_user
 
@@ -47,7 +47,7 @@ def get_laundry_user(
 	"""
 	Проверка LAUNDRY-прав пользователя.
 	"""
-	if current_user.role not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value,
+	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value,
 								 RoleEnum.INSTALLER.value, RoleEnum.LAUNDRY.value):
 		raise PermissionsError()
 	return current_user

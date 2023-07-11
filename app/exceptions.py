@@ -28,3 +28,10 @@ class PermissionsError(HTTPException):
 	):
 		super().__init__(detail=detail, status_code=status_code, headers=headers)
 
+
+class ProgramsDefiningError(Exception):
+	"""
+	Ошибка при создании программ станции (при создании самой станции).
+	"""
+	def __init__(self, message: str):
+		super().__init__(message)

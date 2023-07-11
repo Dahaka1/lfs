@@ -1,11 +1,69 @@
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID
+import uuid
+
+from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
+from ..schemas import schemas_washing
+from ..utils import sa_object_to_dict
 
 import services
 
 
-class WashingMachine(Base):
+class WashingSource:
+	NUMERIC_FIELDS = {
+		"WashingMachine": "machine_number",
+		"WashingAgent": "agent_number"
+	}
+
+	@classmethod
+	async def create_object(
+		cls, db: AsyncSession, station_id: uuid.UUID, object_number: int, **kwargs
+	) -> schemas_washing.WashingMachineCreate | schemas_washing.WashingAgentCreate:
+		"""
+		Метод для создания нового объекта с ДЕФОЛТНЫМИ параметрами в БД для аналогичных классов
+		 (стиральная машина и стиральное средство). Возвращает pydantic-схему добавленного объекта.
+
+		Создает запись в БД БЕЗ КОММИТА, его нужно сделать вне метода.
+		"""
+
+		if any(
+			(key not in cls.FIELDS for key in kwargs)
+		):
+			raise AttributeError(f"Expected fields for washing machine creating are {cls.FIELDS}")
+
+		numeric_field = cls.NUMERIC_FIELDS.get(cls.__name__)
+		kwargs.setdefault(numeric_field, object_number)
+		kwargs.setdefault("station_id", station_id)
+
+		query = insert(cls).values(**kwargs)
+		model = getattr(schemas_washing, cls.__name__ + "Create")
+
+		await db.execute(query)
+
+		return model(**kwargs)
+
+	@classmethod
+	async def get_obj_by_number(
+		cls, db: AsyncSession, object_number: int, station_id: uuid.UUID
+	) -> schemas_washing.WashingMachine | schemas_washing.WashingAgent:
+		"""
+		Поиск объекта по номеру станции и номеру объекта.
+		"""
+		query = select(cls).where(
+			(getattr(cls, cls.NUMERIC_FIELDS[cls.__name__]) == object_number) &
+			(cls.station_id == station_id)
+		)
+
+		result = await db.execute(query)
+		model = getattr(schemas_washing, cls.__name__)
+
+		return model(
+			**sa_object_to_dict(result.scalar())
+		)
+
+
+class WashingMachine(Base, WashingSource):
 	"""
 	Стиральная машина.
 	
@@ -13,6 +71,8 @@ class WashingMachine(Base):
 	Volume - вместимость машины (кг).
 	Is_active - активна или нет.
 	"""
+	FIELDS = ["volume", "is_active"]
+
 	__tablename__ = "washing_machine"
 	__table_args__ = (
 		PrimaryKeyConstraint("station_id", "machine_number", name="station_id_machine_number_pkey"),
@@ -24,7 +84,7 @@ class WashingMachine(Base):
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 
 
-class WashingAgent(Base):
+class WashingAgent(Base, WashingSource):
 	"""
 	Стиральное средство.
 
@@ -32,6 +92,8 @@ class WashingAgent(Base):
 	Concentration_rate - Коэффициент концентрации средства.
 	Rollback - "откат" средства.
 	"""
+	FIELDS = ["concentration_rate", "rollback"]
+
 	__tablename__ = "washing_agent"
 	__table_args__ = (
 		PrimaryKeyConstraint("station_id", "agent_number", name="station_id_agent_number_pkey"),
@@ -41,4 +103,3 @@ class WashingAgent(Base):
 	agent_number = Column(Integer, index=True)
 	concentration_rate = Column(Integer, default=services.DEFAULT_WASHING_AGENTS_CONCENTRATION_RATE)
 	rollback = Column(Boolean, default=services.DEFAULT_WASHING_AGENTS_ROLLBACK)
-	

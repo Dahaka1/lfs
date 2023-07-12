@@ -15,7 +15,7 @@ import services, config
 from ..database import Base
 from ..schemas.schemas_users import User
 from ..schemas.schemas_email_code import RegistrationCodeInDB
-from ..utils import get_data_hash, sa_object_to_dict, verify_data_hash
+from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash
 
 
 class RegistrationCode(Base):

@@ -1,14 +1,20 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+import uuid
+from typing import Any
 
-from ..models.stations import Station, StationSettings, StationControl
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Bundle
+from sqlalchemy import select, delete
+
+from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.logs import ChangesLog
+from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations, schemas_users, schemas_washing
-from ..utils import sa_objects_dicts_list, encrypt_data, sa_object_to_dict
+from ..utils.general import sa_objects_dicts_list, encrypt_data
 import config
 from geopy.location import Location
 from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from ..static.enums import StationParamsEnum
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
@@ -57,7 +63,7 @@ async def create_station(db: AsyncSession,
 
 	station_control = await StationControl.create(db=db, station_id=station_id)
 
-	station_washing_services = await Station.create_washing_services(
+	station_washing_services = await Station.create_default_washing_services(
 		db=db, station_id=station_id,
 		washing_agents_amount=station.washing_agents_amount,
 		washing_machines_amount=station.washing_machines_amount,
@@ -80,8 +86,63 @@ async def create_station(db: AsyncSession,
 	await ChangesLog.log(
 		db=db, user=created_by, station=created_station_obj, content=log_text
 	)
-
 	await db.commit()
-
 	return created_station_obj
 
+
+async def read_station(
+	station: schemas_stations.StationGeneralParams,
+	params_set: StationParamsEnum,
+	db: AsyncSession
+) -> schemas_stations.StationPartial:
+	"""
+	Возвращает объект с запрошенными данными.
+	"""
+	match params_set:
+		case StationParamsEnum.SETTINGS:
+			data = await StationSettings.get_relation_data(station, db)
+		case StationParamsEnum.CONTROL:
+			data = await StationControl.get_relation_data(station, db)
+		case StationParamsEnum.PROGRAMS:
+			data = await StationProgram.get_relation_data(station, db)
+		case StationParamsEnum.WASHING_MACHINES:
+			data = await WashingMachine.get_station_objects(station.id, db)
+		case StationParamsEnum.WASHING_AGENTS:
+			data = await WashingAgent.get_station_objects(station.id, db)
+
+	return schemas_stations.StationPartial(data=data)
+
+
+async def read_station_all(
+	station: schemas_stations.StationGeneralParams,
+	db: AsyncSession
+) -> schemas_stations.Station:
+	"""
+	Возвращает все данные по станции.
+
+	Надо обязательно сократить количество запросов... (отмечено в TODO).
+	"""
+	settings = await StationSettings.get_relation_data(station, db)
+	control = await StationControl.get_relation_data(station, db)
+	programs = await StationProgram.get_relation_data(station, db)
+	washing_machines = await WashingMachine.get_station_objects(station.id, db)
+	washing_agents = await WashingAgent.get_station_objects(station.id, db)
+
+	return schemas_stations.Station(
+		**station.dict(), station_programs=programs, station_washing_machines=washing_machines,
+		station_washing_agents=washing_agents, station_control=control, station_settings=settings
+	)
+
+
+async def delete_station(
+	station: schemas_stations.StationGeneralParams | uuid.UUID,
+	db: AsyncSession
+) -> None:
+	"""
+	Удаление станции.
+	"""
+	station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
+
+	query = delete(Station).where(Station.id == station_id)
+	await db.execute(query)
+	await db.commit()

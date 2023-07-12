@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
 from ..schemas import schemas_washing
-from ..utils import sa_object_to_dict
+from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
 
 import services
 
@@ -15,6 +15,7 @@ class WashingSource:
 		"WashingMachine": "machine_number",
 		"WashingAgent": "agent_number"
 	}
+	station_id: uuid.UUID
 
 	@classmethod
 	async def create_object(
@@ -61,6 +62,26 @@ class WashingSource:
 		return model(
 			**sa_object_to_dict(result.scalar())
 		)
+
+	@classmethod
+	async def get_station_objects(
+		cls, station_id: uuid.UUID, db: AsyncSession
+	) -> list[schemas_washing.WashingMachine] | list[schemas_washing.WashingAgent]:
+		"""
+		Ищет все объекты, относящиеся к станции.
+		"""
+		query = select(cls).where(
+			cls.station_id == station_id  # хз, почему ошибка
+		)
+		result = await db.execute(query)
+		schema = getattr(schemas_washing, cls.__name__ + "Base")
+
+		return [
+			schema(**obj) for obj in
+			sa_objects_dicts_list(
+				result.scalars().all()
+			)
+		]
 
 
 class WashingMachine(Base, WashingSource):

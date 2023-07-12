@@ -5,10 +5,9 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, select, Enum,
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
-from .. import utils
 from ..schemas import schemas_users, schemas_email_code
 from ..database import Base
-from ..utils import sa_object_to_dict
+from ..utils.general import sa_object_to_dict, verify_data_hash
 from ..static.enums import RoleEnum
 from .auth import RegistrationCode
 
@@ -80,7 +79,7 @@ class User(Base):
 		user = await User.get_user_by_email(db=db, email=email)
 		if not user:
 			return
-		if not utils.verify_data_hash(password, user.hashed_password):
+		if not verify_data_hash(password, user.hashed_password):
 			return
 		return user
 

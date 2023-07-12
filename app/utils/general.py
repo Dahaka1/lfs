@@ -6,7 +6,7 @@ from jose import jwt
 from cryptography.fernet import Fernet
 
 import config, services
-from .database import Base
+from ..database import Base
 
 
 def verify_data_hash(data, hashed_data) -> bool:

@@ -6,7 +6,7 @@ from loguru import logger
 
 from ..database import Base
 from ..schemas.schemas_users import User
-from ..schemas.schemas_stations import Station
+from ..schemas.schemas_stations import StationGeneralParams
 
 
 class ErrorsLog(Base):
@@ -23,6 +23,20 @@ class ErrorsLog(Base):
 	timestamp = Column(DateTime(timezone=True), server_default=func.now())
 	code = Column(Integer)
 	content = Column(String)
+
+	@staticmethod
+	async def log(db: AsyncSession, station: StationGeneralParams, content: str, code: int) -> None:
+		"""
+		Добавление записи в лог.
+		"""
+		query = insert(ErrorsLog).values(
+			station_id=station.id, content=content, code=code
+		)
+
+		await db.execute(query)
+		await db.commit()
+
+		logger.info(content)
 
 
 class WashingAgentsUsingLog(Base):
@@ -60,7 +74,7 @@ class ChangesLog(Base):
 	content = Column(String, nullable=False)
 
 	@staticmethod
-	async def log(db: AsyncSession, user: User, station: Station, content: str) -> None:
+	async def log(db: AsyncSession, user: User, station: StationGeneralParams, content: str) -> None:
 		"""
 		Добавление записи в лог.
 		"""

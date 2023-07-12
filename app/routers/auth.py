@@ -1,14 +1,13 @@
 import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, BackgroundTasks
 from fastapi.responses import Response
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 import pytz
 
 from ..schemas import schemas_token, schemas_users, schemas_email_code
-from .. import utils
 from ..dependencies import get_async_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
@@ -16,6 +15,7 @@ from ..models.users import User
 from ..models.auth import RegistrationCode
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from .. import tasks
+from ..utils.general import create_access_token
 
 router = APIRouter(
 	prefix="/auth",
@@ -42,7 +42,7 @@ async def login_for_access_token(
 	if user.disabled:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
 
-	access_token = utils.create_access_token(
+	access_token = create_access_token(
 		data={"sub": user.email}
 	)
 

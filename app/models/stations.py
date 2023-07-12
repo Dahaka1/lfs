@@ -2,19 +2,21 @@ import uuid
 from typing import Optional
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
-	ForeignKeyConstraint, UUID, JSON, DateTime, func, insert, select
+	UUID, JSON, DateTime, func, insert, select, PrimaryKeyConstraint
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import relationship
 
 from ..database import Base
 
 import services
 from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, \
-	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
+	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo, WashingAgentWithoutRollback
 from ..static.enums import StationStatusEnum
 from ..schemas import schemas_stations, schemas_washing
 from .washing import WashingAgent, WashingMachine, WashingSource
-from ..utils import sa_object_to_dict
-from ..exceptions import ProgramsDefiningError
+from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
+from ..exceptions import ProgramsDefiningError, GettingDataError
+from ..static.typing import StationParamsSet
 
 
 class Station(Base):
@@ -78,7 +80,7 @@ class Station(Base):
 		return station_id
 
 	@staticmethod
-	async def create_washing_services(
+	async def create_default_washing_services(
 		db: AsyncSession, station_id: uuid.UUID,
 		washing_machines_amount: int,
 		washing_agents_amount: int,
@@ -150,7 +152,38 @@ class Station(Base):
 		return station
 
 
-class StationSettings(Base):
+class StationRelation:
+	station_id: uuid.UUID
+
+	@classmethod
+	async def get_relation_data(cls, station: schemas_stations.StationGeneralParams,
+								   db: AsyncSession) -> StationParamsSet:
+		"""
+		Поиск записей по станции в побочных таблицах.
+		"""
+		query = select(cls).where(cls.station_id == station.id)  # не знаю, чего ругается =(
+		schema = getattr(schemas_stations, cls.__name__)
+		result = await db.execute(query)
+
+		if result is None:
+			err_text = f"Getting {cls.__name__} for station {station.id} error.\nDB data not found"
+			async with GettingDataError(station=station, db=db, message=err_text) as err:
+				raise err
+
+		match cls.__name__:
+			case "StationProgram":
+				station_programs = sa_objects_dicts_list(result.scalars().all())
+				return schemas_stations.StationPrograms(
+					station_id=station.id, station_programs=station_programs
+				)
+
+			case "StationControl" | "StationSettings":
+				return schema(
+					**sa_object_to_dict(result.scalar())
+				)
+
+
+class StationSettings(Base, StationRelation):
 	"""
 	Настройки станции.
 
@@ -188,34 +221,29 @@ class StationSettings(Base):
 		return schemas_stations.StationSettingsCreate(**kwargs)
 
 
-class StationProgram(Base):
+class StationProgram(Base, StationRelation):
 	"""
 	Программы (дозировки) станции.
 
 	ID нужен для создания нескольких записей по одной и той же станции (несколько стиральных средств).
 	Program_step - номер метки (этапа/"шага") программы станции (11-15, 21-25, ...).
 	Program_number - номер программы станции (определяется по первой цифре шага программы, и наоборот).
-	Washing_agent_id - ИД стирального средства.
-	Dosage - доза (мл/кг).
-	Rollback - дублирую здесь колонку, ибо пока не понимаю, где она нужна.
+	Washing_agents - объекты стиральных средств.
 	Updated_at - дата и время последнего обновления.
 	"""
 	__tablename__ = "station_program"
 	__table_args__ = (
-		ForeignKeyConstraint(["station_id", "washing_agent_number"],
-							 ["washing_agent.station_id", "washing_agent.agent_number"]),
+		PrimaryKeyConstraint("station_id", "program_step"),
 	)
 
-	id = Column(Integer, primary_key=True)
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	program_step = Column(Integer, nullable=False)
 	program_number = Column(Integer, nullable=False)
-	washing_agent_number = Column(Integer)
-	dosage = Column(Integer, default=services.DEFAULT_STATION_DOSAGE)
+	washing_agents = Column(JSON)
 	updated_at = Column(DateTime, onupdate=func.now())
 
 	@staticmethod
-	async def create_station_programs(station: schemas_stations.Station,
+	async def create_default_station_programs(station: schemas_stations.Station,
 									  programs: list[schemas_stations.StationProgramCreate],
 									  db: AsyncSession) -> schemas_stations.Station:
 		"""
@@ -230,8 +258,9 @@ class StationProgram(Base):
 				washing_agent_number = washing_agent if isinstance(washing_agent, int) else washing_agent.agent_number
 				agents_amount = len(station.station_washing_agents)
 				if washing_agent_number > agents_amount:
-					raise ProgramsDefiningError(f"Station has {agents_amount} washing agents, but got "
-									 f"agent №{washing_agent_number}")
+					err_text = f"Station has {agents_amount} washing agents, but got agent №{washing_agent_number}"
+					async with ProgramsDefiningError(db=db, message=err_text, station=station) as err:
+						raise err
 
 				if isinstance(washing_agent, int):  # случай, если был передан список номеров средств
 					washing_agent = next(agent for agent in station.station_washing_agents
@@ -244,18 +273,22 @@ class StationProgram(Base):
 							idx = program.washing_agents.index(agent_)
 							program.washing_agents[idx] = washing_agent
 
-				agent_data = {"washing_agent_number": washing_agent.agent_number,
-							  "dosage": washing_agent.concentration_rate}
-				if washing_agent.agent_number not in \
-					[agent_["washing_agent_number"] for agent_ in washing_agents_to_insert]:
-					washing_agents_to_insert.append(agent_data)
+				if washing_agent.agent_number not in [agent.agent_number for agent in washing_agents_to_insert]:
+					washing_agent = WashingAgentWithoutRollback(**washing_agent.dict())
+					washing_agents_to_insert.append(washing_agent)
 				else:
-					raise ProgramsDefiningError(f"Duplicate agent with number {washing_agent.agent_number} found")
+					err_text = f"Duplicate agent with number {washing_agent.agent_number} found"
+					async with ProgramsDefiningError(message=err_text, db=db, station=station) as err:
+						raise err
 
-			program_data = [{"station_id": station.id,
-							"program_step": program.program_step,
-							"program_number": program.program_number,
-							**agent} for agent in washing_agents_to_insert]
+			program_data = {
+				"station_id": station.id,
+				"program_step": program.program_step,
+				"program_number": program.program_number,
+				"washing_agents": sorted(
+						[item.dict() for item in washing_agents_to_insert], key=lambda agent: agent["agent_number"]
+					)
+				}
 			if any(program_data):
 				await db.execute(
 					insert(StationProgram), program_data
@@ -265,36 +298,30 @@ class StationProgram(Base):
 						**program.dict()
 					)
 				)
-
 		await db.commit()
 		return station
 
 
-class StationControl(Base):
+class StationControl(Base, StationRelation):
 	"""
 	Контроль и управление станцией.
 	Может быть установлена программа ИЛИ средство + доза.
 
 	Status - статус станции.
 	Если статус "ожидание", то все параметры должны быть NONE.
-	Program_step - номер этапа программы (включает в себя информацию о номере программы).
-	Washing_machine_number - номер стиральной машины.
-	Washing_agent_numbers_and_dosages - стиральные средства станции и дозировки ({1: 50, 2: 40, 3: 10, ...}).
+	Program_step - объект этапа программы.
+	Washing_machine - объект стиральной машины.
+	Washing_agents - стиральные средства станции.
 	Updated_at - дата и время последнего обновления.
 	"""
 	__tablename__ = "station_control"
-	__table_args__ = (
-		ForeignKeyConstraint(["station_id", "washing_machine_number"],
-							 ["washing_machine.station_id", "washing_machine.machine_number"]),
-	)
 
 	station_id = Column(UUID, ForeignKey("station.id", onupdate="CASCADE",
 											ondelete="CASCADE"), primary_key=True, index=True)
 	status = Column(Enum(StationStatusEnum), default=StationStatusEnum.AWAITING)
-	program_step = Column(Integer, ForeignKey("station_program.id", onupdate="CASCADE",
-											ondelete="CASCADE"))
-	washing_machine_number = Column(Integer)
-	washing_agent_numbers_and_dosages = Column(JSON, default={})
+	program_step = Column(JSON)
+	washing_machine = Column(JSON)
+	washing_agents = Column(JSON)
 	updated_at = Column(DateTime, onupdate=func.now())
 
 	@staticmethod

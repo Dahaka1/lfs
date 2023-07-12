@@ -1,4 +1,10 @@
+from typing import Any
+
 from fastapi import HTTPException, status
+
+from .schemas.schemas_stations import StationGeneralParams
+from .models.logs import ErrorsLog
+from .static import error_codes
 
 
 class CredentialsException(HTTPException):
@@ -29,9 +35,47 @@ class PermissionsError(HTTPException):
 		super().__init__(detail=detail, status_code=status_code, headers=headers)
 
 
-class ProgramsDefiningError(Exception):
+class LoggingError(Exception):
+	message: str
+	code: int
+	db: Any  # AsyncSession не могу указать - проблема
+	station: StationGeneralParams
+
+	def __init__(self, **kwargs):
+		for k, v in kwargs.items():
+			if k not in self.__annotations__:
+				raise AttributeError(f"'{k}' is unexpected field")
+			type_ = self.__annotations__.get(k)
+			if type_ != Any and not isinstance(v, type_):
+				raise TypeError(f"'{k}' type isn't {type_.__name__}")
+			setattr(self, k, v)
+		super().__init__(self.message)
+
+	async def __aenter__(self):
+		"""
+		При вызове в менеджера контекста всегда добавляется в лог в БД
+		"""
+		await ErrorsLog.log(self.db, self.station, self.message, self.code)
+		return self
+
+	async def __aexit__(self, exc_type, exc_val, exc_tb):
+		pass
+
+
+class ProgramsDefiningError(LoggingError):
 	"""
 	Ошибка при создании программ станции (при создании самой станции).
 	"""
-	def __init__(self, message: str):
-		super().__init__(message)
+	def __init__(self, **kwargs):
+		kwargs.setdefault("code", error_codes.BAD_DATA_CODE)
+		super().__init__(**kwargs)
+
+
+class GettingDataError(LoggingError):
+	"""
+	Ошибка при получении данных по станции (отсутствуют данные).
+	"""
+	def __init__(self, **kwargs):
+		kwargs.setdefault("code", error_codes.EMPTY_DATA_CODE)
+		super().__init__(**kwargs)
+

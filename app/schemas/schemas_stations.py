@@ -1,6 +1,5 @@
 import datetime
-import uuid
-from typing import Optional, Any
+from typing import Optional, Any, Union
 
 from pydantic import BaseModel, Field, UUID4, validator, root_validator
 
@@ -170,12 +169,21 @@ class StationProgramUpdate(StationProgramCreate):
 	pass
 
 
-class StationProgramMixedInfo(StationProgram, StationRelation):
+class StationProgramMixedInfo(StationProgram):
 	"""
 	Эта модель - для вывода ВМЕСТЕ с остальной инфой по станции.
 	Station_id не указывается.
 	"""
 	station_id: Any = Field(exclude=True)
+
+
+class StationPrograms(StationRelation):
+	"""
+	Используется при получении всех программ станции ОТДЕЛЬНО от остальных данных.
+	"""
+	station_programs: list[StationProgramMixedInfo] = Field(
+		title="Список программ станции"
+	)
 
 
 class StationControl(StationRelation):
@@ -189,10 +197,10 @@ class StationControl(StationRelation):
 	Доп. инфо см. в models.
 	"""
 	status: StationStatusEnum = Field(title="Статус станции")
-	program_step: Optional[int] = Field(ge=11, title="Шаг (этап) программы станции", example="11-15, 21-25, 31-35, ...")
-	washing_machine_number: Optional[WashingMachine] = Field(title="Стиральная машина станции")
-	washing_agent_numbers_and_dosages: Optional[list[WashingAgent]] = Field(
-		title="Стиральные средства станции и дозировки"
+	program_step: Optional[StationProgramMixedInfo] = Field(title="Этап программы станции")
+	washing_machine: Optional[WashingMachine] = Field(title="Стиральная машина станции")
+	washing_agents: Optional[list[WashingAgent | WashingAgentWithoutRollback]] = Field(
+		title="Стиральные средства станции, используемые в данный момент"
 	)
 	updated_at: Optional[datetime.datetime] = Field(title="Дата и время последнего обновления (состояния станции)")
 
@@ -256,8 +264,23 @@ class Station(StationGeneralParams):
 	По умолчанию (при создании) у станции нет программ, поэтому параметр опциональный.
 	"""
 	id: UUID4 = Field(title="Уникальный номер станции")
-	station_programs: Optional[list[StationProgramMixedInfo]] = Field(title="Программы станции", default_factory=list)
+	station_programs: Optional[StationPrograms] = Field(title="Программы станции", default_factory=list)
 	station_washing_machines: list[WashingMachine] = Field(title="Стиральные машины станции")
 	station_washing_agents: list[WashingAgent] = Field(title="Стиральные средства станции")
 	station_control: StationControlMixedInfo
 	station_settings: StationSettingsMixedInfo
+
+
+class StationPartial(BaseModel):
+	"""
+	Схема для ответа по запросу определенных данных станцией (а не всех).
+	"""
+	data: Union[
+		StationGeneralParams,
+		StationPrograms,
+		StationControl,
+		StationSettings,
+		list[WashingMachine],
+		list[WashingAgent]
+	] = Field(title="Запрашиваемый набор параметров станции")
+

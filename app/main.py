@@ -5,7 +5,7 @@ from loguru import logger
 import config
 from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
-from .routers import auth, users, stations
+from .routers import auth, users, stations, management
 from .static import app_description
 
 
@@ -24,7 +24,7 @@ app = FastAPI(
 )
 
 api_router = APIRouter(prefix="/api/v1")
-for r in (auth, users, stations):
+for r in (auth, users, stations, management):
 	api_router.include_router(r.router)
 
 app.include_router(api_router)

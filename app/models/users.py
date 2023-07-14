@@ -8,7 +8,7 @@ import services
 from ..schemas import schemas_users, schemas_email_code
 from ..database import Base
 from ..utils.general import sa_object_to_dict, verify_data_hash
-from ..static.enums import RoleEnum
+from ..static.enums import RoleEnum, RegionEnum
 from .auth import RegistrationCode
 
 
@@ -32,6 +32,7 @@ class User(Base):
 	registered_at = Column(DateTime(timezone=True), server_default=func.now())
 	last_action_at = Column(DateTime(timezone=True))
 	email_confirmed = Column(Boolean, default=False)
+	region = Column(Enum(RegionEnum))
 
 	@staticmethod
 	async def update_user_last_action(user: schemas_users.User, db: AsyncSession) -> None:

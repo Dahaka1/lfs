@@ -1,21 +1,20 @@
 import uuid
-from typing import Optional
+from typing import Optional, Any
+import datetime
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
-	UUID, JSON, DateTime, func, insert, select, PrimaryKeyConstraint
+	UUID, JSON, DateTime, func, insert, select, PrimaryKeyConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import relationship
 
 from ..database import Base
-
 import services
 from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, \
 	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo, WashingAgentWithoutRollback
-from ..static.enums import StationStatusEnum
+from ..static.enums import StationStatusEnum, RegionEnum
 from ..schemas import schemas_stations, schemas_washing
 from .washing import WashingAgent, WashingMachine, WashingSource
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
-from ..exceptions import ProgramsDefiningError, GettingDataError
+from ..exceptions import ProgramsDefiningError, GettingDataError, UpdatingError
 from ..static.typing import StationParamsSet
 
 
@@ -32,7 +31,7 @@ class Station(Base):
 	Created_at - дата и время создания.
 	Updated_at - дата и время последнего обновления.
 	"""
-	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data"]
+	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region"]
 
 	__tablename__ = "station"
 
@@ -43,9 +42,11 @@ class Station(Base):
 	hashed_wifi_data = Column(String)
 	created_at = Column(DateTime, server_default=func.now())
 	updated_at = Column(DateTime, onupdate=func.now())
+	region = Column(Enum(RegionEnum))
 
 	@staticmethod
-	async def get_station_by_id(db: AsyncSession, station_id: uuid.UUID) -> schemas_stations.StationGeneralParams | None:
+	async def get_station_by_id(db: AsyncSession,
+								station_id: uuid.UUID) -> schemas_stations.StationGeneralParamsInDB | None:
 		"""
 		Возвращает объект станции с определенным ИД.
 		Если его нет - None.
@@ -54,9 +55,10 @@ class Station(Base):
 		result = await db.execute(query)
 		station = result.scalar()
 		if station:
-			return schemas_stations.StationGeneralParams(
+			return schemas_stations.StationGeneralParamsInDB(
 				**sa_object_to_dict(station)
 			)
+
 
 	@classmethod
 	async def create(cls, db: AsyncSession, **kwargs) -> uuid.UUID:
@@ -118,7 +120,7 @@ class Station(Base):
 		if washing_machines is None:
 			for machine_number in range(washing_machines_amount):
 				created_machine = await WashingMachine.create_object(db=db, station_id=station_id,
-														   object_number=machine_number + 1)
+																	 object_number=machine_number + 1)
 				inserted_washing_machines.append(created_machine)
 		else:
 			for machine in washing_machines:
@@ -128,7 +130,7 @@ class Station(Base):
 		if washing_agents is None:
 			for agent_number in range(washing_agents_amount):
 				created_agent = await WashingAgent.create_object(db=db, station_id=station_id,
-														 object_number=agent_number + 1)
+																 object_number=agent_number + 1)
 				inserted_washing_agents.append(created_agent)
 		else:
 			for agent in washing_agents:
@@ -142,45 +144,104 @@ class Station(Base):
 
 	@staticmethod
 	async def authenticate_station(db: AsyncSession, station_id: uuid.UUID) -> \
-		Optional[schemas_stations.StationGeneralParams]:
+		Optional[schemas_stations.StationGeneralParamsInDB]:
 		"""
 		Авторизация станции (проверка UUID).
 		"""
 		station = await Station.get_station_by_id(db=db, station_id=station_id)
-		if not station:
-			return
 		return station
 
 
 class StationRelation:
 	station_id: uuid.UUID
+	UPDATING_WORKS_FOR = [
+		"StationControl",
+		"StationSettings"
+	]
 
 	@classmethod
-	async def get_relation_data(cls, station: schemas_stations.StationGeneralParams,
-								   db: AsyncSession) -> StationParamsSet:
+	async def get_relation_data(cls, station: schemas_stations.StationGeneralParams | uuid.UUID,
+								db: AsyncSession) -> StationParamsSet:
 		"""
 		Поиск записей по станции в побочных таблицах.
 		"""
-		query = select(cls).where(cls.station_id == station.id)  # не знаю, чего ругается =(
-		schema = getattr(schemas_stations, cls.__name__)
+		station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
+		query = select(cls).where(cls.station_id == station_id)  # не знаю, чего ругается =(
 		result = await db.execute(query)
-
-		if result is None:
-			err_text = f"Getting {cls.__name__} for station {station.id} error.\nDB data not found"
-			async with GettingDataError(station=station, db=db, message=err_text) as err:
-				raise err
 
 		match cls.__name__:
 			case "StationProgram":
-				station_programs = sa_objects_dicts_list(result.scalars().all())
-				return schemas_stations.StationPrograms(
-					station_id=station.id, station_programs=station_programs
-				)
+				data = result.scalars().all()
+				station_programs = sa_objects_dicts_list(data)
+				schema = schemas_stations.StationProgram
+				return [
+					schema(**item) for item in station_programs
+				]
 
 			case "StationControl" | "StationSettings":
-				return schema(
-					**sa_object_to_dict(result.scalar())
+				schema = getattr(
+					schemas_stations,
+					cls.__name__
 				)
+				data = result.scalar()
+
+				if data is None:
+					err_text = f"Getting {cls.__name__} for station {station.id} error.\nDB data not found"
+					async with GettingDataError(station=station, db=db, message=err_text) as err:
+						raise err
+				return schema(
+					**sa_object_to_dict(data)
+				)
+
+	@classmethod
+	async def update_relation_data(cls,
+		station: schemas_stations.StationGeneralParams | uuid.UUID,
+		updated_params: schemas_stations.StationSettingsUpdate | schemas_stations.StationControlUpdate,
+		db: AsyncSession
+	) -> StationParamsSet:
+		"""
+		Обновление данных по станции в побочных таблицах.
+		"""
+		if cls.__name__ not in cls.UPDATING_WORKS_FOR:
+			raise TypeError(f"Unsupportable method for {cls}")
+
+		station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
+
+		match cls.__name__:
+			case "StationControl":
+				if any(
+					(any(updated_params.washing_agents), updated_params.program_step,
+					 updated_params.washing_machine, updated_params.status)
+				):
+					station_settings = await StationSettings.get_relation_data(station, db)
+					if station_settings.station_power is False:
+						async with UpdatingError(
+							message="Station power currently is False, but got non-nullable control params", db=db,
+							station=station
+						) as err:
+							raise err
+			case "StationSettings":
+				if updated_params.station_power is True:
+					if not station.is_active:
+						async with UpdatingError(
+							message="Station currently is inactive, but got an station_power 'True'", db=db,
+							station=station
+						) as err:
+							raise err
+
+		updated_params_dict = dict(**updated_params.dict(),
+								   updated_at=datetime.datetime.now())  # updated_at почему-то автоматически не обновляется =(
+
+		query = update(cls).where(
+			cls.station_id == station_id
+		).values(**updated_params_dict)
+
+		await db.execute(query)
+		await db.commit()
+
+		schema = getattr(schemas_stations, cls.__name__)
+
+		return schema(**updated_params_dict)
 
 
 class StationSettings(Base, StationRelation):
@@ -225,7 +286,6 @@ class StationProgram(Base, StationRelation):
 	"""
 	Программы (дозировки) станции.
 
-	ID нужен для создания нескольких записей по одной и той же станции (несколько стиральных средств).
 	Program_step - номер метки (этапа/"шага") программы станции (11-15, 21-25, ...).
 	Program_number - номер программы станции (определяется по первой цифре шага программы, и наоборот).
 	Washing_agents - объекты стиральных средств.
@@ -244,8 +304,8 @@ class StationProgram(Base, StationRelation):
 
 	@staticmethod
 	async def create_default_station_programs(station: schemas_stations.Station,
-									  programs: list[schemas_stations.StationProgramCreate],
-									  db: AsyncSession) -> schemas_stations.Station:
+											  programs: list[schemas_stations.StationProgramCreate],
+											  db: AsyncSession) -> schemas_stations.Station:
 		"""
 		Создание программ станции (при создании самой станции).
 		"""
@@ -286,15 +346,16 @@ class StationProgram(Base, StationRelation):
 				"program_step": program.program_step,
 				"program_number": program.program_number,
 				"washing_agents": sorted(
-						[item.dict() for item in washing_agents_to_insert], key=lambda agent: agent["agent_number"]
-					)
-				}
+					[item.dict() for item in washing_agents_to_insert], key=lambda agent: agent["agent_number"]
+				)
+			}
+
 			if any(program_data):
 				await db.execute(
 					insert(StationProgram), program_data
 				)
 				station.station_programs.append(
-					schemas_stations.StationProgramMixedInfo(
+					schemas_stations.StationProgram(
 						**program.dict()
 					)
 				)
@@ -317,15 +378,15 @@ class StationControl(Base, StationRelation):
 	__tablename__ = "station_control"
 
 	station_id = Column(UUID, ForeignKey("station.id", onupdate="CASCADE",
-											ondelete="CASCADE"), primary_key=True, index=True)
-	status = Column(Enum(StationStatusEnum), default=StationStatusEnum.AWAITING)
+										 ondelete="CASCADE"), primary_key=True, index=True)
+	status = Column(Enum(StationStatusEnum), default=services.DEFAULT_STATION_STATUS)
 	program_step = Column(JSON)
 	washing_machine = Column(JSON)
-	washing_agents = Column(JSON)
+	washing_agents = Column(JSON, default=[])
 	updated_at = Column(DateTime, onupdate=func.now())
 
 	@staticmethod
-	async def create(db: AsyncSession, station_id: uuid.UUID) -> schemas_stations.StationControl:
+	async def create(db: AsyncSession, station_id: uuid.UUID, **kwargs) -> schemas_stations.StationControl:
 		"""
 		Создание в БД записи о статусе станции.
 		БЕЗ коммита (нужно сделать его вне функции).
@@ -333,9 +394,12 @@ class StationControl(Base, StationRelation):
 		Возвращает pydantic-схему созданного дефолтного объекта.
 		"""
 		query = insert(StationControl).values(
-			station_id=station_id
+			station_id=station_id,
+			**kwargs
 		)
 
 		await db.execute(query)
 
-		return schemas_stations.StationControl(status=StationStatusEnum.AWAITING)
+		return schemas_stations.StationControl(
+			status=kwargs["status"] if "status" in kwargs else services.DEFAULT_STATION_STATUS,
+		)

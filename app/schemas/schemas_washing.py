@@ -13,6 +13,7 @@ class WashingMachineBase(BaseModel):
 								ge=1, le=7)
 	volume: int = Field(title="Вместимость, кг")
 	is_active: bool = Field(title="Активна/нет")
+	track_length: float = Field(title="Длина трассы, м")
 
 
 class WashingMachineCreate(WashingMachineBase):
@@ -23,6 +24,8 @@ class WashingMachineCreate(WashingMachineBase):
 	volume: Optional[int] = Field(title="Вместимость, кг", ge=10, le=100,
 								  default=services.DEFAULT_WASHING_MACHINES_VOLUME)
 	is_active: Optional[bool] = Field(title="Активна/нет", default=services.DEFAULT_STATION_IS_ACTIVE)
+	track_length: Optional[float] = Field(title="Длина трассы, м", ge=1,
+										  default=services.DEFAULT_WASHING_MACHINES_TRACK_LENGTH)
 
 
 class WashingMachineCreateMixedInfo(WashingMachineCreate):

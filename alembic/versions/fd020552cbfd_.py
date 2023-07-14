@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: f3b3153e7c73
+Revision ID: fd020552cbfd
 Revises: 
-Create Date: 2023-07-12 10:44:06.211149
+Create Date: 2023-07-14 18:38:12.037447
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'f3b3153e7c73'
+revision = 'fd020552cbfd'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -26,6 +26,7 @@ def upgrade() -> None:
     sa.Column('hashed_wifi_data', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('region', sa.Enum('CENTRAL', 'NORTHWEST', 'SOUTH', 'SIBERIA', name='regionenum'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
@@ -39,6 +40,7 @@ def upgrade() -> None:
     sa.Column('registered_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('last_action_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('email_confirmed', sa.Boolean(), nullable=True),
+    sa.Column('region', sa.Enum('CENTRAL', 'NORTHWEST', 'SOUTH', 'SIBERIA', name='regionenum'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
@@ -143,6 +145,7 @@ def upgrade() -> None:
     sa.Column('machine_number', sa.Integer(), nullable=False),
     sa.Column('volume', sa.Integer(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('track_length', sa.Float(), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id', 'machine_number', name='station_id_machine_number_pkey')
     )

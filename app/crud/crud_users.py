@@ -36,7 +36,8 @@ async def create_user(user: schemas_users.UserCreate, db: AsyncSession):
 		email=user.email,
 		first_name=user.first_name,
 		last_name=user.last_name,
-		hashed_password=hashed_password
+		hashed_password=hashed_password,
+		region=user.region
 	)
 
 	await db.execute(query)

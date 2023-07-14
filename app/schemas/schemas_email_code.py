@@ -13,7 +13,6 @@ class RegistrationCode(BaseModel):
 	user_id: int
 	sended_to: EmailStr
 	sended_from: EmailStr
-	hashed_code: str
 	sended_at: datetime.datetime
 	is_confirmed: bool
 	confirmed_at: Optional[datetime.datetime]

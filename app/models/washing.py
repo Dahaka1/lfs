@@ -1,11 +1,12 @@
 import uuid
 
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select
+from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
 from ..schemas import schemas_washing
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
+from ..exceptions import GettingDataError
 
 import services
 
@@ -22,7 +23,7 @@ class WashingSource:
 		cls, db: AsyncSession, station_id: uuid.UUID, object_number: int, **kwargs
 	) -> schemas_washing.WashingMachineCreate | schemas_washing.WashingAgentCreate:
 		"""
-		Метод для создания нового объекта с ДЕФОЛТНЫМИ параметрами в БД для аналогичных классов
+		Метод для создания нового объекта в БД для аналогичных классов
 		 (стиральная машина и стиральное средство). Возвращает pydantic-схему добавленного объекта.
 
 		Создает запись в БД БЕЗ КОММИТА, его нужно сделать вне метода.
@@ -74,12 +75,19 @@ class WashingSource:
 			cls.station_id == station_id  # хз, почему ошибка
 		)
 		result = await db.execute(query)
+		data = result.scalars().all()
+
+		if not any(data):
+			err_text = f"Getting {cls.__name__} for station {station_id} error.\nDB data not found"
+			async with GettingDataError(station=station_id, db=db, message=err_text) as err:
+				raise err
+
 		schema = getattr(schemas_washing, cls.__name__ + "Base")
 
 		return [
 			schema(**obj) for obj in
 			sa_objects_dicts_list(
-				result.scalars().all()
+				data
 			)
 		]
 
@@ -91,8 +99,9 @@ class WashingMachine(Base, WashingSource):
 	Number - порядковый номер машины, подключенной к станции.
 	Volume - вместимость машины (кг).
 	Is_active - активна или нет.
+	Track_length - длина трассы (м).
 	"""
-	FIELDS = ["volume", "is_active"]
+	FIELDS = ["volume", "is_active", "track_length"]
 
 	__tablename__ = "washing_machine"
 	__table_args__ = (
@@ -103,6 +112,7 @@ class WashingMachine(Base, WashingSource):
 	machine_number = Column(Integer, index=True)
 	volume = Column(Integer, default=services.DEFAULT_WASHING_MACHINES_VOLUME)
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
+	track_length = Column(Float, default=services.DEFAULT_WASHING_MACHINES_TRACK_LENGTH)
 
 
 class WashingAgent(Base, WashingSource):

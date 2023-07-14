@@ -25,12 +25,16 @@ class ErrorsLog(Base):
 	content = Column(String)
 
 	@staticmethod
-	async def log(db: AsyncSession, station: StationGeneralParams, content: str, code: int) -> None:
+	async def log(db: AsyncSession, station: StationGeneralParams | int, content: str, code: int) -> None:
 		"""
 		Добавление записи в лог.
 		"""
+		if isinstance(station, StationGeneralParams):
+			station_id = station.id
+		elif isinstance(station, int):
+			station_id = station
 		query = insert(ErrorsLog).values(
-			station_id=station.id, content=content, code=code
+			station_id=station_id, content=content, code=code
 		)
 
 		await db.execute(query)

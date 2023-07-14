@@ -66,3 +66,20 @@ def encrypt_data(data: str | dict) -> str:
 	return str(
 		fernet.encrypt(data.encode()), 'utf-8'
 	)
+
+
+def decrypt_data(data: str) -> str:
+	"""
+	Расшифровывает строку.
+	"""
+	fernet = Fernet(config.FERNET_SECRET_KEY)
+	decrypted_data = str(
+		fernet.decrypt(data), 'utf-8'
+	)
+	try:
+		decrypted_data = json.loads(decrypted_data)
+	except json.decoder.JSONDecodeError:
+		pass
+	return decrypted_data
+
+

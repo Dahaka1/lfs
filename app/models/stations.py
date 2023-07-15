@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import Base
 import services
 from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, \
-	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo, WashingAgentWithoutRollback
+	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
 from ..static.enums import StationStatusEnum, RegionEnum
 from ..schemas import schemas_stations, schemas_washing
 from .washing import WashingAgent, WashingMachine, WashingSource
@@ -58,7 +58,6 @@ class Station(Base):
 			return schemas_stations.StationGeneralParamsInDB(
 				**sa_object_to_dict(station)
 			)
-
 
 	@classmethod
 	async def create(cls, db: AsyncSession, **kwargs) -> uuid.UUID:
@@ -154,10 +153,6 @@ class Station(Base):
 
 class StationRelation:
 	station_id: uuid.UUID
-	UPDATING_WORKS_FOR = [
-		"StationControl",
-		"StationSettings"
-	]
 
 	@classmethod
 	async def get_relation_data(cls, station: schemas_stations.StationGeneralParams | uuid.UUID,
@@ -196,14 +191,13 @@ class StationRelation:
 	@classmethod
 	async def update_relation_data(cls,
 		station: schemas_stations.StationGeneralParams | uuid.UUID,
-		updated_params: schemas_stations.StationSettingsUpdate | schemas_stations.StationControlUpdate,
-		db: AsyncSession
+		updated_params: schemas_stations.StationSettingsUpdate | schemas_stations.StationControlUpdate | \
+								   schemas_stations.StationProgramUpdate,
+		db: AsyncSession, **kwargs
 	) -> StationParamsSet:
 		"""
 		Обновление данных по станции в побочных таблицах.
 		"""
-		if cls.__name__ not in cls.UPDATING_WORKS_FOR:
-			raise TypeError(f"Unsupportable method for {cls}")
 
 		station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
 
@@ -228,13 +222,32 @@ class StationRelation:
 							station=station
 						) as err:
 							raise err
+			case "StationProgram":
+				station_washing_agents: list[WashingAgent] = kwargs.get("washing_agents")
+				if not station_washing_agents:
+					raise AttributeError("Expected for station washing agents list")
+
+				for washing_agent in updated_params.washing_agents:
+					idx = updated_params.washing_agents.index(washing_agent)
+					if isinstance(washing_agent, int):  # если был передан номер средства, а не объект
+						washing_agent = next(ag for ag in station_washing_agents if ag.agent_number == washing_agent)
+						updated_params.washing_agents[idx] = washing_agent
 
 		updated_params_dict = dict(**updated_params.dict(),
 								   updated_at=datetime.datetime.now())  # updated_at почему-то автоматически не обновляется =(
 
-		query = update(cls).where(
-			cls.station_id == station_id
-		).values(**updated_params_dict)
+		match cls.__name__:
+			case "StationProgram":
+				query = update(cls).where(
+					(cls.station_id == station_id) &
+					(cls.program_step == updated_params.program_step).values(
+						**updated_params_dict
+					)
+				)
+			case _:
+				query = update(cls).where(
+					cls.station_id == station_id
+				).values(**updated_params_dict)
 
 		await db.execute(query)
 		await db.commit()
@@ -303,7 +316,7 @@ class StationProgram(Base, StationRelation):
 	updated_at = Column(DateTime, onupdate=func.now())
 
 	@staticmethod
-	async def create_default_station_programs(station: schemas_stations.Station,
+	async def create_station_programs(station: schemas_stations.Station,
 											  programs: list[schemas_stations.StationProgramCreate],
 											  db: AsyncSession) -> schemas_stations.Station:
 		"""
@@ -316,9 +329,9 @@ class StationProgram(Base, StationRelation):
 			for washing_agent in program.washing_agents:
 				washing_agent: schemas_washing.WashingAgent | int
 				washing_agent_number = washing_agent if isinstance(washing_agent, int) else washing_agent.agent_number
-				agents_amount = len(station.station_washing_agents)
-				if washing_agent_number > agents_amount:
-					err_text = f"Station has {agents_amount} washing agents, but got agent №{washing_agent_number}"
+
+				if washing_agent_number not in (ag.agent_number for ag in station.station_washing_agents):
+					err_text = f"{washing_agent_number} washing agent not found in station washing agents"
 					async with ProgramsDefiningError(db=db, message=err_text, station=station) as err:
 						raise err
 
@@ -332,14 +345,6 @@ class StationProgram(Base, StationRelation):
 						if agent_ == washing_agent_number:
 							idx = program.washing_agents.index(agent_)
 							program.washing_agents[idx] = washing_agent
-
-				if washing_agent.agent_number not in [agent.agent_number for agent in washing_agents_to_insert]:
-					washing_agent = WashingAgentWithoutRollback(**washing_agent.dict())
-					washing_agents_to_insert.append(washing_agent)
-				else:
-					err_text = f"Duplicate agent with number {washing_agent.agent_number} found"
-					async with ProgramsDefiningError(message=err_text, db=db, station=station) as err:
-						raise err
 
 			program_data = {
 				"station_id": station.id,

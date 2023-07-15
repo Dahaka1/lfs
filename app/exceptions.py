@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -40,7 +41,7 @@ class LoggingError(Exception):
 	message: str
 	code: int
 	db: Any  # AsyncSession не могу указать - проблема
-	station: StationGeneralParams | int
+	station: StationGeneralParams | uuid.UUID
 
 	def __init__(self, **kwargs):
 		if not all(

@@ -3,12 +3,15 @@ from typing import Annotated
 
 from fastapi import Header, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from . import get_async_session
-from ..models.stations import Station
+from ..models.stations import Station, StationProgram
 from ..schemas.schemas_stations import StationGeneralParams, StationGeneralParamsForStation
+from ..schemas import schemas_stations
 from ..exceptions import PermissionsError
 from ..utils.general import decrypt_data
+from ..utils.general import sa_object_to_dict
 
 
 async def get_current_station(
@@ -49,3 +52,28 @@ async def get_station_by_id(
 	if not station:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
 	return station
+
+
+async def get_station_program_by_number(
+	station: Annotated[StationGeneralParams, Depends(get_station_by_id)],
+	program_step_number: Annotated[int, Path()],
+	db: Annotated[AsyncSession, Depends(get_async_session)]
+) -> tuple[schemas_stations.StationGeneralParams, schemas_stations.StationProgram]:
+	"""
+	Функция проверяет, существует ли программа с переданным номером у станции, ИД которой
+	 был получен.
+
+	Возвращает станцию и программу, если они существуют.
+	"""
+	query = select(StationProgram).where(
+		(StationProgram.station_id == station.id) &
+		(StationProgram.program_step == program_step_number)
+	)
+	result = await db.execute(query)
+	program = result.scalar()
+
+	if program:
+		program = schemas_stations.StationProgram(**sa_object_to_dict(program))
+		return station, program
+
+	raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program step not found")

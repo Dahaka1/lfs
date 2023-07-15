@@ -88,7 +88,7 @@ async def create_station(
 																				"powered on (includes its TEH)")
 	if programs:
 		try:
-			station = await StationProgram.create_default_station_programs(station, programs, db)
+			station = await StationProgram.create_station_programs(station, programs, db)
 			return station
 		except ProgramsDefiningError as e:  # ошибки при создании программ
 			# TODO решить с rollback'ом

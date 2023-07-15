@@ -1,9 +1,12 @@
 import datetime
 import uuid
+from typing import Dict
+from uuid import UUID
 
 from geopy.location import Location
 from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from pydantic import UUID4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 
@@ -127,7 +130,7 @@ async def read_station(
 async def read_station_all(
 	station: schemas_stations.StationGeneralParamsForStation | schemas_stations.StationGeneralParams,
 	db: AsyncSession,
-	query_from: QueryFromEnum
+	query_from: QueryFromEnum = QueryFromEnum.STATION
 ) -> schemas_stations.StationForStation | schemas_stations.Station:
 	"""
 	Возвращает все данные по станции.
@@ -150,7 +153,8 @@ async def read_station_all(
 
 async def delete_station(
 	station: schemas_stations.StationGeneralParams | uuid.UUID,
-	db: AsyncSession
+	db: AsyncSession,
+	action_by: schemas_users.User
 ) -> None:
 	"""
 	Удаление станции.
@@ -160,6 +164,9 @@ async def delete_station(
 	query = delete(Station).where(Station.id == station_id)
 	await db.execute(query)
 	await db.commit()
+
+	info_text = f"Station {station.id} was successfully deleted by user {action_by.email}"
+	await ChangesLog.log(db, action_by, station, info_text)
 
 
 async def update_station_general(
@@ -251,8 +258,8 @@ async def update_station_control(
 
 	if updated_params.status == StationStatusEnum.WORKING and not updated_params.washing_machine:
 		if current_station_control.washing_machine:
-			updated_params.washing_machine = current_station_control.washing_machine  # если изменили программу/средства
-		# без указания машины
+			updated_params.washing_machine = current_station_control.washing_machine
+			# если изменили программу/средства без указания машины
 
 	if (updated_params.program_step is not None or any(updated_params.washing_agents)) \
 		and not updated_params.washing_machine:
@@ -340,3 +347,88 @@ async def update_station_settings(
 		return result
 	else:
 		return current_station_settings
+
+
+async def update_station_program(
+	station: schemas_stations.StationGeneralParams,
+	current_program: schemas_stations.StationProgram,
+	updated_program: schemas_stations.StationProgramUpdate,
+	db: AsyncSession,
+	action_by: schemas_users.User
+) -> schemas_stations.StationProgram:
+	"""
+	Обновление программы станции.
+	"""
+	station_washing_agents = await WashingAgent.get_station_objects(station.id, db)
+	washing_agents_numbers = [
+		ag.agent_number if isinstance(ag, schemas_washing.WashingAgentWithoutRollback)
+		else ag for ag in updated_program.washing_agents
+	]
+
+	if any(
+		(agent_number not in map(lambda ag: ag.agent_number, station_washing_agents)
+		 for agent_number in washing_agents_numbers)
+	):
+		err_text = "Got an non-existing washing agent number"
+		async with UpdatingError(message=err_text, station=station, db=db) as err:
+			raise err
+
+	if not updated_program.program_step:
+		updated_program.program_step = current_program.program_step
+		updated_program.program_number = current_program.program_number
+	else:
+		station_programs = await StationProgram.get_relation_data(station, db)
+		try:
+			next(pg for pg in station_programs if pg.program_step == updated_program.program_step)
+			err_text = "Can't change program step number to existing program step number"
+			async with UpdatingError(message=err_text, station=station, db=db) as err:
+				raise err
+		except StopIteration:
+			pass
+
+	updated_program = await StationProgram.update_relation_data(
+		station, updated_program, db, washing_agents=station_washing_agents
+	)
+	updated_fields = [key for key, val in updated_program.dict() if getattr(current_program, key) != val]
+
+	if any(updated_fields):  # в целом, там по-любому должны быть поля, но на всякий проверю
+		info_text = f"Program step №{current_program.program_step} of station {station.id} " \
+					f"was successfully updated by user {action_by.email}. Updated fields: " + \
+					', '.join(updated_fields)
+		await ChangesLog.log(db, action_by, station, info_text)
+
+	if station.is_active:
+		station_control = await StationControl.get_relation_data(station, db)
+		if station_control.program_step and station_control.program_step.program_step == current_program.program_step:
+			station_control.program_step = updated_program
+			updates = schemas_stations.StationControlUpdate(**updated_program.dict())
+			await StationControl.update_relation_data(station, updates, db)
+
+	return updated_program
+
+
+async def delete_station_program(
+	station: schemas_stations.StationGeneralParams,
+	station_program: schemas_stations.StationProgram,
+	db: AsyncSession,
+	action_by: schemas_users.User
+) -> dict[str, dict[str, int | UUID4]]:
+	"""
+	Удаление шага программы станции.
+	"""
+	query = delete(StationProgram).where(
+		(StationProgram.station_id == station.id) &
+		(StationProgram.program_step == station_program.program_step)
+	)
+	await db.execute(query)
+	await db.commit()
+
+	info_text = f"Program step №{station_program.program_step} of station {station.id} was successfully " \
+				f"deleted by user {action_by.email}"
+
+	await ChangesLog.log(db, action_by, station, info_text)
+
+	return {"deleted": {
+		"program_step": station_program.program_step,
+		"station_id": station.id
+	}}

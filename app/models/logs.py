@@ -47,8 +47,8 @@ class WashingAgentsUsingLog(Base):
 	"""
 	Журнал подачи стиральных средств.
 
-	Washing_machine_number - номер стиральной машины.
-	Washing_agent_number - номер средства.
+	Washing_machine - стиральная машина.
+	Washing_agent - стиральное средство.
 	Dosage - количество средства.
 	"""
 	__tablename__ = "washing_agents_using_log"
@@ -56,9 +56,8 @@ class WashingAgentsUsingLog(Base):
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(DateTime(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="SET NULL", onupdate="CASCADE"), index=True)
-	washing_machine_number = Column(Integer)
-	washing_agent_number = Column(Integer)
-	dosage = Column(Integer)
+	washing_machine = Column(JSON)
+	washing_agent = Column(JSON)
 
 
 class ChangesLog(Base):
@@ -98,12 +97,10 @@ class StationProgramsLog(Base):
 
 	Station_id - ИД станции.
 	Program_step - этап программы.
-	Washing_agents_dosage - JSON в формате {номер средства: количество средства}.
 	"""
 	__tablename__ = "station_programs_log"
 
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(DateTime(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="SET NULL", onupdate="CASCADE"), index=True)
-	program_step = Column(Integer)
-	washing_agents_dosage = Column(JSON, default=json.dumps({}))
+	program_step = Column(JSON)

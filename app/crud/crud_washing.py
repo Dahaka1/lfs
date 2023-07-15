@@ -1,0 +1,156 @@
+"""
+Здесь малая часть действий со стиральными объектами.
+Остальное - в методах моделей (washing).
+Для удобства, мб, можно потом сюда переписать все.
+"""
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..schemas import schemas_washing as washing, schemas_users
+from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
+from ..models.washing import WashingSource, WashingAgent, WashingMachine
+from ..models.stations import StationControl
+from ..exceptions import UpdatingError, DeletingError
+from ..models.logs import ChangesLog
+
+
+async def update_washing_object(
+	schema: washing,
+	current_object: washing.WashingAgent | washing.WashingMachine,
+	updated_object: washing.WashingMachineUpdate | washing.WashingAgentUpdate,
+	station: StationGeneralParams,
+	db: AsyncSession,
+	action_by: schemas_users.User
+) -> washing.WashingMachine | washing.WashingAgent:
+	"""
+	Обновление стирального объекта.
+	"""
+	station_control = await StationControl.get_relation_data(station, db)
+
+	def check_updating_washing_machine() -> bool:
+		"""
+		Возвращает True, если стиральная машина сейчас занята и нужно обновить ее в текущем
+		 состоянии станции тоже.
+		"""
+		if station_control.washing_machine.dict() == current_object.dict():
+			machine_using = True
+		else:
+			machine_using = False
+
+		if machine_using and current_object.is_active and not updated_object.is_active:
+			error_text = "Can't mark washing machine as non-active " \
+						 "if now using by station"
+			async with UpdatingError(message=error_text, db=db, station=station) as err:
+				raise err
+		return machine_using
+
+	def check_updating_washing_agent() -> bool:
+		"""
+		Возвращает True, если станция сейчас работает по программе, которая
+		 использует данное средство.
+		"""
+		if station_control.program_step:
+			if current_object.agent_number in \
+				map(lambda ag: ag.agent_number, station_control.program_step.washing_agents):
+				return True
+		return False
+
+	match schema:
+		case washing.WashingAgentUpdate:
+			numeric_field = "agent_number"
+			model = WashingAgent
+			object_uses = check_updating_washing_agent()
+
+		case washing.WashingMachineUpdate:
+			numeric_field = "machine_number"
+			model = WashingMachine
+			object_uses = check_updating_washing_machine()
+
+	if getattr(updated_object, numeric_field) != getattr(current_object, numeric_field):
+		existing_object = await WashingSource.get_obj_by_number(
+			db, getattr(updated_object, numeric_field), station.id
+		)
+		if existing_object:
+			err_text = "Can't change object number to existing object number"
+			async with UpdatingError(message=err_text, db=db, station=station) as err:
+				raise err
+
+	updated_object = await model.update_object(
+		station.id, db, updated_object, getattr(current_object, numeric_field)
+	)
+
+	if object_uses:
+		match schema:
+			case washing.WashingAgentUpdate:
+				idx = station_control.program_step.washing_agents.index(
+					next(ag for ag in station_control.program_step.washing_agents
+						 if ag.agent_number == current_object.agent_number)
+				)
+				station_control.program_step.washing_agents[idx] = updated_object.dict()
+			case washing.WashingMachineUpdate:
+				station_control.washing_machine = updated_object.dict()
+		await StationControl.update_relation_data(
+			station, StationControlUpdate(**updated_object.dict()), db
+		)
+
+	updated_fields = [key for key, val in updated_object.dict().items() if
+					  getattr(current_object, key) != val]
+
+	if any(updated_fields):
+		info_text = f"{model.__class__.__name__} №{getattr(current_object, numeric_field)} " \
+					f"for station {station.id} " \
+					f"was successfully updated by user {action_by.email}. " \
+					f"Updated fields: {', '.join(updated_object)}"
+		await ChangesLog.log(db, action_by, station, info_text)
+
+	return updated_object
+
+
+async def delete_washing_object(
+	current_object: washing.WashingAgent | washing.WashingMachine,
+	station: StationGeneralParams,
+	db: AsyncSession,
+	action_by: schemas_users.User
+) -> None:
+	"""
+	Удаление стирального объекта
+	"""
+	station_control = await StationControl.get_relation_data(station, db)
+
+	def check_machine_using() -> None:
+		"""
+		Проверяет, используется ли сейчас стиральная машина.
+		"""
+		if station_control.washing_machine:
+			if station_control.washing_machine.machine_number == current_object.machine_number:
+				err_text = "Can't delete using washing machine"
+				async with DeletingError(message=err_text, db=db, station=station) as err:
+					raise err
+
+	def check_agent_using() -> None:
+		"""
+		Проверяет, используется ли сейчас стиральное средство.
+		"""
+		if station_control.program_step:
+			if current_object.agent_number in map(
+				lambda ag: ag.agent_number, station_control.program_step.washing_agents
+			):
+				err_text = "Can't delete using washing agent"
+				async with DeletingError(message=err_text, db=db, station=station) as err:
+					raise err
+
+	if isinstance(current_object, washing.WashingAgent):
+		check_agent_using()
+		model = WashingAgent
+		numeric_field = "agent_number"
+
+	elif isinstance(current_object, washing.WashingMachine):
+		check_machine_using()
+		model = WashingMachine
+		numeric_field = "machine_number"
+
+	await model.delete_object(station.id, db, getattr(current_object, numeric_field))
+
+	info_text = f"{model.__class__.__name__} №{getattr(current_object, numeric_field)} " \
+				f"for station {station.id} was successfully deleted by user {action_by.email}"
+
+	await ChangesLog.log(db, action_by, station, info_text)

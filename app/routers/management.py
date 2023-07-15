@@ -4,21 +4,22 @@ from fastapi import APIRouter, Depends, Path, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.stations import StationControl, StationSettings, StationProgram
-from ..schemas import schemas_stations as stations, schemas_users as users
+from ..models.washing import WashingAgent, WashingMachine
+from ..schemas import schemas_stations as stations, schemas_users as users, schemas_washing as washing
 from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user, get_installer_user
 from ..dependencies.stations import get_station_by_id, get_station_program_by_number
 from ..dependencies.users import get_current_active_user
 from ..static.enums import StationParamsEnum, QueryFromEnum
-from ..crud import crud_stations
+from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
 from ..static.enums import RoleEnum
-from ..exceptions import PermissionsError
+from ..exceptions import PermissionsError, CreatingError, DeletingError
 
 
 router = APIRouter(
 	prefix="/manage",
-	tags=["management"]
+	tags=["stations_management"]
 )
 
 
@@ -264,3 +265,126 @@ async def delete_station(
 	"""
 	await crud_stations.delete_station(station, db, action_by=current_user)
 	return {"deleted": station.id}
+
+
+@router.post("/station/{station_id}/{dataset}", response_description="Созданный объект",
+			 tags=["washing_services_management"])
+async def create_station_washing_services(
+	current_user: Annotated[users.User, Depends(get_installer_user)],
+	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
+	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+											   description="Стиральные машины или стиральные средства")],
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	creating_params: Annotated[washing.WashingAgentCreateMixedInfo | washing.WashingMachineCreateMixedInfo,
+								Body(embed=True, title="Параметры объекта")]
+):
+	"""
+	Добавление нового стирального средства / стиральной машины.
+	Нельзя создать объект с уже существующим номером и с номером больше, чем определенное
+	максимально количество объектов у станции.
+
+	Доступно только для INSTALLER-пользователей и выше.
+	"""
+	params_dict = creating_params.dict()
+	match dataset:
+		case StationParamsEnum.WASHING_MACHINES.value:
+			schema = washing.WashingMachineCreateMixedInfo
+			object_number = params_dict.pop("machine_number")
+		case StationParamsEnum.WASHING_AGENTS.value:
+			schema = washing.WashingAgentCreateMixedInfo
+			object_number = params_dict.pop("agent_number")
+		case _:
+			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+	if not isinstance(creating_params, schema):
+		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+	try:
+		created_obj = await WashingMachine.create_object(
+			db=db, station_id=station.id, object_number=object_number, **params_dict
+		)
+	except CreatingError as e:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+	return created_obj
+
+
+@router.put("/station/{station_id}/{dataset}/{object_number}", response_description="Измененный объект",
+			tags=["washing_services_management"])
+async def update_station_washing_services(
+	current_user: Annotated[users.User, Depends(get_installer_user)],
+	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
+	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+											   description="Стиральные машины или стиральные средства")],
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	updating_params: Annotated[washing.WashingMachineUpdate | washing.WashingAgentUpdate,
+								Body(embed=True, title="Обновленные параметры объекта")],
+	object_number: Annotated[int, Path(title="Номер обновляемого объекта")]
+):
+	"""
+	Обновление стирального средства/стиральной машины станции.
+	Нельзя обновить номер объекта на уже существующий.
+	Нельзя сделать неактивной стиральную машину, которая в данный момент в работе.
+	Если обновить стиральную машину, которая сейчас в работе (в текущем состоянии станции), или
+	 стиральное средство, которое в данный момент используется программой станции, то все автоматически обновится.
+
+	Передавать новые параметры нужно ЯВНО все. Вместо неуказанных установятся дефолтные.
+
+	Доступно только для INSTALLER-пользователей и выше.
+	"""
+	match dataset:
+		case StationParamsEnum.WASHING_MACHINES:
+			schema = washing.WashingMachineUpdate
+			cls = WashingMachine
+		case StationParamsEnum.WASHING_AGENTS:
+			schema = washing.WashingAgentUpdate
+			cls = WashingAgent
+		case _:
+			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+	obj: washing.WashingAgent | washing.WashingMachine = await cls.get_obj_by_number(db, object_number, station.id)
+
+	if not isinstance(updating_params, schema):
+		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+	try:
+		return await crud_washing.update_washing_object(
+			schema, obj, updating_params, station, db, action_by=current_user
+		)
+	except UpdatingError as e:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/station/{station_id}/{dataset}/{object_number}", tags=["washing_services_management"])
+async def delete_station_washing_services(
+	current_user: Annotated[users.User, Depends(get_installer_user)],
+	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
+	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+											   description="Стиральные машины или стиральные средства")],
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	object_number: Annotated[int, Path(title="Номер удаляемого объекта")]
+):
+	"""
+	Удаление стиральной машины / стирального средства.
+	Есть объект в данный момент используется станцией, удалить его нельзя.
+
+	Доступно только для INSTALLER-пользователей и выше.
+	"""
+	match dataset:
+		case StationParamsEnum.WASHING_MACHINES:
+			cls = WashingMachine
+		case StationParamsEnum.WASHING_AGENTS:
+			cls = WashingAgent
+		case _:
+			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+	obj: washing.WashingAgent | washing.WashingMachine = await cls.get_obj_by_number(db, object_number, station.id)
+
+	try:
+		await crud_washing.delete_washing_object(obj, station, db, current_user)
+	except DeletingError as e:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+	return {"deleted": {
+		f"{cls.__class__.__name__}_number": object_number,
+		"station_id": station.id
+	}}

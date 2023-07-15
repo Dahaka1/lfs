@@ -161,7 +161,7 @@ class StationRelation:
 		Поиск записей по станции в побочных таблицах.
 		"""
 		station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
-		query = select(cls).where(cls.station_id == station_id)  # не знаю, чего ругается =(
+		query = select(cls).where(cls.station_id == station_id)
 		result = await db.execute(query)
 
 		match cls.__name__:

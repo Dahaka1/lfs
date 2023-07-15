@@ -1,12 +1,13 @@
 import uuid
 
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select, Float
+from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select, Float, \
+	update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
 from ..schemas import schemas_washing
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
-from ..exceptions import GettingDataError
+from ..exceptions import GettingDataError, CreatingError
 
 import services
 
@@ -34,6 +35,12 @@ class WashingSource:
 		):
 			raise AttributeError(f"Expected fields for washing machine creating are {cls.FIELDS}")
 
+		current_objects = await cls.get_station_objects(station_id, db)
+		if object_number in map(lambda obj: getattr(obj, cls.NUMERIC_FIELDS[cls.__name__]), current_objects):
+			err_text = "Got an existing object number"
+			async with CreatingError(message=err_text, db=db, station=station_id) as err:
+				raise err
+
 		numeric_field = cls.NUMERIC_FIELDS.get(cls.__name__)
 		kwargs.setdefault(numeric_field, object_number)
 		kwargs.setdefault("station_id", station_id)
@@ -60,9 +67,11 @@ class WashingSource:
 		result = await db.execute(query)
 		model = getattr(schemas_washing, cls.__name__)
 
-		return model(
-			**sa_object_to_dict(result.scalar())
-		)
+		data = result.scalar()
+		if data:
+			return model(
+				**sa_object_to_dict(data)
+			)
 
 	@classmethod
 	async def get_station_objects(
@@ -90,6 +99,46 @@ class WashingSource:
 				data
 			)
 		]
+
+	@classmethod
+	async def update_object(
+		cls, station_id: uuid.UUID, db: AsyncSession,
+		updated_object: schemas_washing.WashingMachineUpdate | schemas_washing.WashingAgentUpdate,
+		object_number: int
+	) -> schemas_washing.WashingMachine | schemas_washing.WashingAgent:
+		"""
+		Обновление объекта.
+		"""
+		query = update(cls).where(
+			(cls.station_id == station_id) &
+			(getattr(cls, cls.NUMERIC_FIELDS[cls.__name__]) == object_number)
+		).values(
+			**updated_object.dict()
+		)
+
+		await db.execute(query)
+		await db.commit()
+
+		schema = getattr(schemas_washing, cls.__name__)
+
+		return schema(
+			**updated_object.dict()
+		)
+
+	@classmethod
+	async def delete_object(
+		cls, station_id: uuid.UUID, db: AsyncSession, object_number: int
+	) -> None:
+		"""
+		Удаление объекта.
+		"""
+		query = delete(cls).where(
+			(cls.station_id == station_id) &
+			(getattr(cls, cls.NUMERIC_FIELDS[cls.__name__]) == object_number)
+		)
+
+		await db.execute(query)
+		await db.commit()
 
 
 class WashingMachine(Base, WashingSource):

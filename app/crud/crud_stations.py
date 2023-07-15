@@ -1,7 +1,5 @@
 import datetime
 import uuid
-from typing import Dict
-from uuid import UUID
 
 from geopy.location import Location
 from geopy.geocoders import Nominatim
@@ -389,7 +387,7 @@ async def update_station_program(
 	updated_program = await StationProgram.update_relation_data(
 		station, updated_program, db, washing_agents=station_washing_agents
 	)
-	updated_fields = [key for key, val in updated_program.dict() if getattr(current_program, key) != val]
+	updated_fields = [key for key, val in updated_program.dict().items() if getattr(current_program, key) != val]
 
 	if any(updated_fields):  # в целом, там по-любому должны быть поля, но на всякий проверю
 		info_text = f"Program step №{current_program.program_step} of station {station.id} " \

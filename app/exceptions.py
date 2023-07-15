@@ -97,3 +97,17 @@ class UpdatingError(LoggingError):
 		super().__init__(**kwargs)
 
 
+class CreatingError(UpdatingError):
+	"""
+	Ошибка при создании данных станции.
+	"""
+	pass
+
+
+class DeletingError(LoggingError):
+	"""
+	Ошибка при удалении данных станции.
+	"""
+	def __init__(self, **kwargs):
+		kwargs.setdefault("code", error_codes.BAD_REQUEST_CODE)
+		super().__init__(**kwargs)

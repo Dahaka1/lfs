@@ -26,7 +26,7 @@ async def update_washing_object(
 	"""
 	station_control = await StationControl.get_relation_data(station, db)
 
-	def check_updating_washing_machine() -> bool:
+	async def check_updating_washing_machine() -> bool:
 		"""
 		Возвращает True, если стиральная машина сейчас занята и нужно обновить ее в текущем
 		 состоянии станции тоже.
@@ -63,7 +63,7 @@ async def update_washing_object(
 		case washing.WashingMachineUpdate:
 			numeric_field = "machine_number"
 			model = WashingMachine
-			object_uses = check_updating_washing_machine()
+			object_uses = await check_updating_washing_machine()
 
 	if getattr(updated_object, numeric_field) != getattr(current_object, numeric_field):
 		existing_object = await WashingSource.get_obj_by_number(
@@ -116,7 +116,7 @@ async def delete_washing_object(
 	"""
 	station_control = await StationControl.get_relation_data(station, db)
 
-	def check_machine_using() -> None:
+	async def check_machine_using() -> None:
 		"""
 		Проверяет, используется ли сейчас стиральная машина.
 		"""
@@ -126,7 +126,7 @@ async def delete_washing_object(
 				async with DeletingError(message=err_text, db=db, station=station) as err:
 					raise err
 
-	def check_agent_using() -> None:
+	async def check_agent_using() -> None:
 		"""
 		Проверяет, используется ли сейчас стиральное средство.
 		"""
@@ -139,12 +139,12 @@ async def delete_washing_object(
 					raise err
 
 	if isinstance(current_object, washing.WashingAgent):
-		check_agent_using()
+		await check_agent_using()
 		model = WashingAgent
 		numeric_field = "agent_number"
 
 	elif isinstance(current_object, washing.WashingMachine):
-		check_machine_using()
+		await check_machine_using()
 		model = WashingMachine
 		numeric_field = "machine_number"
 

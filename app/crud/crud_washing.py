@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas import schemas_washing as washing, schemas_users
 from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
-from ..models.washing import WashingSource, WashingAgent, WashingMachine
+from ..models.washing import WashingMixin, WashingAgent, WashingMachine
 from ..models.stations import StationControl
 from ..exceptions import UpdatingError, DeletingError
 from ..models.logs import ChangesLog
@@ -63,7 +63,7 @@ async def update_washing_object(
 			object_uses = await check_updating_washing_machine()
 
 	if getattr(updated_object, numeric_field) != getattr(current_object, numeric_field):
-		existing_object = await WashingSource.get_obj_by_number(
+		existing_object = await WashingMixin.get_obj_by_number(
 			db, getattr(updated_object, numeric_field), station.id
 		)
 		if existing_object:

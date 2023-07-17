@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY
 from sqlalchemy.pool import NullPool
 from app.database import Base
-from app.classes.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog
-from app.classes.users import User
-from app.classes.washing import WashingAgent, WashingMachine
-from app.classes.stations import Station, StationSettings, StationProgram, StationControl
-from app.classes.auth import RegistrationCode
+from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
+from app.models.users import User
+from app.models.washing import WashingAgent, WashingMachine
+from app.models.stations import Station, StationSettings, StationProgram, StationControl
+from app.models.auth import RegistrationCode
 from app.dependencies import get_async_session
 from sqlalchemy.orm import sessionmaker
 import pytest

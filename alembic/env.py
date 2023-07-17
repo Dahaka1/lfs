@@ -20,11 +20,11 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.database import Base
-from app.classes.users import User
-from app.classes.stations import Station, StationSettings, StationProgram, StationControl
-from app.classes.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog
-from app.classes.washing import WashingAgent, WashingMachine
-from app.classes.auth import RegistrationCode
+from app.models.users import User
+from app.models.stations import Station, StationSettings, StationProgram, StationControl
+from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
+from app.models.washing import WashingAgent, WashingMachine
+from app.models.auth import RegistrationCode
 
 target_metadata = Base.metadata
 

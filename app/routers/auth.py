@@ -15,7 +15,7 @@ from ..models.users import User
 from ..models.auth import RegistrationCode
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from .. import tasks
-from ..utils.general import create_access_token
+from ..utils.general import create_jwt_token
 
 router = APIRouter(
 	prefix="/auth",
@@ -30,7 +30,7 @@ async def login_for_access_token(
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
-	Метод проверяет логин и пароль пользователя при авторизации.
+	Метод проверяет логин и пароль (хэш) пользователя при авторизации.
 	Если они верны, то создает access_token (JWT token) и возвращает его.
 	"""
 	user = await User.authenticate_user(
@@ -42,8 +42,8 @@ async def login_for_access_token(
 	if user.disabled:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
 
-	access_token = create_access_token(
-		data={"sub": user.email}
+	access_token = create_jwt_token(
+		data={"sub": user.email}, expires_at_hours=24
 	)
 
 	logger.info(f"User {email} (ID: {user.id}) was successfully authorized")

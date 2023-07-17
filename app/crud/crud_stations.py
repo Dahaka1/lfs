@@ -8,7 +8,6 @@ from pydantic import UUID4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 
-import services
 from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.logs import ChangesLog
 from ..models.washing import WashingAgent, WashingMachine
@@ -57,6 +56,9 @@ async def create_station(db: AsyncSession,
 		hashed_wifi_data=hashed_wifi_data,
 		region=station.region
 	)
+	if not station.is_active:  # по умолчанию станция активна (в настройках)
+		settings.teh_power = False  # по умолчанию ТЭН включен (в настройках)
+
 	station_settings = await StationSettings.create(
 		db=db,
 		station_id=station_id,
@@ -311,6 +313,8 @@ async def update_station_settings(
 		if updated_params.teh_power is None:
 			updated_params.teh_power = current_station_settings.teh_power
 
+		result = await StationSettings.update_relation_data(station, updated_params, db)
+
 		updated_params_list = [key for key, val in updated_params.dict().items()
 							   if getattr(current_station_settings, key) != val]
 
@@ -319,16 +323,13 @@ async def update_station_settings(
 						f"Updated data: {', '.join(list(updated_params_list))}"
 			await ChangesLog.log(db=db, user=action_by, station=station, content=info_text)
 
-		result = await StationSettings.update_relation_data(station, updated_params, db)
-
-		if updated_params.station_power is True:
-			if current_station_settings.station_power is False:
-				await db.execute(
-					update(StationControl).where(StationControl.station_id == station.id).values(
-						**schemas_stations.StationControlUpdate(status=StationStatusEnum.AWAITING).dict()
-					)
+		if updated_params.station_power is True and current_station_settings.station_power is False:
+			await db.execute(
+				update(StationControl).where(StationControl.station_id == station.id).values(
+					**schemas_stations.StationControlUpdate(status=StationStatusEnum.AWAITING).dict()
 				)
-				await db.commit()
+			)
+			await db.commit()
 		return result
 	else:
 		return current_station_settings

@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -50,7 +50,7 @@ class WashingAgentUsingLogCreate(WashingAgentUsingLogBase):
 
 class WashingAgentUsingLog(WashingAgentUsingLogBase):
 	"""
-	Лог.
+	Схема для лога использования стиральных средств станцией.
 	"""
 	id: int = Field(title="ИД лога")
 	timestamp: datetime.datetime = Field("Дата и время создания лога")
@@ -73,7 +73,7 @@ class StationProgramsLogCreate(StationProgramsLogBase):
 
 class StationProgramsLog(StationProgramsLogBase):
 	"""
-	Лог.
+	Схема для лога использования программ станцией.
 	"""
 	id: int = Field(title="ИД лога")
 	timestamp: datetime.datetime = Field("Дата и время создания лога")
@@ -85,9 +85,20 @@ class ChangesLog(BaseModel):
 	"""
 	id: int = Field(title="ИД лога")
 	timestamp: datetime.datetime = Field("Дата и время создания лога")
-	station_id: uuid.UUID = Field(title="ИД станции, которая использовала средство")
+	station_id: uuid.UUID = Field(title="ИД станции, данные которой были изменены")
 	user_id: int = Field(title="ИД юзера, совершившего изменение")
 	content: str = Field(title="Содержание (описание) изменения")
+
+
+class StationMaintenanceLog(BaseModel):
+	"""
+	Схема для логов обслуживания станции.
+	"""
+	id: int = Field(title="ИД лога")
+	station_id: uuid.UUID = Field(title="ИД станции, которая обслуживалась")
+	user_id: int = Field(title="ИД юзера, совершившего обслуживание")
+	started_at: datetime.datetime = Field(title="Начало обслуживания")
+	ended_at: Optional[datetime.datetime ] = Field(title="Конец обслуживания")
 
 
 class LogCreate(BaseModel):

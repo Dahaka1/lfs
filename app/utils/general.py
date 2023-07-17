@@ -23,11 +23,14 @@ def get_data_hash(data: str) -> str:
 	return config.pwd_context.hash(data)
 
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=services.ACCESS_TOKEN_EXPIRE_MINUTES)):
+def create_jwt_token(data: dict, expires_at_hours: int) -> str:
 	"""
 	Создание JWT-токена. "Живет" в течение переданного времени. По умолчанию время указывается в конфиге.
 	В data должен содержаться обязательный для JWT-токена параметр: "sub" (субъект - имя пользователя/email/...).
+	:param expires_at_hours: через сколько ЧАСОВ истекает
+	:param data: содержание payload
 	"""
+	expires_delta = timedelta(hours=expires_at_hours)
 	expire = datetime.utcnow() + expires_delta
 	data.update({"exp": expire})  # std jwt data param
 	encoded_jwt = jwt.encode(claims=data, key=config.JWT_SECRET_KEY, algorithm=config.JWT_SIGN_ALGORITHM)

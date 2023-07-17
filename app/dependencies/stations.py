@@ -6,12 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from . import get_async_session
-from ..models.stations import Station, StationProgram
+from ..models.stations import Station, StationProgram, StationControl
 from ..schemas.schemas_stations import StationGeneralParams, StationGeneralParamsForStation
 from ..schemas import schemas_stations
 from ..exceptions import PermissionsError
 from ..utils.general import decrypt_data
 from ..utils.general import sa_object_to_dict
+from ..static.enums import StationStatusEnum
 
 
 async def get_current_station(
@@ -22,7 +23,7 @@ async def get_current_station(
 	Простая авторизация станции.
 	Получает header 'X-Station-Uuid' - ИД станции.
 	Проверяет, есть ли такая в базе.
-	Проверяет, активна ли станция.
+	Проверяет, активна ли станция и не стоит ли статус сейчас "Обслуживание".
 	Расшифровывает wifi данные (возвращаемая схема используется ТОЛЬКО станцией).
 
 	Если станция в режиме "MAINTENANCE", то все запросы от нее блокируются.
@@ -32,6 +33,9 @@ async def get_current_station(
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect station UUID")
 	if not station.is_active:
 		raise PermissionsError("Inactive station")
+	station_control = await StationControl.get_relation_data(station, db)
+	if station_control.status == StationStatusEnum.MAINTENANCE:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
 
 	wifi_data = decrypt_data(station.hashed_wifi_data)
 
@@ -49,10 +53,14 @@ async def get_station_by_id(
 	"""
 	Функция проверяет, существует ли станция с переданным ИД в URL'е (пути запроса).
 	Возвращает объект станции (базовые параметры).
+	Проверяет, не обслуживается ли сейчас станция.
 	"""
 	station = await Station.get_station_by_id(db=db, station_id=station_id)
 	if not station:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
+	station_control = await StationControl.get_relation_data(station, db)
+	if station_control.status == StationStatusEnum.MAINTENANCE:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
 	return station
 
 

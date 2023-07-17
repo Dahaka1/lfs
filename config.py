@@ -40,10 +40,8 @@ LOGGING_PARAMS = {
 }
 
 # alembic: commands for initializing migrations
-ALEMBIC_MIGRATION_CMDS = [
-	"alembic revision --autogenerate",
-	"alembic upgrade head"
-]
+ALEMBIC_MIGRATION_CMD = "alembic upgrade head"
+ALEMBIC_MAKE_MIGRATIONS_CMD = "alembic revision --autogenerate"
 
 # alembic: if parameter is True, alembic will check models changing in every server launching
 # e.g. even if model field attributes was changed, it will automatically reflect in DB

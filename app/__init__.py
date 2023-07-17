@@ -23,10 +23,15 @@ def database_init() -> None:
 		all_tables = cursor.fetchall()
 	if not sync_db.closed:
 		sync_db.close()
-	if not any(all_tables) or config.DB_AUTO_UPDATING is True:
-		for cmd in config.ALEMBIC_MIGRATION_CMDS:
-			os.system(cmd)
+	if not any(all_tables):
+		os.system(config.ALEMBIC_MIGRATION_CMD)
 		logger.info(f"There are default DB tables was successfully created")
+	if config.DB_AUTO_UPDATING:
+		for cmd in (config.ALEMBIC_MAKE_MIGRATIONS_CMD, config.ALEMBIC_MIGRATION_CMD):
+			os.system(cmd)
+		logger.info(f"SQLAlchemy models changes was automatically checked and applied if exists.\n"
+					f"You can set it in config.db_auto_updating param.")
+		# можно добавить проверку на то, что создался новый файл миграции
 
 
 def execute_from_command_line(*args):

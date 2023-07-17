@@ -12,7 +12,7 @@ from ..exceptions import GettingDataError, CreatingError
 import services
 
 
-class WashingSource:
+class WashingMixin:
 	NUMERIC_FIELDS = {
 		"WashingMachine": "machine_number",
 		"WashingAgent": "agent_number"
@@ -142,7 +142,7 @@ class WashingSource:
 		await db.commit()
 
 
-class WashingMachine(Base, WashingSource):
+class WashingMachine(Base, WashingMixin):
 	"""
 	Стиральная машина.
 	
@@ -165,15 +165,15 @@ class WashingMachine(Base, WashingSource):
 	track_length = Column(Float, default=services.DEFAULT_WASHING_MACHINES_TRACK_LENGTH)
 
 
-class WashingAgent(Base, WashingSource):
+class WashingAgent(Base, WashingMixin):
 	"""
 	Стиральное средство.
 
 	Number - номер стирального средства, подаваемого станцией.
-	Concentration_rate - Коэффициент концентрации средства.
+	Volume - объем средства.
 	Rollback - "откат" средства.
 	"""
-	FIELDS = ["concentration_rate", "rollback"]
+	FIELDS = ["volume", "rollback"]
 
 	__tablename__ = "washing_agent"
 	__table_args__ = (
@@ -182,5 +182,5 @@ class WashingAgent(Base, WashingSource):
 
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	agent_number = Column(Integer, index=True)
-	concentration_rate = Column(Integer, default=services.DEFAULT_WASHING_AGENTS_CONCENTRATION_RATE)
+	volume = Column(Integer, default=services.DEFAULT_WASHING_AGENTS_VOLUME)
 	rollback = Column(Boolean, default=services.DEFAULT_WASHING_AGENTS_ROLLBACK)

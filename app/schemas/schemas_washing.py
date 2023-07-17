@@ -58,7 +58,7 @@ class WashingAgentBase(BaseModel):
 	"""
 	agent_number: int = Field(title="Номер стирального средства", description="Номер относительно станции",
 							  ge=1, le=services.MAX_STATION_WASHING_AGENTS_AMOUNT)
-	concentration_rate: int = Field(title="Концентрация средства")
+	volume: int = Field(title="Концентрация средства")
 	rollback: bool = Field(title="\"Откат\" средства")
 
 
@@ -67,9 +67,9 @@ class WashingAgentCreate(WashingAgentBase):
 	Добавление стирального средства.
 	"""
 	station_id: UUID4 = Field(title="ИД станции")
-	concentration_rate: Optional[int] = Field(title="Концентрация средства", ge=1,
-											  le=services.MAX_WASHING_AGENTS_CONCENTRATION_RATE,
-											  default=services.DEFAULT_WASHING_AGENTS_CONCENTRATION_RATE)
+	volume: Optional[int] = Field(title="Концентрация средства", ge=1,
+											  le=services.MAX_WASHING_AGENTS_VOLUME,
+											  default=services.DEFAULT_WASHING_AGENTS_VOLUME)
 	rollback: Optional[bool] = Field(title="\"Откат\" средства", default=services.DEFAULT_WASHING_AGENTS_ROLLBACK)
 
 

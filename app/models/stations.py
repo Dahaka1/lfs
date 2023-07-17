@@ -12,7 +12,7 @@ from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, 
 	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
 from ..static.enums import StationStatusEnum, RegionEnum
 from ..schemas import schemas_stations, schemas_washing
-from .washing import WashingAgent, WashingMachine, WashingSource
+from .washing import WashingAgent, WashingMachine, WashingMixin
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
 from ..exceptions import ProgramsDefiningError, GettingDataError, UpdatingError, CreatingError
 from ..static.typing import StationParamsSet
@@ -124,7 +124,7 @@ class Station(Base):
 				"WashingMachineCreateMixedInfo": WashingMachine,
 				"WashingAgentCreateMixedInfo": WashingAgent
 			}
-			model: WashingSource = models[obj.__class__.__name__]
+			model: WashingMixin = models[obj.__class__.__name__]
 			numeric_field = model.NUMERIC_FIELDS[model.__class__.__name__]
 			obj_number = obj_data.pop(numeric_field)
 			created_object = await model.create_object(db=db, station_id=station_id,
@@ -168,7 +168,7 @@ class Station(Base):
 		return station
 
 
-class StationRelation:
+class StationMixin:
 	station_id: uuid.UUID
 
 	@classmethod
@@ -265,7 +265,7 @@ class StationRelation:
 		return schema(**updated_params_dict)
 
 
-class StationSettings(Base, StationRelation):
+class StationSettings(Base, StationMixin):
 	"""
 	Настройки станции.
 
@@ -303,7 +303,7 @@ class StationSettings(Base, StationRelation):
 		return schemas_stations.StationSettingsCreate(**kwargs)
 
 
-class StationProgram(Base, StationRelation):
+class StationProgram(Base, StationMixin):
 	"""
 	Программы (дозировки) станции.
 
@@ -360,7 +360,7 @@ class StationProgram(Base, StationRelation):
 		return station
 
 
-class StationControl(Base, StationRelation):
+class StationControl(Base, StationMixin):
 	"""
 	Контроль и управление станцией.
 	Может быть установлена программа ИЛИ средство + доза.

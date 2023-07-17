@@ -1,15 +1,19 @@
+import uuid
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..models.logs import ErrorsLog, WashingAgentsUsingLog, StationProgramsLog
+from ..models.logs import ErrorsLog, WashingAgentsUsingLog, StationProgramsLog, StationMaintenanceLog
 from ..models import logs
 
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
 from ..schemas.schemas_stations import StationGeneralParams
+from ..schemas import schemas_logs
 
 
 async def create_log(
-	log_obj: ErrorsLog | WashingAgentsUsingLog | StationProgramsLog,
+	log_obj: ErrorsLog | WashingAgentsUsingLog | StationProgramsLog | StationMaintenanceLog,
 	db: AsyncSession
 ):
 	"""
@@ -37,3 +41,28 @@ async def get_station_logs(
 	result = await db.execute(query)
 
 	return sa_objects_dicts_list(result.scalars().all())
+
+
+async def get_last_maintenance_log(
+	station_id: uuid.UUID,
+	user_id: int,
+	db: AsyncSession
+) -> Optional[schemas_logs.StationMaintenanceLog]:
+	"""
+	Поиск последнего НЕЗАВЕРШЕННОГО лога обслуживания станции юзером.
+	"""
+	query = select(StationMaintenanceLog).where(
+		(StationMaintenanceLog.station_id == station_id) &
+		(StationMaintenanceLog.user_id == user_id)
+	).order_by(StationMaintenanceLog.started_at.desc()).limit(1)
+
+	result = await db.execute(query)
+
+	log = result.scalar()
+
+	if log:
+		log_dict = sa_object_to_dict(log)
+		if log_dict["ended_at"] is None:
+			return schemas_logs.StationMaintenanceLog(
+				**log_dict
+			)

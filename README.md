@@ -1,9 +1,9 @@
-## **LFS**
+# **LFS**
 
-# ABOUT
+## ABOUT
 LFS company backed server. Developed right now.
 
-# BUILT-IN
+## BUILT-IN
 - Python 3.11 + asyncio;
 - FastAPI + FastAPI cache;
 - SQLAlchemy;
@@ -14,7 +14,7 @@ LFS company backed server. Developed right now.
 - Redis;
 - Docker, Docker Compose.
 
-# TODO
+## TODO
 - Check that fastapi cache is really working;
 - Optimize getting station info by self (1-2 query instead of 5);
 - Use Yandex geopy instead of Nominatim;

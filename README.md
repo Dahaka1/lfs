@@ -1,4 +1,4 @@
-# **LFS**
+# **LFS backend server**
 
 ## ABOUT
 LFS company backed server. Developed right now.
@@ -16,7 +16,7 @@ LFS company backed server. Developed right now.
 
 ## TODO
 - Check that fastapi cache is really working;
-- Optimize getting station info by self (1-2 query instead of 5);
+- Optimize getting station info from all station relations (1-2 query instead of 5);
 - Use Yandex geopy instead of Nominatim;
 - Add loguru errors email notifications if needed;
 - Add refresh token to authenticate;

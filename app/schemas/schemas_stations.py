@@ -7,7 +7,7 @@ import services
 from ..static.enums import StationStatusEnum, RegionEnum
 from . import validators
 from .schemas_washing import WashingAgent, WashingMachine, WashingMachineUpdate, WashingAgentUpdate, \
-	WashingAgentCreateMixedInfo, WashingAgentWithoutRollback
+	WashingAgentWithoutRollback
 
 
 class StationCreate(BaseModel):
@@ -18,10 +18,12 @@ class StationCreate(BaseModel):
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
 	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
 	wifi_password: str = Field(min_length=1, title="Пароль для точки доступа WiFi")
-	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции", ge=1,
+	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции",
+												   ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
 												   le=services.MAX_STATION_WASHING_MACHINES_AMOUNT,
 												   default=services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT)
-	washing_agents_amount: Optional[int] = Field(title="Количество стиральных средств у станции", ge=1,
+	washing_agents_amount: Optional[int] = Field(title="Количество стиральных средств у станции",
+												 ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
 												 le=services.MAX_STATION_WASHING_AGENTS_AMOUNT,
 												 default=services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT)
 	address: str = Field(max_length=200, title="Физический адрес местоположения станции",
@@ -162,7 +164,8 @@ class StationProgram(BaseModel):
 		Номер программы - это первые цифры (количество десятков) числа, обозначающего шаг программы.
 		"""
 		program_step, program_number = values.get("program_step"), values.get("program_number")
-		validators.validate_program_number(program_step, program_number)
+		if program_number:  # он опциональный
+			validators.validate_program_number(program_step, program_number)
 		return values
 
 
@@ -170,8 +173,9 @@ class StationProgramCreate(StationProgram):
 	"""
 	Создание программы станции.
 	"""
+	program_number: Optional[int] = Field(ge=1, title="Номер программы станции", example="1, 2, 3, ...")
 	updated_at: Any = Field(exclude=True)
-	washing_agents: list[WashingAgentCreateMixedInfo] | list[int] = Field(
+	washing_agents: list[WashingAgentWithoutRollback | int] = Field(
 		title="Стиральные средства станции и дозировки"
 	)
 
@@ -189,29 +193,8 @@ class StationProgramCreate(StationProgram):
 			raise ValueError("Got an washing agents numbers duplicate")
 		return washing_agents
 
-
-class StationProgramUpdate(StationProgramCreate):
-	"""
-	Обновление программы станции.
-	Переписываю валидацию, ибо тут опциональные номера этапа и программы.
-	"""
-	program_step: Optional[int] = Field(ge=11, title="Шаг (этап) программы станции", example="11-15, 21-25, 31-35, ...")
-	program_number: Optional[int] = Field(ge=1, title="Номер программы станции", example="1, 2, 3, ...")
-	washing_agents: list[WashingAgentWithoutRollback] | list[int] = Field(
-		title="Стиральные средства станции и дозировки"
-	)
-
-	@validator("program_step")
-	def validate_program_step(cls, program_step):
-		"""
-		Этап программы заканчивается на 1-5.
-		"""
-		if program_step:
-			validators.validate_program_step(program_step)
-		return program_step
-
 	@root_validator()
-	def validate_program_number(cls, values):
+	def auto_fill_program_number(cls, values):
 		"""
 		Номер программы - это первые цифры (количество десятков) числа, обозначающего шаг программы.
 
@@ -224,8 +207,15 @@ class StationProgramUpdate(StationProgramCreate):
 		elif program_number and not program_step:
 			raise ValueError("Got an program number, but program step wasn't defined")
 		elif program_step and not program_number:
-			values[program_number] = program_step // 10
+			values["program_number"] = program_step // 10
 		return values
+
+
+class StationProgramUpdate(StationProgramCreate):
+	"""
+	Обновление программы станции.
+	"""
+	pass
 
 
 class StationControl(BaseModel):

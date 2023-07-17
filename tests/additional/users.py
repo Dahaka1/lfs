@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
 
 from app.static.enums import RoleEnum
-from app.models.users import User
+from app.classes.users import User
 
 
 async def change_user_role(user_id: int, needed_role: RoleEnum, session: AsyncSession) -> None:

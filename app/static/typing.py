@@ -1,8 +1,9 @@
 from typing import TypeAlias
 
-from ..schemas import schemas_stations
+from ..schemas import schemas_stations as stations
 
 
-StationParamsSet: TypeAlias = schemas_stations.StationGeneralParams | schemas_stations.StationSettings | \
-	schemas_stations.StationControl | list[schemas_stations.StationProgram] | schemas_stations.Station | \
-	schemas_stations.StationProgram
+StationParamsSet: TypeAlias = stations.StationGeneralParams | stations.StationSettings | \
+	stations.StationControl | list[stations.StationProgram] | stations.Station | \
+	stations.StationProgram
+

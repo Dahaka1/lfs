@@ -24,6 +24,8 @@ async def get_current_station(
 	Проверяет, есть ли такая в базе.
 	Проверяет, активна ли станция.
 	Расшифровывает wifi данные (возвращаемая схема используется ТОЛЬКО станцией).
+
+	Если станция в режиме "MAINTENANCE", то все запросы от нее блокируются.
 	"""
 	station = await Station.authenticate_station(db=db, station_id=x_station_uuid)
 	if not station:

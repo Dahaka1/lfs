@@ -76,9 +76,8 @@ async def check_smtp_connection() -> None:
 	Проверка соединения с SMTP-сервером.
 	"""
 	try:
-		conn = smtplib.SMTP(host=services.SMTP_HOST, port=services.SMTP_PORT)
-		status = conn.noop()[0]
-		conn.close()
+		with smtplib.SMTP(host=services.SMTP_HOST, port=services.SMTP_PORT) as conn:
+			status = conn.noop()[0]
 	except smtplib.SMTPServerDisconnected:
 		status = -1
 	if status != 250:
@@ -116,14 +115,3 @@ async def check_db_connection() -> None:
 					 "is running on url that defined in 'config.py' file."
 		logger.error(error_text)
 		exit()
-
-
-# async def init_db_strings(sa_session_maker: sessionmaker) -> None:
-# 	"""
-# 	Здесь создаются статические данные по умолчанию, которые нужно создать при запуске сервера,
-# 	 если их еще нет.
-#
-# 	Sa_session_maker передаю извне, ибо в тестах и в приложении они отличаются.
-# 	"""
-# 	async with sa_session_maker() as session:
-# 		pass

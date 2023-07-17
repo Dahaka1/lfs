@@ -23,11 +23,12 @@ DB_PARAMS_TEST = {"user": os.environ.get("DB_USER_TEST"), "password": os.environ
 
 
 DATABASE_URL = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())
-DATABASE_URL_SYNC = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())  # for alembic
+DATABASE_URL_SYNC = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())  # for alembic and sync SA
 DATABASE_URL_TEST = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
 
 
 API_DOCS_URL = "/api/v1/docs"
+API_REDOC_URL = "/api/v1/docs"
 OPENAPI_URL = "/api/v1/openapi.json"
 
 # loguru logger settings
@@ -49,7 +50,7 @@ ALEMBIC_MIGRATION_CMDS = [
 DB_AUTO_UPDATING = False
 
 # starting params
-STARTING_APP_CMD_DEBUG_MODE = "uvicorn app.main:app --reload"
+STARTING_APP_CMD_DEBUG_MODE = "uvicorn app.main:app"
 STARTING_APP_CMD = "gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:8000"
 
 # users passwords hashing

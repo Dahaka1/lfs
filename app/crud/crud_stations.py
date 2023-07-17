@@ -8,6 +8,7 @@ from pydantic import UUID4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 
+import services
 from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.logs import ChangesLog
 from ..models.washing import WashingAgent, WashingMachine
@@ -39,8 +40,7 @@ async def create_station(db: AsyncSession,
 						 station: schemas_stations.StationCreate,
 						 settings: schemas_stations.StationSettingsCreate,
 						 washing_agents: list[schemas_washing.WashingAgentCreateMixedInfo],
-						 washing_machines: list[schemas_washing.WashingMachineCreateMixedInfo],
-						 created_by: schemas_users.User) -> schemas_stations.Station:
+						 washing_machines: list[schemas_washing.WashingMachineCreateMixedInfo]) -> schemas_stations.Station:
 	"""
 	Создает станцию в БД с определенными или дефолтными параметрами.
 	"""
@@ -87,12 +87,6 @@ async def create_station(db: AsyncSession,
 		station_settings=station_settings
 	)
 
-	log_text = f"Station with UUID {created_station_obj.id} was successfully created by " \
-			   f"user {created_by.email} ({created_by.first_name} {created_by.last_name})"
-
-	await ChangesLog.log(
-		db=db, user=created_by, station=created_station_obj, content=log_text
-	)
 	await db.commit()
 	return created_station_obj
 
@@ -152,7 +146,7 @@ async def read_station_all(
 async def delete_station(
 	station: schemas_stations.StationGeneralParams | uuid.UUID,
 	db: AsyncSession,
-	action_by: schemas_users.User
+	action_by: schemas_users.User = None
 ) -> None:
 	"""
 	Удаление станции.
@@ -163,8 +157,9 @@ async def delete_station(
 	await db.execute(query)
 	await db.commit()
 
-	info_text = f"Station {station.id} was successfully deleted by user {action_by.email}"
-	await ChangesLog.log(db, action_by, station, info_text)
+	if action_by:
+		info_text = f"Station {station.id} was successfully deleted by user {action_by.email}"
+		await ChangesLog.log(db, action_by, station, info_text)
 
 
 async def update_station_general(
@@ -261,36 +256,28 @@ async def update_station_control(
 
 	if (updated_params.program_step is not None or any(updated_params.washing_agents)) \
 		and not updated_params.washing_machine:
-		err_text = "Can't define station washing machine, but program step or washing agents was received"
-		async with UpdatingError(message=err_text, station=station, db=db) as err:
-			raise err
+		raise  UpdatingError("Can't define station washing machine, but program step or washing agents was received")
 
 	if any(updated_params.washing_agents):
 		station_washing_agents: list[WashingAgent] = await WashingAgent.get_station_objects(station.id, db)
 		for agent in updated_params.washing_agents:
 			if agent.agent_number not in [ag.agent_number for ag in station_washing_agents]:
-				err_text = f"Station has only {len(station_washing_agents)} washing agents, " \
-						   f"but got agent №{agent.agent_number}"
-				async with UpdatingError(station=station, message=err_text, db=db) as err:
-					raise err
+				raise UpdatingError(f"Station has only {len(station_washing_agents)} washing agents, " + \
+						   f"but got agent №{agent.agent_number}")
 
 	if updated_params.program_step:
 		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db, QueryFromEnum.STATION)
 		if updated_params.program_step.dict() not in [program.dict() for program in station_programs]:
-			err_text = f"Station program '{updated_params.program_step}' wasn't found in station programs"
-			async with UpdatingError(station=station, message=err_text, db=db) as err:
-				raise err
+			raise UpdatingError(f"Station program '{updated_params.program_step}' wasn't found in station programs")
 
 	if updated_params.washing_machine:
 		station_washing_machines: list[WashingMachine] = await WashingMachine.get_station_objects(station.id, db)
 		if updated_params.washing_machine.dict() not in [machine.dict() for machine in station_washing_machines]:
-			err_text = f"Washing machine '{updated_params.washing_machine}' wasn't found in station washing machines"
-			async with UpdatingError(station=station, message=err_text, db=db) as err:
-				raise err
+			raise UpdatingError(f"Washing machine '{updated_params.washing_machine}' "
+								f"wasn't found in station washing machines")
 		if not updated_params.washing_machine.is_active:
-			err_text = f"Chosen washing machine '{updated_params.washing_machine}' is inactive and can't be used"
-			async with UpdatingError(station=station, message=err_text, db=db) as err:
-				raise err
+			raise UpdatingError(f"Chosen washing machine '{updated_params.washing_machine}' "
+								f"is inactive and can't be used")
 
 	updated_params_list = [key for key, val in updated_params.dict().items()
 						   if getattr(current_station_control, key) != val]
@@ -367,9 +354,7 @@ async def update_station_program(
 		(agent_number not in map(lambda ag: ag.agent_number, station_washing_agents)
 		 for agent_number in washing_agents_numbers)
 	):
-		err_text = "Got an non-existing washing agent number"
-		async with UpdatingError(message=err_text, station=station, db=db) as err:
-			raise err
+		raise UpdatingError("Got an non-existing washing agent number")
 
 	if not updated_program.program_step:
 		updated_program.program_step = current_program.program_step
@@ -378,9 +363,7 @@ async def update_station_program(
 		station_programs = await StationProgram.get_relation_data(station, db)
 		try:
 			next(pg for pg in station_programs if pg.program_step == updated_program.program_step)
-			err_text = "Can't change program step number to existing program step number"
-			async with UpdatingError(message=err_text, station=station, db=db) as err:
-				raise err
+			raise UpdatingError("Can't change program step number to existing program step number")
 		except StopIteration:
 			pass
 

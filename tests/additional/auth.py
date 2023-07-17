@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
-from app.models.users import User
+from app.classes.users import User
 
 
 async def get_user_token(

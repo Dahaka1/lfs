@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, Any
+from typing import Optional
 import datetime
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
@@ -14,7 +14,7 @@ from ..static.enums import StationStatusEnum, RegionEnum
 from ..schemas import schemas_stations, schemas_washing
 from .washing import WashingAgent, WashingMachine, WashingSource
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
-from ..exceptions import ProgramsDefiningError, GettingDataError, UpdatingError
+from ..exceptions import ProgramsDefiningError, GettingDataError, UpdatingError, CreatingError
 from ..static.typing import StationParamsSet
 
 
@@ -83,10 +83,10 @@ class Station(Base):
 	@staticmethod
 	async def create_default_washing_services(
 		db: AsyncSession, station_id: uuid.UUID,
-		washing_machines_amount: int,
-		washing_agents_amount: int,
-		washing_agents: list[WashingAgentCreateMixedInfo],
-		washing_machines: list[WashingMachineCreateMixedInfo]
+		washing_machines_amount: int | None,
+		washing_agents_amount: int | None,
+		washing_agents: list[WashingAgentCreateMixedInfo] | None,
+		washing_machines: list[WashingMachineCreateMixedInfo] | None
 	) -> \
 		dict[str, list[WashingMachineCreate | WashingAgentCreate]]:
 		"""
@@ -98,6 +98,21 @@ class Station(Base):
 
 		При явном определении объектов - создание их.
 		"""
+		if washing_agents and any(washing_agents):
+			if len(washing_agents) < services.MIN_STATION_WASHING_AGENTS_AMOUNT:
+				raise CreatingError(
+					f"Min station washing agents amount is {services.MIN_STATION_WASHING_AGENTS_AMOUNT},"
+					f"but got {len(washing_agents)}.")
+		if washing_machines and any(washing_machines):
+			if len(washing_machines) < services.MIN_STATION_WASHING_MACHINES_AMOUNT:
+				raise CreatingError(
+					f"Min station washing machines amount is {services.MIN_STATION_WASHING_AGENTS_AMOUNT},"
+					f"but got {len(washing_agents)}.")
+
+		if washing_machines and washing_machines_amount or washing_agents and washing_agents_amount:
+			raise CreatingError("Station washing services defining error: "
+								"expects for only services amount OR only services objects list")
+
 		inserted_washing_machines = []
 		inserted_washing_agents = []
 
@@ -119,7 +134,8 @@ class Station(Base):
 		if washing_machines is None:
 			for machine_number in range(washing_machines_amount):
 				created_machine = await WashingMachine.create_object(db=db, station_id=station_id,
-																	 object_number=machine_number + 1)
+																	 object_number=machine_number + 1,
+																	 defaults=True)
 				inserted_washing_machines.append(created_machine)
 		else:
 			for machine in washing_machines:
@@ -129,7 +145,8 @@ class Station(Base):
 		if washing_agents is None:
 			for agent_number in range(washing_agents_amount):
 				created_agent = await WashingAgent.create_object(db=db, station_id=station_id,
-																 object_number=agent_number + 1)
+																 object_number=agent_number + 1,
+																 defaults=True)
 				inserted_washing_agents.append(created_agent)
 		else:
 			for agent in washing_agents:
@@ -181,9 +198,8 @@ class StationRelation:
 				data = result.scalar()
 
 				if data is None:
-					err_text = f"Getting {cls.__name__} for station {station.id} error.\nDB data not found"
-					async with GettingDataError(station=station, db=db, message=err_text) as err:
-						raise err
+					raise GettingDataError(f"Getting {cls.__name__} for station {station.id} error.\n"
+										   f"DB data not found")
 				return schema(
 					**sa_object_to_dict(data)
 				)
@@ -209,19 +225,11 @@ class StationRelation:
 				):
 					station_settings = await StationSettings.get_relation_data(station, db)
 					if station_settings.station_power is False:
-						async with UpdatingError(
-							message="Station power currently is False, but got non-nullable control params", db=db,
-							station=station
-						) as err:
-							raise err
+						raise UpdatingError("Station power currently is False, but got non-nullable control params")
 			case "StationSettings":
 				if updated_params.station_power is True:
 					if not station.is_active:
-						async with UpdatingError(
-							message="Station currently is inactive, but got an station_power 'True'", db=db,
-							station=station
-						) as err:
-							raise err
+						raise UpdatingError("Station currently is inactive, but got an station_power 'True'")
 			case "StationProgram":
 				station_washing_agents: list[WashingAgent] = kwargs.get("washing_agents")
 				if not station_washing_agents:
@@ -323,7 +331,6 @@ class StationProgram(Base, StationRelation):
 		Создание программ станции (при создании самой станции).
 		"""
 		for program in programs:
-			program: schemas_stations.StationProgramCreate
 			washing_agents_to_insert = []
 
 			for washing_agent in program.washing_agents:
@@ -331,39 +338,24 @@ class StationProgram(Base, StationRelation):
 				washing_agent_number = washing_agent if isinstance(washing_agent, int) else washing_agent.agent_number
 
 				if washing_agent_number not in (ag.agent_number for ag in station.station_washing_agents):
-					err_text = f"{washing_agent_number} washing agent not found in station washing agents"
-					async with ProgramsDefiningError(db=db, message=err_text, station=station) as err:
-						raise err
+					raise ProgramsDefiningError(f"{washing_agent_number} "
+												f"washing agent not defined in station washing agents")
 
-				if isinstance(washing_agent, int):  # случай, если был передан список номеров средств
+				if isinstance(washing_agent, int):  # случай, если передан номер средства, а не объект
+					idx = program.washing_agents.index(washing_agent)
 					washing_agent = next(agent for agent in station.station_washing_agents
 										 if agent.agent_number == washing_agent)
-					for agent_ in program.washing_agents:
-						agent_: int
-						program.washing_agents: list[int]  # не знаю, почему ругается на тип - в pydantic-схеме
-						# обозначил, что возможен и список интов, и список средств
-						if agent_ == washing_agent_number:
-							idx = program.washing_agents.index(agent_)
-							program.washing_agents[idx] = washing_agent
+					program.washing_agents[idx] = washing_agent
 
-			program_data = {
-				"station_id": station.id,
-				"program_step": program.program_step,
-				"program_number": program.program_number,
-				"washing_agents": sorted(
-					[item.dict() for item in washing_agents_to_insert], key=lambda agent: agent["agent_number"]
-				)
-			}
+			program.washing_agents = sorted([item.dict() for item in washing_agents_to_insert],
+											key=lambda agent: agent["agent_number"])
 
-			if any(program_data):
-				await db.execute(
-					insert(StationProgram), program_data
-				)
-				station.station_programs.append(
-					schemas_stations.StationProgram(
-						**program.dict()
-					)
-				)
+			await db.execute(
+				insert(StationProgram), {**program.dict(), "station_id": station.id}
+			)
+
+			station.station_programs.append(program)
+
 		await db.commit()
 		return station
 

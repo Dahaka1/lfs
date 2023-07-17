@@ -7,12 +7,12 @@ from email.message import EmailMessage
 from typing import Optional
 
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, \
-	func, Boolean, insert, PrimaryKeyConstraint, select, update
+	func, Boolean, PrimaryKeyConstraint, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 
 import services, config
-from ..database import Base
+from ..database import Base, SyncSession
 from ..schemas.schemas_users import User
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash
@@ -46,8 +46,9 @@ class RegistrationCode(Base):
 	expires_at = Column(DateTime(timezone=True))
 
 	@staticmethod
-	async def create_obj(
-		email_message: EmailMessage, verification_code: str, user: User, db: AsyncSession
+	def create_obj(
+		email_message: EmailMessage, verification_code: str, user: User,
+		expires_at=datetime.datetime.now() + datetime.timedelta(minutes=services.CODE_EXPIRING_IN_MINUTES)
 	) -> None:
 		"""
 		Создать запись об отправленном коде напрямую в БД.
@@ -55,9 +56,7 @@ class RegistrationCode(Base):
 		"""
 		verification_code_hash = get_data_hash(data=verification_code)
 
-		expires_at = datetime.datetime.now() + datetime.timedelta(minutes=services.CODE_EXPIRING_IN_MINUTES)
-
-		query = insert(RegistrationCode).values(
+		code = RegistrationCode(
 			user_id=user.id,
 			hashed_code=verification_code_hash,
 			sended_to=user.email,
@@ -65,8 +64,9 @@ class RegistrationCode(Base):
 			expires_at=expires_at
 		)
 
-		await db.execute(query)
-		await db.commit()
+		db = SyncSession()
+		db.add(code)
+		db.commit()
 
 	@staticmethod
 	async def get_user_last_code(

@@ -37,10 +37,7 @@ async def update_washing_object(
 			machine_using = False
 
 		if machine_using and current_object.is_active and not updated_object.is_active:
-			error_text = "Can't mark washing machine as non-active " \
-						 "if now using by station"
-			async with UpdatingError(message=error_text, db=db, station=station) as err:
-				raise err
+			raise UpdatingError("Can't mark washing machine as non-active if now using by station")
 		return machine_using
 
 	def check_updating_washing_agent() -> bool:
@@ -70,9 +67,7 @@ async def update_washing_object(
 			db, getattr(updated_object, numeric_field), station.id
 		)
 		if existing_object:
-			err_text = "Can't change object number to existing object number"
-			async with UpdatingError(message=err_text, db=db, station=station) as err:
-				raise err
+			raise UpdatingError("Can't change object number to existing object number")
 
 	updated_object = await model.update_object(
 		station.id, db, updated_object, getattr(current_object, numeric_field)
@@ -122,9 +117,7 @@ async def delete_washing_object(
 		"""
 		if station_control.washing_machine:
 			if station_control.washing_machine.machine_number == current_object.machine_number:
-				err_text = "Can't delete using washing machine"
-				async with DeletingError(message=err_text, db=db, station=station) as err:
-					raise err
+				raise DeletingError("Can't delete using washing machine")
 
 	async def check_agent_using() -> None:
 		"""
@@ -134,9 +127,7 @@ async def delete_washing_object(
 			if current_object.agent_number in map(
 				lambda ag: ag.agent_number, station_control.program_step.washing_agents
 			):
-				err_text = "Can't delete using washing agent"
-				async with DeletingError(message=err_text, db=db, station=station) as err:
-					raise err
+				raise DeletingError("Can't delete using washing agent")
 
 	if isinstance(current_object, washing.WashingAgent):
 		await check_agent_using()

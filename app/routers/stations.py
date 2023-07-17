@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Body, status, HTTPException, Path
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import services
+from ..models.logs import ChangesLog
 from ..schemas import schemas_stations, schemas_washing
 from ..schemas.schemas_users import User
 from ..models.stations import StationProgram
@@ -13,7 +13,7 @@ from ..dependencies import get_async_session
 from ..dependencies.stations import get_current_station
 from ..crud import crud_stations
 from ..static.enums import StationParamsEnum, QueryFromEnum
-from ..exceptions import ProgramsDefiningError, GettingDataError
+from ..exceptions import ProgramsDefiningError, GettingDataError, CreatingError
 
 router = APIRouter(
 	prefix="/stations",
@@ -51,11 +51,8 @@ async def create_station(
 	washing_machines: Annotated[list[schemas_washing.WashingMachineCreateMixedInfo],
 	Body(embed=True, title="Стиральные средства станции")] = None
 ):
-	f"""
+	"""
 	Создание станции.
-	
-	У станции обязательно должны быть машины и средства. Иначе при поиске и использовании данных станции
-	 будет выдаваться ошибка (могу отменить это, если не нужно).
 	
 	Настройки станции можно не определять - установятся дефолтные.
 	
@@ -65,36 +62,48 @@ async def create_station(
 	
 	Средства станции и стиральные машины - тоже опционально. Если не передавать их, будет созданы 
 	 их дефолтные объекты в количестве, установленном по умолчанию. Количество тоже можно изменить.
-	
+	Можно передать ИЛИ количество объектов по умолчанию для автоматического создания, ИЛИ явный список объектов
+	 с определенными параметрами.
+	Количество средств и машин у станции должно быть не меньше минимального определенного в бизнес-параметрах проекта.
+
 	При создании программ для программы можно передать уже созданные средства (просто передавая список номеров средств) 
 	 или переопределить их параметры.
+	Номер программы можно не указывать - по номеру этапа (шага) программы он определится автоматически.
 	
-	Статус станции по умолчанию - "{services.DEFAULT_STATION_STATUS}", если станция включена (station_power=true).
+	Статус станции по умолчанию - "AWAITING", если станция включена (station_power=true).
 	Если станция отключена, то статус может быть только None.
 	
 	Работать без программ с определенными машиной и средствами станция может.
 	 
 	Доступно только для SYSADMIN-пользователей.
 	"""
-	station = await crud_stations.create_station(
-		db=db, station=station, settings=settings, created_by=current_user, washing_agents=washing_agents,
-		washing_machines=washing_machines
-	)
+	try:
+		station = await crud_stations.create_station(
+			db=db, station=station, settings=settings, washing_agents=washing_agents,
+			washing_machines=washing_machines
+		)
+	except CreatingError as e:
+		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
 	if not station.is_active and settings:
-		if any((settings.station_power, settings.teh_power)):
+		if any((settings.station_power is True, settings.teh_power is True)):
 			await crud_stations.delete_station(station, db)  # сделал так, ибо rollback почему-то не работает... в шоке
-			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive station hasn't to be "
+			raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive station hasn't to be "
 																				"powered on (includes its TEH)")
 	if programs:
 		try:
 			station = await StationProgram.create_station_programs(station, programs, db)
-			return station
 		except ProgramsDefiningError as e:  # ошибки при создании программ
 			# TODO решить с rollback'ом
 			await crud_stations.delete_station(station, db)  # сделал так, ибо rollback почему-то не работает... в шоке
 			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-	print(station)
+
+	log_text = f"Station with UUID {station.id} was successfully created by " \
+			   f"user {current_user.email} ({current_user.first_name} {current_user.last_name})"
+
+	await ChangesLog.log(
+		db=db, user=current_user, station=station, content=log_text
+	)
 	return station
 
 
@@ -111,6 +120,8 @@ async def read_stations_params(
 	match dataset:
 		case StationParamsEnum.GENERAL:
 			return schemas_stations.StationPartial(partial_data=current_station)
+		case StationParamsEnum.SETTINGS:
+			return schemas_stations.StationPartial(partial_data=current_station.settings)
 		case _:
 			try:
 				return await crud_stations.read_station(current_station, dataset, db, query_from=QueryFromEnum.STATION)

@@ -21,13 +21,17 @@ class WashingSource:
 
 	@classmethod
 	async def create_object(
-		cls, db: AsyncSession, station_id: uuid.UUID, object_number: int, **kwargs
+		cls, db: AsyncSession, station_id: uuid.UUID, object_number: int,
+		defaults: bool = False, **kwargs
 	) -> schemas_washing.WashingMachineCreate | schemas_washing.WashingAgentCreate:
 		"""
 		Метод для создания нового объекта в БД для аналогичных классов
 		 (стиральная машина и стиральное средство). Возвращает pydantic-схему добавленного объекта.
 
 		Создает запись в БД БЕЗ КОММИТА, его нужно сделать вне метода.
+
+		Если defaults = True, то не делается проверка на существование объекта (используется при создании
+		 станции).
 		"""
 
 		if any(
@@ -35,11 +39,10 @@ class WashingSource:
 		):
 			raise AttributeError(f"Expected fields for washing machine creating are {cls.FIELDS}")
 
-		current_objects = await cls.get_station_objects(station_id, db)
-		if object_number in map(lambda obj: getattr(obj, cls.NUMERIC_FIELDS[cls.__name__]), current_objects):
-			err_text = "Got an existing object number"
-			async with CreatingError(message=err_text, db=db, station=station_id) as err:
-				raise err
+		if not defaults:
+			current_objects = await cls.get_station_objects(station_id, db)
+			if object_number in map(lambda obj: getattr(obj, cls.NUMERIC_FIELDS[cls.__name__]), current_objects):
+				raise  CreatingError("Got an existing object number")
 
 		numeric_field = cls.NUMERIC_FIELDS.get(cls.__name__)
 		kwargs.setdefault(numeric_field, object_number)
@@ -87,9 +90,7 @@ class WashingSource:
 		data = result.scalars().all()
 
 		if not any(data):
-			err_text = f"Getting {cls.__name__} for station {station_id} error.\nDB data not found"
-			async with GettingDataError(station=station_id, db=db, message=err_text) as err:
-				raise err
+			raise GettingDataError(f"Getting {cls.__name__} for station {station_id} error.\nDB data not found")
 
 		schema = getattr(schemas_washing, cls.__name__ + "Base")
 

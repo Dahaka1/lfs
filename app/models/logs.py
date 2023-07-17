@@ -1,5 +1,3 @@
-import json
-
 from sqlalchemy import JSON, Column, String, Integer, DateTime, func, ForeignKey, UUID, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger

@@ -44,6 +44,8 @@ async def create_user(
 	"""
 	Регистрация пользователя по email.
 	Отправка кода подтверждения email.
+
+	По умолчанию роль пользователя: LAUNDRY (прачечная).
 	"""
 	query = select(User).where(User.email == user.email)
 	result = await db.execute(query)
@@ -53,7 +55,7 @@ async def create_user(
 
 	created_user = await crud_users.create_user(user, db=db)
 
-	send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user, db)
+	send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user)
 
 	return created_user
 
@@ -100,8 +102,7 @@ async def update_user(
 	- сам пользователь;
 	- SYSADMIN-пользователь.
 
-	Изменить роль пользователя может только пользователь с ролью SYSADMIN.
-	Изменить блокировку пользователя может только пользователь с ролью SYSADMIN.
+	Изменить роль пользователя и его блокировку может только пользователь с ролью SYSADMIN.
 
 	Если изменился EMail - нужно заново его подтверждать.
 

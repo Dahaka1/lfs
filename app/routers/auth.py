@@ -90,7 +90,7 @@ async def confirm_user_email(
 
 
 @router.get(
-	"/confirm_email", tags=["confirming_email_request_code_manually"],
+	"/confirm_email", tags=["confirming_email"],
 	description="Ручной запрос отправки кода подтверждения."
 )
 async def request_confirmation_code(
@@ -117,6 +117,6 @@ async def request_confirmation_code(
 			raise HTTPException(status_code=status.HTTP_425_TOO_EARLY,
 								detail="Active user confirmation code already exists")
 
-	send_email_confirmation_code.add_task(tasks.send_verifying_email_code, current_user, db)
+	send_email_confirmation_code.add_task(tasks.send_verifying_email_code, current_user)
 
 	return Response(status_code=200)

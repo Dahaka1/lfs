@@ -1,13 +1,14 @@
 import datetime
 import uuid
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .schemas_washing import WashingAgent, WashingMachine
+from .schemas_washing import WashingAgentWithoutRollback, WashingMachine
 from .schemas_stations import StationProgram
 
 
-class ErrorBase(BaseModel):
+class ErrorLogBase(BaseModel):
 	"""
 	Схема для ошибки в логах (основные параметры).
 	"""
@@ -16,14 +17,14 @@ class ErrorBase(BaseModel):
 	content: str = Field(title="Содержание (описание) ошибки")
 
 
-class ErrorCreate(ErrorBase):
+class ErrorLogCreate(ErrorLogBase):
 	"""
 	Создание ошибки.
 	"""
-	pass
+	station_id: Any = Field(exclude=True)
 
 
-class Error(ErrorBase):
+class ErrorLog(ErrorLogBase):
 	"""
 	Ошибка.
 	"""
@@ -37,21 +38,21 @@ class WashingAgentUsingLogBase(BaseModel):
 	"""
 	station_id: uuid.UUID = Field(title="ИД станции, которая использовала средство")
 	washing_machine: WashingMachine = Field(title="Стиральная машина, в которую подавалось средство")
-	washing_agent: WashingAgent = Field(title="Стиральное средство")
+	washing_agent: WashingAgentWithoutRollback = Field(title="Стиральное средство")
 
 
 class WashingAgentUsingLogCreate(WashingAgentUsingLogBase):
 	"""
 	Создание лога.
 	"""
-	pass
+	station_id: Any = Field(exclude=True)
 
 
 class WashingAgentUsingLog(WashingAgentUsingLogBase):
 	"""
 	Лог.
 	"""
-	id: int = Field("ИД лога")
+	id: int = Field(title="ИД лога")
 	timestamp: datetime.datetime = Field("Дата и время создания лога")
 
 
@@ -67,13 +68,30 @@ class StationProgramsLogCreate(StationProgramsLogBase):
 	"""
 	Создание лога.
 	"""
-	pass
+	station_id: Any = Field(exclude=True)
 
 
 class StationProgramsLog(StationProgramsLogBase):
 	"""
 	Лог.
 	"""
-	id: int = Field("ИД лога")
+	id: int = Field(title="ИД лога")
 	timestamp: datetime.datetime = Field("Дата и время создания лога")
 
+
+class ChangesLog(BaseModel):
+	"""
+	Схема для логов изменений.
+	"""
+	id: int = Field(title="ИД лога")
+	timestamp: datetime.datetime = Field("Дата и время создания лога")
+	station_id: uuid.UUID = Field(title="ИД станции, которая использовала средство")
+	user_id: int = Field(title="ИД юзера, совершившего изменение")
+	content: str = Field(title="Содержание (описание) изменения")
+
+
+class LogCreate(BaseModel):
+	"""
+	Схема для создания лога.
+	"""
+	content: StationProgramsLogCreate | ErrorLogCreate | WashingAgentUsingLogCreate

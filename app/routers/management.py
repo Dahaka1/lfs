@@ -14,7 +14,7 @@ from ..static.enums import StationParamsEnum, QueryFromEnum
 from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
 from ..static.enums import RoleEnum
-from ..exceptions import PermissionsError, CreatingError, DeletingError
+from ..exceptions import PermissionsError, CreatingError, DeletingError, ProgramsDefiningError
 
 
 router = APIRouter(
@@ -179,6 +179,8 @@ async def create_station_program(
 	Как и при первоначальном создании станции, для программы можно определить уже существующие средства станции,
 	 указав их номера, или передать кастомные программы.
 
+	Номер программы можно не указывать - по номеру этапа (шага) программы он определится автоматически.
+
 	Создать программу с уже существующим номером шага (этапа) нельзя.
 
 	Доступно только для INSTALLER-пользователей и выше.
@@ -188,11 +190,15 @@ async def create_station_program(
 		(program.program_step in map(lambda pg: pg.program_step, station_current_programs) for program in programs)
 	):
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Got an existing program step")
-	station_full_data = await crud_stations.read_station_all(station, db)
-	station_with_created_programs = await StationProgram.create_station_programs(
-		station_full_data, programs, db
-	)
-	return list({*station_with_created_programs} - {*station_full_data.station_programs})
+	station_full_data = await crud_stations.read_station_all(station, db, query_from=QueryFromEnum.USER)
+	try:
+		station_with_created_programs = await StationProgram.create_station_programs(
+			station_full_data, programs, db
+		)
+	except ProgramsDefiningError as e:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+	return [program for program in station_with_created_programs.station_programs
+			if program not in station_current_programs]
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}",
@@ -228,7 +234,7 @@ async def update_station_program(
 
 
 @router.delete("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}")
-async def update_station_program(
+async def delete_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_and_program: Annotated[tuple[stations.StationGeneralParams, stations.StationProgram],
 	Depends(get_station_program_by_number)],

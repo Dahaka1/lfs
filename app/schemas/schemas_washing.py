@@ -91,7 +91,7 @@ class WashingAgent(WashingAgentBase):
 class WashingAgentWithoutRollback(WashingAgentBase):
 	"""
 	Здесь исключается rollback-field.
-	Например, вроде как, в программах станции его указывать не нужно.
+	Например, в программах станции его указывать не нужно.
 	"""
 	rollback: Any = Field(exclude=True)
 

@@ -17,6 +17,7 @@ from ..models.auth import RegistrationCode
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from .. import tasks
 from ..utils.general import create_jwt_token
+from ..static import responses
 
 router = APIRouter(
 	prefix="/auth",
@@ -24,10 +25,10 @@ router = APIRouter(
 )
 
 
-@router.post("/token", tags=["token"], response_model=schemas_token.Token)
+@router.post("/token", tags=["token"], response_model=schemas_token.Token, responses=responses.token_responses)
 async def login_for_access_token(
-	email: Annotated[str, Form()],
-	password: Annotated[str, Form()],
+	email: Annotated[str, Form(title="Email пользователя")],
+	password: Annotated[str, Form(title="Пароль пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
@@ -66,6 +67,9 @@ async def confirm_user_email(
 	"""
 	Подтверждение Email пользователя.
 	Для подтверждения пользователь должен быть авторизован (ожидается токен).
+
+	Если email уже подтвержден или пользователь заблокирован - подтвердить нельзя.
+	Если код в БД не найден по каким-то причинам или истек или не совпадает с полученным кодом - вернутся ошибки.
 	"""
 	if current_user.email_confirmed:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User email already confirmed")
@@ -105,6 +109,8 @@ async def request_confirmation_code(
 ):
 	"""
 	Используется, если код не дошел до пользователя/истек и т.д.
+
+	Если пользователь заблокирован/подтвержден или неистекший код уже существует - вернутся ошибки.
 
 	TODO: Можно ввести ограничение на общее количество кодов.
 	"""

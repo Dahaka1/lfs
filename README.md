@@ -21,4 +21,5 @@ LFS company backed server. Developed right now.
 - Add loguru errors email notifications if needed;
 - Add refresh token to authenticate;
 - Refactor DB operations with queries to ORM operations;
-- Add Celery tasks handling in case of low-speed background tasks handling by FastAPI.
+- Add Celery tasks handling in case of low-speed background tasks handling by FastAPI;
+- Add advanced path operations responses description (openapi).

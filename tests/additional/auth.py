@@ -1,36 +1,24 @@
+from typing import Any
+import random
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
-from app.classes.users import User
+
+from app.static.enums import RegionEnum
+from app.schemas.schemas_token import Token
+from app.schemas.schemas_users import User
 
 
-async def get_user_token(
-	email: str,
-	password: str,
-	async_client: AsyncClient
-) -> str:
+async def get_user_token(email: str, password: str, ac: AsyncClient) -> Token:
 	"""
-	Авторизация пользователя для тестов.
+	Аутентификация пользователя.
+	Без проверки на ошибки (это не тест, а побочная функция).
 	"""
-	auth_response = await async_client.post(
-		"/api/v1/token/",
-		data={"email": email,
-			  "password": password}
+	data = {
+		"email": email,
+		"password": password
+	}
+	response = await ac.post(
+		"/api/v1/auth/token",
+		data=data
 	)
 
-	return auth_response.json()["access_token"]
-
-
-async def confirm_user_email(
-	session: AsyncSession,
-	user_id: int
-):
-	"""
-	Ручное подтверждение email для пользователя.
-	"""
-	query = update(User).where(
-		User.id == user_id
-	).values(email_confirmed=True)
-
-	await session.execute(query)
-	await session.commit()
+	return Token(**response.json())

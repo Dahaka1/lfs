@@ -1,7 +1,7 @@
 from fastapi.security import OAuth2PasswordBearer
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..database import async_session_maker
+from ..database import async_session_maker, SyncSession
 
 
 # dependency that expects for token from user
@@ -15,3 +15,13 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 	async with async_session_maker() as session:
 		yield session
 
+
+async def get_sync_session():
+	"""
+	Синхронная сессия.
+	"""
+	db = SyncSession()
+	try:
+		yield db
+	finally:
+		db.close()

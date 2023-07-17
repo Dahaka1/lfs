@@ -1,3 +1,12 @@
+"""
+ВАЖНО: ПЕРЕД ЗАПУСКОМ УБЕДИТЬСЯ, ЧТО ТЕСТОВАЯ БД И РЕДИС АКТИВНЫ.
+TODO: РЕШИТЬ, КАК ТЕСТИРОВАТЬ АВТОМАТИЧЕСКУЮ ОТПРАВКУ EMAIL-КОДОВ ПРИ РЕГИСТРАЦИИ ПОЛЬЗОВАТЕЛЯ
+TODO: и вообще как протестировать положительную отправку кода по email и проверку валидности введенного
+ пользователем - ведь сравниваются хэши кодов... думаю, в целом структура отправки кодов при регистрации
+ не подходит для тестов - никак не "достать" даже объект письма.
+По вышеуказанным причинам проверяю только лишь создание записи в БД об отправленном коде.
+"""
+
 import dotenv
 
 dotenv.load_dotenv()  # load env vars for safe importing
@@ -5,7 +14,7 @@ dotenv.load_dotenv()  # load env vars for safe importing
 import random
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY
+from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY, DATABASE_URL_SYNC_TEST
 from sqlalchemy.pool import NullPool
 from app.database import Base
 from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
@@ -13,19 +22,22 @@ from app.models.users import User
 from app.models.washing import WashingAgent, WashingMachine
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
 from app.models.auth import RegistrationCode
-from app.dependencies import get_async_session
-from sqlalchemy.orm import sessionmaker
+from app.dependencies import get_async_session, get_sync_session
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine
 import pytest
 from app.main import app
 from typing import AsyncGenerator
 import asyncio
-from tests.additional.fills import create_user
 from app import fastapi_cache_init
-
+from tests.additional.users import create_authorized_user, generate_user_data, create_user
 
 engine_test = create_async_engine(DATABASE_URL_TEST, poolclass=NullPool)
 async_session_maker = sessionmaker(engine_test, class_=AsyncSession, expire_on_commit=False)
 Base.metadata.bind = engine_test
+
+sync_engine_test = create_engine(DATABASE_URL_SYNC_TEST)
+SyncSession = sessionmaker(sync_engine_test)
 
 
 async def override_get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -36,13 +48,38 @@ async def override_get_async_session() -> AsyncGenerator[AsyncSession, None]:
 	async with async_session_maker() as session:
 		yield session
 
+
+def override_get_sync_session():
+	"""
+	Перезапись получения синхронной сессии БД.
+	:return:
+	"""
+	try:
+		db = SyncSession()
+		yield db
+	finally:
+		db.close()
+
+
 app.dependency_overrides[get_async_session] = override_get_async_session
+app.dependency_overrides[get_sync_session] = override_get_sync_session
+
+
 # перезапись зависимости, возвращающей сессию SA, для корректной работы БД-функций
 
 
 @pytest.fixture  # для ручного использования SA-сессии в тестах
 async def session() -> AsyncGenerator[AsyncSession, None]:
 	async with async_session_maker() as session:
+		yield session
+
+
+@pytest.fixture
+def sync_session() -> Session:
+	"""
+	Синхронная сессия SA.
+	"""
+	with SyncSession() as session:
 		yield session
 
 
@@ -76,7 +113,7 @@ def event_loop(request):
 
 
 @pytest.fixture(scope='session')
-async def async_test_client() -> AsyncGenerator[AsyncClient, None]:
+async def ac() -> AsyncGenerator[AsyncClient, None]:
 	"""
 	Сессия подключения к БД для тестов
 	"""
@@ -85,68 +122,54 @@ async def async_test_client() -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture(scope="class")
+async def generate_user_random_data(request):
+	"""
+	Генерирует новые данные пользователя.
+	"""
+	generated_data = generate_user_data(request)
+	for _ in generated_data.cls.__dict__:
+		setattr(generated_data.cls, _, generated_data.cls.__dict__.get(_))
+
+
+@pytest.fixture(scope="class")
 async def generate_user(request):
 	"""
-	Генерирует новые данные пользователя для каждого класса тестов (scope='class').
+	Генерация зарегистрированного (неавторизованного) пользователя.
 	"""
-	request.cls.email = f"autotest_{random.randrange(10_000)}@gmail.com"
-	request.cls.password = str(random.randrange(10_000_000, 20_000_000))
-	request.cls.first_name = random.choice(
-		("Andrew", "Petr", "Ivan")
-	)
-	request.cls.last_name = random.choice(
-		("Petrov", "Sidorov", "Ivanov")
-	)
+	generated_data = generate_user_data(request)
+
+	with SyncSession() as sync_session:
+		user_data = await create_user(generated_data, sync_session=sync_session)
+
+	for _ in user_data.dict():
+		setattr(request.cls, _, getattr(user_data, _))
+
+	request.cls.password = generated_data.cls.password
+	request.cls.token = None
+	request.cls.headers = None
 
 
 @pytest.fixture(scope="function")
-async def generate_confirmed_user_with_token(request):
+async def generate_authorized_user(request):
 	"""
 	Генерация пользователя с готовым токеном авторизации для тестов,
 	где не проверяется получение токена.
-	Делаю так, потому что при получении токена внутри теста почему-то не получается
-	 никаким образом сохранить токен для использования в нескольких тестах.
 
 	В каждом тесте (функции) можно менять свободно данные, ибо scope='function'.
 	"""
-	request.cls.email = f"autotest_{random.randrange(10_000)}@gmail.com"
-	request.cls.password = str(random.randrange(10_000_000, 20_000_000))
-	request.cls.first_name = random.choice(
-		("Andrew", "Petr", "Ivan")
-	)
-	request.cls.last_name = random.choice(
-		("Petrov", "Sidorov", "Ivanov")
-	)
-	async with AsyncClient(app=app, base_url="http://test") as ac:
-		user_and_token_data = await create_user(
-			request.cls.email,
-			request.cls.password,
-			request.cls.first_name,
-			request.cls.last_name,
-			async_client=ac,
-			raise_error=True,
-			confirm_email=True,
-			session=session
-		)
-	token = user_and_token_data.get("token")
-	user_id = user_and_token_data.get("id")
-	registered_at = user_and_token_data.get("registered_at")
+	generated_data = generate_user_data(request)
 
-	request.cls.token = token
-	request.cls.id = user_id
-	request.cls.headers = {
-		"Authorization": f"Bearer {token}"
-	}
-	request.cls.registered_at = registered_at
-
-	request.cls.dict = user_and_token_data
-	request.cls.dict.pop("token")
+	with SyncSession() as session:
+		async with AsyncClient(app=app, base_url="http://test") as ac:
+			authorized_user_data = await create_authorized_user(generated_data, ac, sync_session=session)
+	for k, v in authorized_user_data.items():
+		setattr(request.cls, k, v)
 
 
 @pytest.fixture
 async def get_jwt_token_params(request):
 	"""
-	Определяет секретный ключ и алгоритм JWT для тестирования относительно токена.
+	Определяет секретный ключ и алгоритм JWT для тестирования токена.
 	"""
 	request.cls.jwt_secret_key = JWT_SECRET_KEY
 	request.cls.jwt_algorithm = JWT_SIGN_ALGORITHM

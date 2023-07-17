@@ -25,7 +25,7 @@ DB_PARAMS_TEST = {"user": os.environ.get("DB_USER_TEST"), "password": os.environ
 DATABASE_URL = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())
 DATABASE_URL_SYNC = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())  # for alembic and sync SA
 DATABASE_URL_TEST = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
-
+DATABASE_URL_SYNC_TEST = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
 
 API_DOCS_URL = "/api/v1/docs"
 API_REDOC_URL = "/api/v1/docs"
@@ -71,3 +71,7 @@ HTML_TEMPLATES_DIR = STATIC_FILES_DIR + "/templates"
 
 # FERNET SECRET KEY (WIFI DATA ENCRYPTING)
 FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")
+
+# SMTP SERVER
+SMTP_SERVER_TIMEOUT = 10
+

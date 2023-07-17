@@ -2,13 +2,15 @@ from email.message import EmailMessage
 
 import smtplib
 from loguru import logger
+from sqlalchemy.orm import Session
 
+import config
 from .schemas.schemas_users import User
 from .models.auth import RegistrationCode
 import services
 
 
-def send_verifying_email_code(registering_user: User):
+def send_verifying_email_code(registering_user: User, db: Session):
 	"""
 	Отправка email-кода верификации зарегистрированному пользователю.
 	Запись в БД информации об отправке (RegistrationCode.create_obj).
@@ -30,13 +32,15 @@ def send_verifying_email_code(registering_user: User):
 		subtype="html"
 	)
 
-	with smtplib.SMTP(host=services.SMTP_HOST, port=services.SMTP_PORT) as smtp_server:
+	with smtplib.SMTP(host=services.SMTP_HOST,
+					  port=services.SMTP_PORT,
+					  timeout=config.SMTP_SERVER_TIMEOUT) as smtp_server:
 		smtp_server.starttls()
 		smtp_server.login(user=services.SMTP_USER, password=services.SMTP_PASSWORD)
 		try:
 			smtp_server.send_message(msg=message)
 			RegistrationCode.create_obj(
-				email_message=message, verification_code=code, user=registering_user
+				email_message=message, verification_code=code, user=registering_user, db=db
 			)
 			logger.info(f"Registration code was successfully sended to user email "
 						f"{registering_user.email} from {services.SMTP_USER}.")

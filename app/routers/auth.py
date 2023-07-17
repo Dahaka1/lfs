@@ -5,10 +5,11 @@ from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, Backg
 from fastapi.responses import Response
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 import pytz
 
 from ..schemas import schemas_token, schemas_users, schemas_email_code
-from ..dependencies import get_async_session
+from ..dependencies import get_async_session,get_sync_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
 from ..models.users import User
@@ -30,8 +31,8 @@ async def login_for_access_token(
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
-	Метод проверяет логин и пароль (хэш) пользователя при авторизации.
-	Если они верны, то создает access_token (JWT token) и возвращает его.
+	Проверка логина и пароля (хэша) пользователя при авторизации.
+	Если они верны, то создается access_token (JWT token) и возвращается.
 	"""
 	user = await User.authenticate_user(
 		db=db, email=email, password=password
@@ -69,6 +70,9 @@ async def confirm_user_email(
 	if current_user.email_confirmed:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User email already confirmed")
 
+	if current_user.disabled:  # дублируется из dependencies.get_current_active_user, чтобы не делать новую dependency
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
+
 	current_db_code: RegistrationCodeInDB = await RegistrationCode.get_user_last_code(user=current_user, db=db)
 
 	if current_db_code is None:
@@ -96,7 +100,8 @@ async def confirm_user_email(
 async def request_confirmation_code(
 	current_user: Annotated[schemas_users.User, Depends(get_current_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	send_email_confirmation_code: BackgroundTasks
+	send_email_confirmation_code: BackgroundTasks,
+	sync_db: Annotated[Session, Depends(get_sync_session)]
 ):
 	"""
 	Используется, если код не дошел до пользователя/истек и т.д.
@@ -117,6 +122,6 @@ async def request_confirmation_code(
 			raise HTTPException(status_code=status.HTTP_425_TOO_EARLY,
 								detail="Active user confirmation code already exists")
 
-	send_email_confirmation_code.add_task(tasks.send_verifying_email_code, current_user)
+	send_email_confirmation_code.add_task(tasks.send_verifying_email_code, current_user, sync_db)
 
 	return Response(status_code=200)

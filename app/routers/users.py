@@ -4,10 +4,11 @@ from fastapi import APIRouter, Body, HTTPException, status, Depends, BackgroundT
 from fastapi_cache.decorator import cache
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from ..schemas import schemas_users
 from ..crud import crud_users
-from ..dependencies import get_async_session
+from ..dependencies import get_async_session, get_sync_session
 from ..dependencies.users import get_current_active_user, get_user_id
 from ..dependencies.roles import get_sysadmin_user
 from ..exceptions import PermissionsError
@@ -39,6 +40,7 @@ async def read_users(
 async def create_user(
 	user: Annotated[schemas_users.UserCreate, Body(embed=True, title="Параметры пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
+	sync_db: Annotated[Session, Depends(get_sync_session)],
 	send_verification_email_code: BackgroundTasks
 ):
 	"""
@@ -55,7 +57,7 @@ async def create_user(
 
 	created_user = await crud_users.create_user(user, db=db)
 
-	send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user)
+	send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user, sync_db)
 
 	return created_user
 

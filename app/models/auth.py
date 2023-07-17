@@ -9,10 +9,11 @@ from typing import Optional
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, \
 	func, Boolean, PrimaryKeyConstraint, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from loguru import logger
 
 import services, config
-from ..database import Base, SyncSession
+from ..database import Base
 from ..schemas.schemas_users import User
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash
@@ -36,7 +37,7 @@ class RegistrationCode(Base):
 		PrimaryKeyConstraint("user_id", "sended_at"),
 	)
 
-	user_id = Column(Integer, ForeignKey("users.id", onupdate="CASCADE", ondelete="CASCADE"),index=True )
+	user_id = Column(Integer, ForeignKey("users.id", onupdate="CASCADE", ondelete="CASCADE"), index=True)
 	sended_to = Column(String)
 	sended_from = Column(String)
 	hashed_code = Column(String)
@@ -47,7 +48,7 @@ class RegistrationCode(Base):
 
 	@staticmethod
 	def create_obj(
-		email_message: EmailMessage, verification_code: str, user: User,
+		email_message: EmailMessage, verification_code: str, user: User, db: Session,
 		expires_at=datetime.datetime.now() + datetime.timedelta(minutes=services.CODE_EXPIRING_IN_MINUTES)
 	) -> None:
 		"""
@@ -64,7 +65,6 @@ class RegistrationCode(Base):
 			expires_at=expires_at
 		)
 
-		db = SyncSession()
 		db.add(code)
 		db.commit()
 

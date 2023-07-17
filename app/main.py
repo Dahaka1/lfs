@@ -6,12 +6,13 @@ import config
 from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
-from .static import app_description
+from .static import app_description, tags_metadata
 
 
 app = FastAPI(
-	title="LFS server",
+	title="LFS company server",
 	openapi_url=config.OPENAPI_URL,
+	openapi_tags=tags_metadata,
 	docs_url=config.API_DOCS_URL,
 	redoc_url=config.API_REDOC_URL,
 	description=app_description(),

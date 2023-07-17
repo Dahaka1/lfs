@@ -36,7 +36,8 @@ async def read_users(
 	return await crud_users.get_users(db=db)
 
 
-@router.post("/", response_model=schemas_users.User, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas_users.User, status_code=status.HTTP_201_CREATED,
+			 tags=["authentication"])
 async def create_user(
 	user: Annotated[schemas_users.UserCreate, Body(embed=True, title="Параметры пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],

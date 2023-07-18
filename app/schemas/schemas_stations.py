@@ -293,7 +293,6 @@ class Station(StationGeneralParams):
 
 	По умолчанию (при создании) у станции нет программ, поэтому параметр опциональный.
 	"""
-	id: UUID4 = Field(title="Уникальный номер станции")
 	station_programs: Optional[list[StationProgram]] = Field(title="Программы станции",
 																						default_factory=list)
 	station_washing_machines: list[WashingMachine] = Field(title="Стиральные машины станции")

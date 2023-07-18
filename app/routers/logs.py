@@ -3,6 +3,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Body, Path, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 import pydantic
 from sqlalchemy import update
@@ -15,7 +17,7 @@ from ..dependencies import get_async_session
 from ..dependencies.users import get_current_active_user
 from ..dependencies.roles import get_installer_user
 from ..schemas import schemas_logs as logs, schemas_stations as stations, schemas_users as users
-from ..static.enums import RoleEnum as roles, LogTypeEnum, StationStatusEnum
+from ..static.enums import RoleEnum as roles, LogTypeEnum, StationStatusEnum, CreateLogByStationEnum
 from ..crud import crud_logs
 from ..exceptions import PermissionsError
 from ..utils.logs import parse_log_class
@@ -27,11 +29,11 @@ router = APIRouter(
 )
 
 
-@router.post("/{log_type}", response_description="Созданный лог")
-async def log_error(
+@router.post("/{log_type}", response_description="Созданный лог", status_code=status.HTTP_201_CREATED)
+async def add_station_log(
 	station: Annotated[stations.StationGeneralParams, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	log_type: Annotated[LogTypeEnum, Path(title="Тип логов")],
+	log_type: Annotated[CreateLogByStationEnum, Path(title="Тип логов")],
 	log: Annotated[logs.LogCreate, Body(title="Содержание лога")]
 ):
 	"""
@@ -41,13 +43,11 @@ async def log_error(
 
 	Доступно только для станции.
 	"""
-	if log_type in (LogTypeEnum.CHANGES, LogTypeEnum.MAINTENANCE):
-		raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 	log_types = {
-		LogTypeEnum.ERRORS: logs.ErrorLogCreate,
-		LogTypeEnum.PROGRAMS_USING: logs.StationProgramsLogCreate,
-		LogTypeEnum.WASHING_AGENTS_USING: logs.WashingAgentUsingLogCreate
+		CreateLogByStationEnum.ERRORS: logs.ErrorLogCreate,
+		CreateLogByStationEnum.PROGRAMS_USING: logs.StationProgramsLogCreate,
+		CreateLogByStationEnum.WASHING_AGENTS_USING: logs.WashingAgentUsingLogCreate
 	}
 
 	schema = log_types[log_type]
@@ -65,7 +65,7 @@ async def log_error(
 
 
 @router.get("/{log_type}/{station_id}", response_description="Логи выбранного типа")
-async def get_station_errors_log(
+async def get_station_logs(
 	current_user: Annotated[users.User, Depends(get_current_active_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
 	log_type: Annotated[LogTypeEnum, Path(title="Тип логов")],
@@ -99,25 +99,20 @@ async def get_station_errors_log(
 	return await crud_logs.get_station_logs(station, log_cls, db)
 
 
-@router.post("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", response_model=logs.StationMaintenanceLog,
-			 tags=["maintenance_logs"])
+@router.post("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"])
 async def station_maintenance_log(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
-	Начать/завершить обслуживание станции.
+	Начать обслуживание станции
 
 	Начать обслуживание можно только при статусе "Ожидание" (машина включена и не работает в данный момент).
 
 	Когда обслуживание начинается, статус станции сменяется на "MAINTENANCE".
 	Во время действия этого статуса никакие действия станции/со станцией невозможны.
 	Чтобы вернуть прежний статус, нужно завершить обслуживание.
-
-	РАБОТАЕТ ТАК:
-	- Первый запрос от пользователя - начало обслуживания;
-	- Второй запрос от пользователя - конец обслуживания.
 
 	Доступно для INSTALLER-пользователей и выше.
 	"""
@@ -133,7 +128,7 @@ async def station_maintenance_log(
 	existing_started_log = await crud_logs.get_last_maintenance_log(station_id, current_user.id, db)
 
 	if not existing_started_log:
-		log = logs.StationMaintenanceLog(
+		log = StationMaintenanceLog(
 			station_id=station.id,
 			user_id=current_user.id
 		)
@@ -148,8 +143,24 @@ async def station_maintenance_log(
 
 		logger.info(f"User {current_user.email} started the maintenance of station {station_id}")
 
-		return created_log
+		return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(created_log))
 	else:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Not ended station maintenance exists")
+
+
+@router.put("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"])
+async def station_maintenance_log(
+	current_user: Annotated[users.User, Depends(get_installer_user)],
+	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
+	db: Annotated[AsyncSession, Depends(get_async_session)]
+):
+	"""
+	Окончание обслуживания станции.
+	Чтобы закончить обслуживание, оно должно существовать =)
+	"""
+	existing_started_log = await crud_logs.get_last_maintenance_log(station_id, current_user.id, db)
+
+	if existing_started_log:
 		end_time = datetime.datetime.now()
 		await db.execute(
 			update(StationMaintenanceLog).where(
@@ -166,4 +177,7 @@ async def station_maintenance_log(
 		logger.info(f"User {current_user.email} ended the maintenance of station {station_id}")
 
 		existing_started_log.ended_at = end_time
-		return existing_started_log
+		return JSONResponse(status_code=status.HTTP_200_OK, content=jsonable_encoder(existing_started_log))
+	else:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Station maintenance not found")
+

@@ -10,10 +10,9 @@ from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user, get_installer_user
 from ..dependencies.stations import get_station_by_id, get_station_program_by_number
 from ..dependencies.users import get_current_active_user
-from ..static.enums import StationParamsEnum, QueryFromEnum
+from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingServicesEnum
 from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
-from ..static.enums import RoleEnum
 from ..exceptions import PermissionsError, CreatingError, DeletingError, ProgramsDefiningError
 
 
@@ -279,7 +278,7 @@ async def delete_station(
 async def create_station_washing_services(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
-	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+	dataset: Annotated[WashingServicesEnum, Path(title="Набор данных",
 											   description="Стиральные машины или стиральные средства")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	creating_params: Annotated[washing.WashingAgentCreateMixedInfo | washing.WashingMachineCreateMixedInfo,
@@ -294,14 +293,12 @@ async def create_station_washing_services(
 	"""
 	params_dict = creating_params.dict()
 	match dataset:
-		case StationParamsEnum.WASHING_MACHINES.value:
+		case WashingServicesEnum.WASHING_MACHINES.value:
 			schema = washing.WashingMachineCreateMixedInfo
 			object_number = params_dict.pop("machine_number")
-		case StationParamsEnum.WASHING_AGENTS.value:
+		case WashingServicesEnum.WASHING_AGENTS.value:
 			schema = washing.WashingAgentCreateMixedInfo
 			object_number = params_dict.pop("agent_number")
-		case _:
-			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 	if not isinstance(creating_params, schema):
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
@@ -320,7 +317,7 @@ async def create_station_washing_services(
 async def update_station_washing_services(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
-	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+	dataset: Annotated[WashingServicesEnum, Path(title="Набор данных",
 											   description="Стиральные машины или стиральные средства")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	updating_params: Annotated[washing.WashingMachineUpdate | washing.WashingAgentUpdate,
@@ -339,14 +336,12 @@ async def update_station_washing_services(
 	Доступно только для INSTALLER-пользователей и выше.
 	"""
 	match dataset:
-		case StationParamsEnum.WASHING_MACHINES:
+		case WashingServicesEnum.WASHING_MACHINES:
 			schema = washing.WashingMachineUpdate
 			cls = WashingMachine
-		case StationParamsEnum.WASHING_AGENTS:
+		case WashingServicesEnum.WASHING_AGENTS:
 			schema = washing.WashingAgentUpdate
 			cls = WashingAgent
-		case _:
-			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 	obj: washing.WashingAgent | washing.WashingMachine = await cls.get_obj_by_number(db, object_number, station.id)
 
@@ -365,7 +360,7 @@ async def update_station_washing_services(
 async def delete_station_washing_services(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
-	dataset: Annotated[StationParamsEnum, Path(title="Набор данных",
+	dataset: Annotated[WashingServicesEnum, Path(title="Набор данных",
 											   description="Стиральные машины или стиральные средства")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	object_number: Annotated[int, Path(title="Номер удаляемого объекта")]
@@ -377,12 +372,10 @@ async def delete_station_washing_services(
 	Доступно только для INSTALLER-пользователей и выше.
 	"""
 	match dataset:
-		case StationParamsEnum.WASHING_MACHINES:
+		case WashingServicesEnum.WASHING_MACHINES:
 			cls = WashingMachine
-		case StationParamsEnum.WASHING_AGENTS:
+		case WashingServicesEnum.WASHING_AGENTS:
 			cls = WashingAgent
-		case _:
-			raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 	obj: washing.WashingAgent | washing.WashingMachine = await cls.get_obj_by_number(db, object_number, station.id)
 

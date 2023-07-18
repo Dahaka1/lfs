@@ -88,15 +88,14 @@ async def create_station(
 
 	if not station.is_active and settings:
 		if any((settings.station_power is True, settings.teh_power is True)):
-			await crud_stations.delete_station(station, db)  # сделал так, ибо rollback почему-то не работает... в шоке
+			await db.rollback()
 			raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive station hasn't to be "
 																				"powered on (includes its TEH)")
 	if programs:
 		try:
 			station = await StationProgram.create_station_programs(station, programs, db)
 		except ProgramsDefiningError as e:  # ошибки при создании программ
-			# TODO решить с rollback'ом
-			await crud_stations.delete_station(station, db)  # сделал так, ибо rollback почему-то не работает... в шоке
+			await db.rollback()
 			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 	log_text = f"Station with UUID {station.id} was successfully created by " \
@@ -105,6 +104,7 @@ async def create_station(
 	await ChangesLog.log(
 		db=db, user=current_user, station=station, content=log_text
 	)
+	await db.commit()
 	return station
 
 

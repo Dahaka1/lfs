@@ -95,8 +95,8 @@ async def read_user(
 
 @router.put("/{user_id}", response_model=schemas_users.User)
 async def update_user(
-	user: Annotated[schemas_users.UserUpdate, Body(embed=True, title="Обновленные данные пользователя")],
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
+	user: Annotated[schemas_users.UserUpdate, Body(embed=True, title="Обновленные данные пользователя")],
 	user_id: Annotated[int, Depends(get_user_id)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):

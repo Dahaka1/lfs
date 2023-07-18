@@ -30,7 +30,7 @@ async def get_current_station(
 	"""
 	station = await Station.authenticate_station(db=db, station_id=x_station_uuid)
 	if not station:
-		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect station UUID")
+		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect station UUID")
 	if not station.is_active:
 		raise PermissionsError("Inactive station")
 	station_control = await StationControl.get_relation_data(station, db)

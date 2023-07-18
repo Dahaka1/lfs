@@ -17,7 +17,7 @@ from ..models.auth import RegistrationCode
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from .. import tasks
 from ..utils.general import create_jwt_token
-from ..static import responses
+from ..static import openapi
 
 router = APIRouter(
 	prefix="/auth",
@@ -25,7 +25,7 @@ router = APIRouter(
 )
 
 
-@router.post("/token", tags=["token"], response_model=schemas_token.Token, responses=responses.token_responses)
+@router.post("/token", tags=["token"], response_model=schemas_token.Token, responses=openapi.token_post_responses)
 async def login_for_access_token(
 	email: Annotated[str, Form(title="Email пользователя")],
 	password: Annotated[str, Form(title="Пароль пользователя")],
@@ -57,7 +57,8 @@ async def login_for_access_token(
 	"/confirm_email",
 	tags=["confirming_email"],
 	response_model=dict[str, schemas_users.User | schemas_email_code.RegistrationCode],
-	response_description="Пользователь с подтвержденным Email и измененная запись в registration_code"
+	response_description="Пользователь с подтвержденным Email и измененная запись в registration_code",
+	responses=openapi.confirm_email_post_responses
 )
 async def confirm_user_email(
 	current_user: Annotated[schemas_users.User, Depends(get_current_user)],
@@ -80,13 +81,13 @@ async def confirm_user_email(
 	current_db_code: RegistrationCodeInDB = await RegistrationCode.get_user_last_code(user=current_user, db=db)
 
 	if current_db_code is None:
-		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User code in DB not found")
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User code not found")
 	code_verifying = RegistrationCode.verify_code(code=code, hashed_code=current_db_code.hashed_code)
-	if not code_verifying:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid confirmation code")
 	if current_db_code.expires_at < datetime.datetime.now(tz=pytz.UTC):
 		# pytz.UTC -  конвертация текущего времени в UTC-формат
 		raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Confirmation code expired")
+	if not code_verifying:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid confirmation code")
 
 	confirmed_user, confirmed_code = await User.confirm_user_email(user=current_user, email_code=current_db_code, db=db)
 

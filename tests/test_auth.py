@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.schemas_token import Token
 from app.models.auth import RegistrationCode
 from tests.additional.users import change_user_data
+from tests.additional import auth
+from tests.additional.auth import url_auth_test
 import config
 
 
@@ -67,7 +69,6 @@ class TestAuth:
 		assert invalid_data_response.status_code == 401
 
 		await change_user_data(self, session, disabled=True)
-
 		disabled_user_response = await ac.post(
 			"/api/v1/auth/token",
 			data=correct_data
@@ -108,51 +109,48 @@ class TestRegistrationCode:
 			)
 		assert response.status_code == 425
 
+		await url_auth_test("/api/v1/auth/confirm_email",
+							"get", self,  ac, session)
+
 	async def test_confirmation_codes_user_disabled_or_confirmed_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Заблокированный пользователь;
 		- Уже подтвержденный пользователь.
 		"""
-		await change_user_data(self, session, disabled=True)
-		r_1 = await ac.post(
+		await url_auth_test("/api/v1/auth/confirm_email", 'post', self, ac, session, json={"code": "123456"})
+
+	async def test_confirm_email_post_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Код пользователя не найден;
+		- Неправильный введенный код;
+		- Срок действия кода истек.
+		"""
+		code_not_found_r = await ac.post(
+			"/api/v1/auth/confirm_email",
+			headers=self.headers,
+			json={"code": "123456"}
+		)
+		assert code_not_found_r.status_code == 400
+
+		await ac.get(
+			"/api/v1/auth/confirm_email",
+			headers=self.headers
+		)
+
+		invalid_code_r = await ac.post(
 			"/api/v1/auth/confirm_email",
 			headers=self.headers,
 			json={"code": "123456"}
 		)
 
-		r_2 = await ac.get(
-			"/api/v1/auth/confirm_email",
-			headers=self.headers
-		)
+		assert invalid_code_r.status_code == 403
 
-		assert r_1.status_code == 403 and r_2.status_code == 403
+		await auth.do_code_expired(self, session)
 
-		await change_user_data(self, session, disabled=False, email_confirmed=True)
-
-		r_1 = await ac.post(
+		expired_code_r = await ac.post(
 			"/api/v1/auth/confirm_email",
 			headers=self.headers,
 			json={"code": "123456"}
 		)
-		r_2 = await ac.get(
-			"/api/v1/auth/confirm_email",
-			headers=self.headers
-		)
 
-		assert r_1.status_code == 403 and r_2.status_code == 403
-
-	async def test_auth_without_bad_token_error(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- Некорректный токен от пользователя.
-		"""
-		self.headers["Authorization"] = self.headers.get("Authorization") + "qwerty"
-
-		r_1 = await ac.post(
-			"/api/v1/auth/confirm_email",
-			headers=self.headers
-		)
-		r_2 = await ac.get(
-			"/api/v1/auth/confirm_email",
-			headers=self.headers
-		)
-		assert r_1.status_code == 401 and r_2.status_code == 401
+		assert expired_code_r.status_code == 408

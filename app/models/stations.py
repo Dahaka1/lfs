@@ -356,7 +356,7 @@ class StationProgram(Base, StationMixin):
 
 			station.station_programs.append(program)
 
-		await db.commit()
+		await db.flush()
 		return station
 
 

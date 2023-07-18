@@ -89,7 +89,7 @@ async def create_station(db: AsyncSession,
 		station_settings=station_settings
 	)
 
-	await db.commit()
+	await db.flush()
 	return created_station_obj
 
 

@@ -34,9 +34,15 @@ async def get_station_logs(
 	"""
 	Получение логов станции.
 	"""
-	query = select(log_class).where(
-		log_class.station_id == station.id
-	).order_by(log_class.timestamp.desc())
+	match log_class:
+		case logs.StationMaintenanceLog:
+			query = select(log_class).where(
+				log_class.station_id == station.id
+			).order_by(log_class.started_at.desc())
+		case _:
+			query = select(log_class).where(
+				log_class.station_id == station.id
+			).order_by(log_class.timestamp.desc())
 
 	result = await db.execute(query)
 

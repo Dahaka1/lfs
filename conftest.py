@@ -5,32 +5,41 @@ TODO: и вообще как протестировать положительн
  пользователем - ведь сравниваются хэши кодов... думаю, в целом структура отправки кодов при регистрации
  не подходит для тестов - никак не "достать" даже объект письма.
 По вышеуказанным причинам проверяю только лишь создание записи в БД об отправленном коде.
+
+ВАЖНО: в конце каждого негативного теста не забывать вызывать функцию тестирования аутентификации по маршруту.
+ Она - в additional.auth. Есть функция для юзеров, есть - для станции.
+
+TODO: скорее всего, переписать генерацию тестовых данных/объектов, а то очень запутанно вышло (не в фикстурах,
+ а под капотом).
 """
 
 import dotenv
+from typing import AsyncGenerator
+import asyncio
 
 dotenv.load_dotenv()  # load env vars for safe importing
 
-import random
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY, DATABASE_URL_SYNC_TEST
 from sqlalchemy.pool import NullPool
+from sqlalchemy.orm import sessionmaker, Session
+import pytest
+from sqlalchemy import create_engine
+
 from app.database import Base
 from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
 from app.models.users import User
 from app.models.washing import WashingAgent, WashingMachine
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
 from app.models.auth import RegistrationCode
+from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY, DATABASE_URL_SYNC_TEST
 from app.dependencies import get_async_session, get_sync_session
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import create_engine
-import pytest
 from app.main import app
-from typing import AsyncGenerator
-import asyncio
 from app import fastapi_cache_init
-from tests.additional.users import create_authorized_user, generate_user_data, create_user
+from app.schemas.schemas_users import User
+from tests.additional.users import create_authorized_user, generate_user_data, create_user, create_multiple_users, \
+	UserData
+from tests.additional.stations import generate_station
 
 engine_test = create_async_engine(DATABASE_URL_TEST, poolclass=NullPool)
 async_session_maker = sessionmaker(engine_test, class_=AsyncSession, expire_on_commit=False)
@@ -126,9 +135,8 @@ async def generate_user_random_data(request):
 	"""
 	Генерирует новые данные пользователя.
 	"""
-	generated_data = generate_user_data(request)
-	for _ in generated_data.cls.__dict__:
-		setattr(generated_data.cls, _, generated_data.cls.__dict__.get(_))
+	for k, v in generate_user_data().items():
+		setattr(request.cls, k, v)
 
 
 @pytest.fixture(scope="class")
@@ -136,15 +144,12 @@ async def generate_user(request):
 	"""
 	Генерация зарегистрированного (неавторизованного) пользователя.
 	"""
-	generated_data = generate_user_data(request)
-
 	with SyncSession() as sync_session:
-		user_data = await create_user(generated_data, sync_session=sync_session)
+		user: dict[str, int | str | dict] = create_user(sync_session=sync_session)
 
-	for _ in user_data.dict():
-		setattr(request.cls, _, getattr(user_data, _))
+	for k, v in user.items():
+		setattr(request.cls, k, v)
 
-	request.cls.password = generated_data.cls.password
 	request.cls.token = None
 	request.cls.headers = None
 
@@ -157,13 +162,44 @@ async def generate_authorized_user(request):
 
 	В каждом тесте (функции) можно менять свободно данные, ибо scope='function'.
 	"""
-	generated_data = generate_user_data(request)
 
 	with SyncSession() as session:
 		async with AsyncClient(app=app, base_url="http://test") as ac:
-			authorized_user_data = await create_authorized_user(generated_data, ac, sync_session=session)
-	for k, v in authorized_user_data.items():
+			user, user_schema = await create_authorized_user(ac, sync_session=session)
+
+	for k, v in user.__dict__.items():
 		setattr(request.cls, k, v)
+
+	request.cls.user_schema = user_schema
+
+
+@pytest.fixture(scope="function")
+async def generate_users(request):
+	"""
+	Генерация подтвержденных и авторизованных пользователей со всеми ролями.
+	"""
+
+	with SyncSession() as session:
+		async with AsyncClient(app=app, base_url="http://test") as ac:
+			users = await create_multiple_users(ac, session)
+	sysadmin, manager, installer, laundry = users
+
+	request.cls.sysadmin = sysadmin
+	request.cls.manager = manager
+	request.cls.installer = installer
+	request.cls.laundry = laundry
+
+
+@pytest.fixture(scope="function")
+async def generate_default_station(request):
+	"""
+	Генерация станции с дефолтными параметрами (и парочкой программ для тестов).
+	"""
+	with SyncSession() as session:
+		async with AsyncClient(app=app, base_url="http://test") as ac:
+			station = await generate_station(ac, session)
+
+	request.cls.station = station
 
 
 @pytest.fixture

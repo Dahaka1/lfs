@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Optional
+from typing import Any
 import random
 from dataclasses import dataclass
 

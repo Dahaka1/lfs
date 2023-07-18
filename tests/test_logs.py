@@ -200,3 +200,7 @@ class TestLog:
 
 		assert non_existing_station_r.status_code == 404
 
+		await auth.url_auth_test(
+			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
+			"post", self.installer, ac, session
+		)

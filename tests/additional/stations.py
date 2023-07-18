@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update, insert
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 

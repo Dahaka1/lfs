@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
+from sqlalchemy import update, select
 from sqlalchemy.orm import Session
 from httpx import AsyncClient
 
@@ -57,7 +57,7 @@ def generate_user_data() -> dict[str, str]:
 	Дополняет объект запроса для тестов нужными данными пользователя.
 	"""
 	data = {
-		"email": f"autotest_{random.randrange(10_000)}@gmail.com",
+		"email": f"autotest_{random.randrange(10_000_000)}@gmail.com",
 		"password": str(random.randrange(10_000_000, 20_000_000)),
 		"first_name": random.choice(("Andrew", "Petr", "Ivan")),
 		"last_name": random.choice(("Petrov", "Sidorov", "Ivanov"))
@@ -65,7 +65,7 @@ def generate_user_data() -> dict[str, str]:
 	return data
 
 
-def create_user(sync_session: Session, role: RoleEnum | None = None) ->\
+def create_user(sync_session: Session, role: RoleEnum | None = None, **kwargs) ->\
 	dict[str, int | str | dict | RegionEnum | RoleEnum]:
 	"""
 	Создает пользователя напрямую в БД (чтобы избежать отправки
@@ -82,7 +82,8 @@ def create_user(sync_session: Session, role: RoleEnum | None = None) ->\
 		last_name=user_data.get("last_name"),
 		hashed_password=get_data_hash(user_data.get("password")),
 		region=RegionEnum.NORTHWEST,
-		role=role
+		role=role,
+		**kwargs
 	)
 
 	sync_session.add(user)
@@ -103,13 +104,11 @@ async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: R
 	Создает авторизованного юзера.
 	Без проверки на ошибки (это не тест, а побочная функция).
 	"""
-	user = create_user(sync_session=sync_session, role=role)
-	token = await get_user_token(user.get("email"), user.get("password"), ac)
+	params = dict(sync_session=sync_session, role=role)
 	if confirm_email:
-		sync_session.execute(
-			update(User).where(User.id == user.get("id")).values(email_confirmed=True)
-		)
-		sync_session.commit()
+		params["email_confirmed"] = True
+	user = create_user(**params)
+	token = await get_user_token(user.get("email"), user.get("password"), ac)
 
 	user.setdefault("token", token.access_token)
 	user.pop("last_action_at")
@@ -146,3 +145,15 @@ async def change_user_data(user: Any, session: AsyncSession, **kwargs) -> None:
 		await session.commit()
 	else:
 		raise ValueError
+
+
+async def get_user_by_id(id: int, session: AsyncSession) -> schemas_users.User:
+	"""
+	Поиск пользователя в БД.
+	"""
+	user = await session.execute(
+		select(User).where(User.id == id)
+	)
+	return schemas_users.User(
+		**sa_object_to_dict(user.scalar())
+	)

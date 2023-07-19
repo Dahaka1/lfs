@@ -13,7 +13,7 @@ from ..dependencies import get_async_session
 from ..dependencies.stations import get_current_station
 from ..crud import crud_stations
 from ..static.enums import StationParamsEnum, QueryFromEnum
-from ..exceptions import ProgramsDefiningError, GettingDataError, CreatingError
+from ..exceptions import GettingDataError, CreatingError
 
 router = APIRouter(
 	prefix="/stations",
@@ -37,19 +37,12 @@ async def read_all_stations(
 	return await crud_stations.read_all_stations(db=db)
 
 
-@router.post("/", response_model=schemas_stations.Station, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas_stations.Station, status_code=status.HTTP_201_CREATED,
+			 tags=["station_creating"])
 async def create_station(
 	current_user: Annotated[User, Depends(get_sysadmin_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	station: Annotated[schemas_stations.StationCreate, Body(embed=True, title="Основные параметры станции")],
-	settings: Annotated[schemas_stations.StationSettingsCreate | None, Body(embed=True, title="Настройки станции")] = \
-		schemas_stations.StationSettingsCreate(),
-	programs: Annotated[list[schemas_stations.StationProgramCreate],
-	Body(embed=True, title="Программы станции")] = None,
-	washing_agents: Annotated[list[schemas_washing.WashingAgentCreateMixedInfo],
-	Body(embed=True, title="Стиральные средства станции")] = None,
-	washing_machines: Annotated[list[schemas_washing.WashingMachineCreateMixedInfo],
-	Body(embed=True, title="Стиральные средства станции")] = None
+	station: Annotated[schemas_stations.StationCreate, Body(embed=True, title="Параметры станции и зависимостей")],
 ):
 	"""
 	Создание станции.
@@ -63,11 +56,12 @@ async def create_station(
 	Средства станции и стиральные машины - тоже опционально. Если не передавать их, будет созданы 
 	 их дефолтные объекты в количестве, установленном по умолчанию. Количество тоже можно изменить.
 	Можно передать ИЛИ количество объектов по умолчанию для автоматического создания, ИЛИ явный список объектов
-	 с определенными параметрами.
-	Количество средств и машин у станции должно быть не меньше минимального определенного в бизнес-параметрах проекта.
+	 с определенными параметрами (если указано и то, и другое - явные объекты будут использованы в приоритете).
+	Количество средств и машин у станции должно быть не меньше (и не больше)
+	 минимального определенного в бизнес-параметрах проекта.
 
 	При создании программ для программы можно передать уже созданные средства (просто передавая список номеров средств) 
-	 или переопределить их параметры.
+	 или переопределить их параметры (можно сочетать в списке средств программы и номера, и словари с параметрами).
 	Номер программы можно не указывать - по номеру этапа (шага) программы он определится автоматически.
 	
 	Статус станции по умолчанию - "AWAITING", если станция включена (station_power=true).
@@ -79,33 +73,21 @@ async def create_station(
 	Доступно только для SYSADMIN-пользователей.
 	"""
 	try:
-		station = await crud_stations.create_station(
-			db=db, station=station, settings=settings, washing_agents=washing_agents,
-			washing_machines=washing_machines
+		created_station = await crud_stations.create_station(
+			db=db, station=station, settings=station.settings, washing_agents=station.washing_agents,
+			washing_machines=station.washing_machines, programs=station.programs
 		)
 	except CreatingError as e:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
-	if not station.is_active and settings:
-		if any((settings.station_power is True, settings.teh_power is True)):
-			await db.rollback()
-			raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive station hasn't to be "
-																				"powered on (includes its TEH)")
-	if programs:
-		try:
-			station = await StationProgram.create_station_programs(station, programs, db)
-		except ProgramsDefiningError as e:  # ошибки при создании программ
-			await db.rollback()
-			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-	log_text = f"Station with UUID {station.id} was successfully created by " \
+	log_text = f"Station with UUID {created_station.id} was successfully created by " \
 			   f"user {current_user.email} ({current_user.first_name} {current_user.last_name})"
 
 	await ChangesLog.log(
-		db=db, user=current_user, station=station, content=log_text
+		db=db, user=current_user, station=created_station, content=log_text
 	)
 	await db.commit()
-	return station
+	return created_station
 
 
 @router.get("/me/{dataset}", response_model=schemas_stations.StationPartial)

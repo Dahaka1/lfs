@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update
+from sqlalchemy import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 
@@ -13,8 +13,10 @@ import services
 from app.static.enums import RoleEnum, RegionEnum
 from app.schemas import schemas_stations, schemas_washing
 from .users import create_authorized_user, UserData
-from app.models.stations import StationControl, Station
+from app.models.stations import StationControl, Station, StationSettings, StationProgram
+from app.models.washing import WashingAgent, WashingMachine
 from app.models import logs
+from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
 
 
 @dataclass
@@ -144,3 +146,37 @@ def generate_station_programs() -> list[dict[str, Any]]:
 		programs.append(program)
 		program_step += 1
 	return [pg.dict() for pg in programs]
+
+
+async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> schemas_stations.Station:
+	"""
+	Собрать данные по станции в БД.
+	"""
+	async def get_station_relation(cls: Any, many: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
+		if not many:
+			try:
+				searched_id = cls.station_id
+			except AttributeError:
+				searched_id = cls.id
+			return sa_object_to_dict((await session.execute(
+				select(cls).where(searched_id == station_id)
+			)).scalar())
+		return sa_objects_dicts_list((await session.execute(
+				select(cls).where(cls.station_id == station_id)
+			)).scalars().all())
+
+	station_general = await get_station_relation(Station)
+	station_washing_machines = await get_station_relation(WashingMachine, many=True)
+	station_washing_agents = await get_station_relation(WashingAgent, many=True)
+	station_settings = await get_station_relation(StationSettings)
+	station_control = await get_station_relation(StationControl)
+	station_programs = await get_station_relation(StationProgram, many=True)
+
+	return schemas_stations.Station(
+		**station_general,
+		station_programs=station_programs,
+		station_washing_agents=station_washing_agents,
+		station_washing_machines=station_washing_machines,
+		station_settings=station_settings,
+		station_control=station_control
+	)

@@ -10,7 +10,7 @@ import pydantic
 from sqlalchemy import update
 from loguru import logger
 
-from ..dependencies.stations import get_current_station, get_station_by_id
+from ..dependencies.stations import get_current_station
 from ..models.stations import Station, StationControl
 from ..models.logs import StationMaintenanceLog
 from ..dependencies import get_async_session
@@ -21,6 +21,7 @@ from ..static.enums import RoleEnum as roles, LogTypeEnum, StationStatusEnum, Cr
 from ..crud import crud_logs
 from ..exceptions import PermissionsError
 from ..utils.logs import parse_log_class
+from ..static import openapi
 
 
 router = APIRouter(
@@ -29,7 +30,7 @@ router = APIRouter(
 )
 
 
-@router.post("/{log_type}", response_description="Созданный лог", status_code=status.HTTP_201_CREATED)
+@router.post("/{log_type}", status_code=status.HTTP_201_CREATED, responses=openapi.add_station_log_post_responses)
 async def add_station_log(
 	station: Annotated[stations.StationGeneralParams, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
@@ -64,10 +65,10 @@ async def add_station_log(
 	)
 
 
-@router.get("/{log_type}/{station_id}", response_description="Логи выбранного типа")
+@router.get("/{log_type}/{station_id}", responses=openapi.get_station_logs_get)
 async def get_station_logs(
 	current_user: Annotated[users.User, Depends(get_current_active_user)],
-	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
+	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
 	log_type: Annotated[LogTypeEnum, Path(title="Тип логов")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
@@ -83,6 +84,11 @@ async def get_station_logs(
 	- Выполнение программ: LAUNDRY и выше;
 	- Обслуживание: MANAGER и выше.
 	"""
+	station = await Station.authenticate_station(db=db, station_id=station_id)  # здесь дополнительно ищу станцию,
+	# ибо ее логи должно быть можно просматривать в режиме обслуживания
+	if not station:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
+
 	logs_getting_roles = {
 		LogTypeEnum.ERRORS: (roles.INSTALLER, roles.MANAGER, roles.SYSADMIN),
 		LogTypeEnum.WASHING_AGENTS_USING: (roles.INSTALLER, roles.MANAGER, roles.SYSADMIN),
@@ -99,7 +105,8 @@ async def get_station_logs(
 	return await crud_logs.get_station_logs(station, log_cls, db)
 
 
-@router.post("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"])
+@router.post("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"],
+			 responses=openapi.station_maintenance_log_post)
 async def station_maintenance_log(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
@@ -148,7 +155,8 @@ async def station_maintenance_log(
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Not ended station maintenance exists")
 
 
-@router.put("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"])
+@router.put("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"],
+			responses=openapi.station_maintenance_log_put)
 async def station_maintenance_log(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
@@ -157,8 +165,14 @@ async def station_maintenance_log(
 	"""
 	Окончание обслуживания станции.
 	Чтобы закончить обслуживание, оно должно существовать =)
+
+	Доступно для INSTALLER-пользователей и выше.
 	"""
 	existing_started_log = await crud_logs.get_last_maintenance_log(station_id, current_user.id, db)
+
+	station = await Station.get_station_by_id(db=db, station_id=station_id)
+	if not station:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
 
 	if existing_started_log:
 		end_time = datetime.datetime.now()

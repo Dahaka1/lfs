@@ -65,14 +65,14 @@ async def update_user(user: schemas_users.UserUpdate, user_id: int, action_by: s
 						pass  # только сам пользователь может изменить пароль, стафф не может
 					else:
 						hashed_password = get_data_hash(val)
-						user_in_db[key] = hashed_password
+						user_in_db["hashed_password"] = hashed_password
 				case "role":
-					if action_by.role != RoleEnum.SYSADMIN.value:
+					if action_by.role != RoleEnum.SYSADMIN:
 						pass  # изменить роль пользователя может только SYSADMIN
 					else:
 						user_in_db[key] = val
 				case "disabled":
-					if action_by.role != RoleEnum.SYSADMIN.value:
+					if action_by.role != RoleEnum.SYSADMIN:
 						pass  # изменить блокировку пользователя может только SYSADMIN
 					else:
 						user_in_db[key] = val

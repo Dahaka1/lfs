@@ -14,8 +14,7 @@ from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations, schemas_users, schemas_washing
 from ..utils.general import sa_objects_dicts_list, encrypt_data
 import config
-from ..static.enums import StationStatusEnum
-from ..static.enums import StationParamsEnum, QueryFromEnum
+from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
 from ..exceptions import UpdatingError
 
 
@@ -37,9 +36,10 @@ async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGe
 
 async def create_station(db: AsyncSession,
 						 station: schemas_stations.StationCreate,
-						 settings: schemas_stations.StationSettingsCreate,
-						 washing_agents: list[schemas_washing.WashingAgentCreateMixedInfo],
-						 washing_machines: list[schemas_washing.WashingMachineCreateMixedInfo]) -> schemas_stations.Station:
+						 settings: schemas_stations.StationSettingsCreate | None,
+						 washing_agents: list[schemas_washing.WashingAgentCreateMixedInfo] | None,
+						 washing_machines: list[schemas_washing.WashingMachineCreateMixedInfo] | None,
+						 programs: list[schemas_stations.StationProgramCreate] | None) -> schemas_stations.Station:
 	"""
 	Создает станцию в БД с определенными или дефолтными параметрами.
 	"""
@@ -56,15 +56,23 @@ async def create_station(db: AsyncSession,
 		hashed_wifi_data=hashed_wifi_data,
 		region=station.region
 	)
-	if not station.is_active:  # по умолчанию станция активна (в настройках)
-		settings.teh_power = False  # по умолчанию ТЭН включен (в настройках)
+
+	if settings is None:
+		settings = schemas_stations.StationSettingsCreate()
+
+	if not station.is_active:
+		settings.teh_power = False
+		settings.station_power = False
+	else:
+		settings.teh_power = True
+		settings.station_power = True
 
 	station_settings = await StationSettings.create(
 		db=db,
 		station_id=station_id,
 		station_power=settings.station_power,
 		teh_power=settings.teh_power
-	) if settings else await StationSettings.create(db=db, station_id=station_id)
+	)
 
 	station_control_params = {"station_id": station_id}
 	if settings.station_power is False:
@@ -88,6 +96,9 @@ async def create_station(db: AsyncSession,
 		station_control=station_control,
 		station_settings=station_settings
 	)
+
+	if programs:
+		created_station_obj = await StationProgram.create_station_programs(created_station_obj, station.programs, db)
 
 	await db.flush()
 	return created_station_obj

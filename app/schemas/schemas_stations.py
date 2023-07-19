@@ -7,33 +7,7 @@ import services
 from ..static.enums import StationStatusEnum, RegionEnum
 from . import validators
 from .schemas_washing import WashingAgent, WashingMachine, WashingMachineUpdate, WashingAgentUpdate, \
-	WashingAgentWithoutRollback
-
-
-class StationCreate(BaseModel):
-	"""
-	Создание станции.
-	"""
-	is_active: Optional[bool] = Field(title="Активна/неактивна", default=services.DEFAULT_STATION_IS_ACTIVE)
-	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
-	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
-	wifi_password: str = Field(min_length=1, title="Пароль для точки доступа WiFi")
-	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции",
-												   ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
-												   le=services.MAX_STATION_WASHING_MACHINES_AMOUNT,
-												   default=services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT)
-	washing_agents_amount: Optional[int] = Field(title="Количество стиральных средств у станции",
-												 ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
-												 le=services.MAX_STATION_WASHING_AGENTS_AMOUNT,
-												 default=services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT)
-	address: str = Field(max_length=200, title="Физический адрес местоположения станции",
-						 example="Санкт-Петербург, ул. Дыбенко, 26")
-	region: RegionEnum = Field(title="Регион станции")
-
-	@validator("address")
-	def validate_address(cls, address):
-		validators.validate_address(address)
-		return address
+	WashingAgentWithoutRollback, WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
 
 
 class StationServicesUpdate(BaseModel):
@@ -303,6 +277,83 @@ class Station(StationGeneralParams):
 
 class StationForStation(Station, StationGeneralParamsForStation):
 	pass
+
+
+class StationCreate(BaseModel):
+	"""
+	Создание станции.
+	"""
+	is_active: Optional[bool] = Field(title="Активна/неактивна", default=services.DEFAULT_STATION_IS_ACTIVE)
+	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
+	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
+	wifi_password: str = Field(min_length=1, title="Пароль для точки доступа WiFi")
+	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции",
+												   ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
+												   le=services.MAX_STATION_WASHING_MACHINES_AMOUNT,
+												   default=services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT)
+	washing_agents_amount: Optional[int] = Field(title="Количество стиральных средств у станции",
+												 ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
+												 le=services.MAX_STATION_WASHING_AGENTS_AMOUNT,
+												 default=services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT)
+	address: str = Field(max_length=200, title="Физический адрес местоположения станции",
+						 example="Санкт-Петербург, ул. Дыбенко, 26")
+	region: RegionEnum = Field(title="Регион станции")
+
+	settings: Optional[StationSettingsCreate] = Field(title="Настройки станции", default=None)
+	programs: Optional[list[StationProgramCreate]] = Field(title="Программы станции", default=None)
+	washing_agents: Optional[list[WashingAgentCreateMixedInfo]] = Field(title="Стиральные средства станции",
+																		default=None)
+	washing_machines: Optional[list[WashingMachineCreateMixedInfo]] = Field(title="Стиральные машины станции",
+																			default=None)
+
+	@validator("address")
+	def validate_address(cls, address):
+		validators.validate_address(address)
+		return address
+
+	@root_validator()
+	def validate_params(cls, values):
+		washing_agents, washing_machines = values.get("washing_agents"), values.get("washing_machines")
+
+		services_objects_amount = {
+			"washing_agents": range(services.MIN_STATION_WASHING_AGENTS_AMOUNT,
+									services.MAX_STATION_WASHING_AGENTS_AMOUNT + 1),
+			"washing_machines": range(services.MIN_STATION_WASHING_MACHINES_AMOUNT,
+									  services.MAX_STATION_WASHING_MACHINES_AMOUNT + 1)
+		}
+		if washing_agents:
+			objects_amount_range = services_objects_amount["washing_agents"]
+			if len(washing_agents) not in objects_amount_range:
+				raise ValueError(f"Ensure that washing agents amount in {objects_amount_range}")
+			for agent in washing_agents:
+				if [ag.agent_number for ag in washing_agents].count(agent.agent_number) > 1:
+					raise ValueError("Got an duplicated washing agent numbers")
+
+		if washing_machines:
+			objects_amount_range = services_objects_amount["washing_machines"]
+			if len(washing_machines) not in objects_amount_range:
+				raise ValueError(f"Ensure that washing machines amount in {objects_amount_range}")
+			for machine in washing_machines:
+				if [m.machine_number for m in washing_machines].count(machine.machine_number) > 1:
+					raise ValueError("Got an duplicated washing machines numbers")
+
+		# __________________________________________________________________________________
+
+		is_active, settings = values.get("is_active"), values.get("settings")
+		if is_active is False and settings:
+			station_power, teh_power = settings.get("station_power"), settings.get("teh_power")
+			if station_power is True or teh_power is True:
+				raise ValueError("Inactive station hasn't to be powered on (or its TEH)")
+
+		# __________________________________________________________________________________
+
+		programs = values.get("programs")
+		if programs:
+			for program in programs:
+				if [pg.program_step for pg in programs].count(program.program_step) > 1:
+					raise ValueError("Got an program step number duplicate")
+
+		return values
 
 
 class StationPartial(BaseModel):

@@ -13,7 +13,7 @@ from ..dependencies.users import get_current_active_user
 from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingServicesEnum
 from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
-from ..exceptions import PermissionsError, CreatingError, DeletingError, ProgramsDefiningError
+from ..exceptions import PermissionsError, CreatingError, DeletingError
 
 
 router = APIRouter(
@@ -195,7 +195,7 @@ async def create_station_program(
 		station_with_created_programs = await StationProgram.create_station_programs(
 			station_full_data, programs, db
 		)
-	except ProgramsDefiningError as e:
+	except CreatingError as e:
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 	return [program for program in station_with_created_programs.station_programs
 			if program not in station_current_programs]

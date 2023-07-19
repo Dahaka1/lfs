@@ -98,7 +98,7 @@ class StationMaintenanceLog(BaseModel):
 	station_id: uuid.UUID = Field(title="ИД станции, которая обслуживалась")
 	user_id: int = Field(title="ИД юзера, совершившего обслуживание")
 	started_at: datetime.datetime = Field(title="Начало обслуживания")
-	ended_at: Optional[datetime.datetime ] = Field(title="Конец обслуживания")
+	ended_at: Optional[datetime.datetime] = Field(title="Конец обслуживания")
 
 
 class LogCreate(BaseModel):

@@ -54,7 +54,7 @@ class User(Base):
 		"""
 		Проверяет права пользователя на действие над ПОЛЬЗОВАТЕЛЕМ (put/delete методы и т.д.).
 		"""
-		if action_by_user.role != RoleEnum.SYSADMIN.value and action_by_user.id != user_id:
+		if action_by_user.role != RoleEnum.SYSADMIN and action_by_user.id != user_id:
 			return False
 		return True
 

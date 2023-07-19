@@ -29,14 +29,6 @@ class PermissionsError(HTTPException):
 		super().__init__(detail=detail, status_code=status_code, headers=headers)
 
 
-class ProgramsDefiningError(Exception):
-	"""
-	Ошибка при создании программ станции (при создании самой станции).
-	"""
-	def __init__(self, message="Station programs defining error"):
-		super().__init__(message)
-
-
 class GettingDataError(Exception):
 	"""
 	Ошибка при получении данных по станции (отсутствуют данные).

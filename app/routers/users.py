@@ -14,6 +14,7 @@ from ..dependencies.roles import get_sysadmin_user
 from ..exceptions import PermissionsError
 from ..models.users import User
 from .. import tasks
+from ..static import openapi
 from .config import CACHE_EXPIRING_DEFAULT
 
 
@@ -23,7 +24,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[schemas_users.User])
+@router.get("/", responses=openapi.read_users_get)
 @cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_users(
 	current_user: Annotated[schemas_users.User, Depends(get_sysadmin_user)],
@@ -36,8 +37,7 @@ async def read_users(
 	return await crud_users.get_users(db=db)
 
 
-@router.post("/", response_model=schemas_users.User, status_code=status.HTTP_201_CREATED,
-			 tags=["authentication"])
+@router.post("/", responses=openapi.create_user_post, status_code=status.HTTP_201_CREATED)
 async def create_user(
 	user: Annotated[schemas_users.UserCreate, Body(embed=True, title="Параметры пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
@@ -63,7 +63,7 @@ async def create_user(
 	return created_user
 
 
-@router.get("/me", response_model=schemas_users.User)
+@router.get("/me", responses=openapi.read_users_me_get)
 @cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_users_me(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)]
@@ -74,7 +74,7 @@ async def read_users_me(
 	return current_user
 
 
-@router.get("/{user_id}", response_model=schemas_users.User)
+@router.get("/{user_id}", responses=openapi.read_user_get)
 @cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_user(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
@@ -93,7 +93,7 @@ async def read_user(
 	return await crud_users.get_user(user_id=user_id, db=db)
 
 
-@router.put("/{user_id}", response_model=schemas_users.User)
+@router.put("/{user_id}", responses=openapi.update_user_put)
 async def update_user(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
 	user: Annotated[schemas_users.UserUpdate, Body(embed=True, title="Обновленные данные пользователя")],
@@ -119,12 +119,12 @@ async def update_user(
 		return current_user
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", responses=openapi.delete_user_delete)
 async def delete_user(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)],
 	user_id: Annotated[int, Depends(get_user_id)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
-) -> dict[str, int]:
+):
 	"""
 	Удаление пользователя.
 	Удалить могут только:

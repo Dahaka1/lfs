@@ -14,7 +14,7 @@ from ..static.enums import StationStatusEnum, RegionEnum
 from ..schemas import schemas_stations, schemas_washing
 from .washing import WashingAgent, WashingMachine, WashingMixin
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
-from ..exceptions import ProgramsDefiningError, GettingDataError, UpdatingError, CreatingError
+from ..exceptions import GettingDataError, UpdatingError, CreatingError
 from ..static.typing import StationParamsSet
 
 
@@ -98,20 +98,6 @@ class Station(Base):
 
 		При явном определении объектов - создание их.
 		"""
-		if washing_agents and any(washing_agents):
-			if len(washing_agents) < services.MIN_STATION_WASHING_AGENTS_AMOUNT:
-				raise CreatingError(
-					f"Min station washing agents amount is {services.MIN_STATION_WASHING_AGENTS_AMOUNT},"
-					f"but got {len(washing_agents)}.")
-		if washing_machines and any(washing_machines):
-			if len(washing_machines) < services.MIN_STATION_WASHING_MACHINES_AMOUNT:
-				raise CreatingError(
-					f"Min station washing machines amount is {services.MIN_STATION_WASHING_AGENTS_AMOUNT},"
-					f"but got {len(washing_agents)}.")
-
-		if washing_machines and washing_machines_amount or washing_agents and washing_agents_amount:
-			raise CreatingError("Station washing services defining error: "
-								"expects for only services amount OR only services objects list")
 
 		inserted_washing_machines = []
 		inserted_washing_agents = []
@@ -125,10 +111,11 @@ class Station(Base):
 				"WashingAgentCreateMixedInfo": WashingAgent
 			}
 			model: WashingMixin = models[obj.__class__.__name__]
-			numeric_field = model.NUMERIC_FIELDS[model.__class__.__name__]
+			numeric_field = model.NUMERIC_FIELDS[model.__name__]
 			obj_number = obj_data.pop(numeric_field)
 			created_object = await model.create_object(db=db, station_id=station_id,
-													   object_number=obj_number, **obj_data)
+													   object_number=obj_number, **obj_data,
+													   defaults=True)
 			return created_object
 
 		if washing_machines is None:
@@ -338,7 +325,7 @@ class StationProgram(Base, StationMixin):
 				washing_agent_number = washing_agent if isinstance(washing_agent, int) else washing_agent.agent_number
 
 				if washing_agent_number not in (ag.agent_number for ag in station.station_washing_agents):
-					raise ProgramsDefiningError(f"{washing_agent_number} "
+					raise CreatingError(f"{washing_agent_number} "
 												f"washing agent not defined in station washing agents")
 
 				if isinstance(washing_agent, int):  # случай, если передан номер средства, а не объект

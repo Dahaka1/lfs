@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 import pytz
 
-from ..schemas import schemas_token, schemas_users, schemas_email_code
+from ..schemas import schemas_users
 from ..dependencies import get_async_session,get_sync_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
@@ -25,7 +25,7 @@ router = APIRouter(
 )
 
 
-@router.post("/token", tags=["token"], response_model=schemas_token.Token, responses=openapi.token_post_responses)
+@router.post("/token", tags=["token"], responses=openapi.token_post_responses)
 async def login_for_access_token(
 	email: Annotated[str, Form(title="Email пользователя")],
 	password: Annotated[str, Form(title="Пароль пользователя")],
@@ -56,8 +56,6 @@ async def login_for_access_token(
 @router.post(
 	"/confirm_email",
 	tags=["confirming_email"],
-	response_model=dict[str, schemas_users.User | schemas_email_code.RegistrationCode],
-	response_description="Пользователь с подтвержденным Email и измененная запись в registration_code",
 	responses=openapi.confirm_email_post_responses
 )
 async def confirm_user_email(
@@ -81,7 +79,7 @@ async def confirm_user_email(
 	current_db_code: RegistrationCodeInDB = await RegistrationCode.get_user_last_code(user=current_user, db=db)
 
 	if current_db_code is None:
-		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User code not found")
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User code not found")
 	code_verifying = RegistrationCode.verify_code(code=code, hashed_code=current_db_code.hashed_code)
 	if current_db_code.expires_at < datetime.datetime.now(tz=pytz.UTC):
 		# pytz.UTC -  конвертация текущего времени в UTC-формат
@@ -131,4 +129,4 @@ async def request_confirmation_code(
 
 	send_email_confirmation_code.add_task(tasks.send_verifying_email_code, current_user, sync_db)
 
-	return Response(status_code=200)
+	return Response(status_code=status.HTTP_200_OK)

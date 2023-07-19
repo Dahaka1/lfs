@@ -17,6 +17,8 @@ class WashingMixin:
 		"WashingMachine": "machine_number",
 		"WashingAgent": "agent_number"
 	}
+	FIELDS: list[str]
+
 	station_id: uuid.UUID
 
 	@classmethod
@@ -42,7 +44,7 @@ class WashingMixin:
 		if not defaults:
 			current_objects = await cls.get_station_objects(station_id, db)
 			if object_number in map(lambda obj: getattr(obj, cls.NUMERIC_FIELDS[cls.__name__]), current_objects):
-				raise  CreatingError("Got an existing object number")
+				raise CreatingError("Got an existing object number")
 
 		numeric_field = cls.NUMERIC_FIELDS.get(cls.__name__)
 		kwargs.setdefault(numeric_field, object_number)

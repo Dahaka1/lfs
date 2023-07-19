@@ -7,15 +7,11 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from app.schemas.schemas_token import Token
-from app.models.auth import RegistrationCode
 from app.schemas import schemas_logs
 from app.models.stations import StationControl
 from app.models.logs import StationMaintenanceLog
-from tests.additional.users import change_user_data
 from tests.additional import auth
 from tests.additional.stations import create_random_station_logs, change_station_params
-import config
 from app.static.enums import CreateLogByStationEnum, LogTypeEnum, StationStatusEnum
 from app.utils.general import sa_object_to_dict
 
@@ -97,8 +93,8 @@ class TestLog:
 	async def test_get_station_logs_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Пользователь не может получить логи, запрещенные к просмотру для его роли;
-		- auto auth test;
-		- station get by id auto test.
+		- Станция должна существовать;
+		- auto auth test.
 		"""
 		await create_random_station_logs(self.station, self.installer, session)
 
@@ -117,14 +113,15 @@ class TestLog:
 			)
 			assert forbidden_installer_r.status_code == 403
 
+		non_existing_station_r = await ac.get(
+			"/api/v1/logs/" + LogTypeEnum.ERRORS.value + f"/{uuid.uuid4()}",
+			headers=self.sysadmin.headers
+		)
+		assert non_existing_station_r.status_code == 404
+
 		await auth.url_auth_test(
 			"/api/v1/logs/" + LogTypeEnum.CHANGES.value + f"/{self.station.id}",
 			"get", self.sysadmin, ac, session
-		)
-
-		await auth.url_get_station_by_id_test(
-			"/api/v1/logs/" + LogTypeEnum.CHANGES.value + "/{station_id}",
-			"get", self.sysadmin, self.station, session, ac
 		)
 
 	async def test_station_maintenance_log(self, ac: AsyncClient, session: AsyncSession):
@@ -138,9 +135,11 @@ class TestLog:
 			headers=self.installer.headers
 		)
 		station_control = await StationControl.get_relation_data(self.station.id, session)
-		inserted_log = await session.execute(
-			select(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
-		)
+
+		if isinstance(self.station.id, str):  # чтобы не ругался линтер
+			inserted_log = await session.execute(
+				select(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
+			)
 		inserted_log_schema = schemas_logs.StationMaintenanceLog(
 			**sa_object_to_dict(
 				inserted_log.scalar()
@@ -169,7 +168,8 @@ class TestLog:
 		"""
 		- Не должно быть уже начатого обслуживания.;
 		- Станция должна существовать (здесь автотест не сработает, статус-код 409, а не 404);
-		- Должен быть статус "ожидание" для начала обслуживания (не должна работать).
+		- Должен быть статус "ожидание" для начала обслуживания (не должна работать);
+		- user auth auto test.
 		"""
 		for _ in range(2):
 			existing_maintenance_r = await ac.post(
@@ -177,9 +177,10 @@ class TestLog:
 				headers=self.installer.headers
 			)
 		assert existing_maintenance_r.status_code == 409
-		await session.execute(
-			delete(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
-		)
+		if isinstance(self.station.id, uuid.UUID):  # чтоб не ругался линтер
+			await session.execute(
+				delete(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
+			)
 		await session.commit()
 		rand_washing_machine = random.choice(self.station.station_washing_machines)
 		rand_washing_agent = random.choice(self.station.station_washing_agents)
@@ -203,4 +204,28 @@ class TestLog:
 		await auth.url_auth_test(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
 			"post", self.installer, ac, session
+		)
+
+	async def test_station_maintenance_log_put_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Завершить можно лог, если начатый существует;
+		- user auth auto test;
+		- Станция должна существовать.
+		"""
+		non_existing_maintenance_r = await ac.put(
+			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
+			headers=self.installer.headers
+		)
+		assert non_existing_maintenance_r.status_code == 409
+
+		non_existing_station = await ac.put(
+			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{uuid.uuid4()}',
+			headers=self.installer.headers
+		)
+
+		assert non_existing_station.status_code == 404
+
+		await auth.url_auth_test(
+			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
+			"put", self.installer, ac, session
 		)

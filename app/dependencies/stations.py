@@ -9,7 +9,7 @@ from . import get_async_session
 from ..models.stations import Station, StationProgram, StationControl
 from ..schemas.schemas_stations import StationGeneralParams, StationGeneralParamsForStation
 from ..schemas import schemas_stations
-from ..exceptions import PermissionsError
+from ..exceptions import PermissionsError, GettingDataError
 from ..utils.general import decrypt_data
 from ..utils.general import sa_object_to_dict
 from ..static.enums import StationStatusEnum
@@ -33,7 +33,10 @@ async def get_current_station(
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect station UUID")
 	if not station.is_active:
 		raise PermissionsError("Inactive station")
-	station_control = await StationControl.get_relation_data(station, db)
+	try:
+		station_control = await StationControl.get_relation_data(station, db)
+	except GettingDataError as e:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 	if station_control.status == StationStatusEnum.MAINTENANCE:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
 
@@ -58,7 +61,10 @@ async def get_station_by_id(
 	station = await Station.get_station_by_id(db=db, station_id=station_id)
 	if not station:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
-	station_control = await StationControl.get_relation_data(station, db)
+	try:
+		station_control = await StationControl.get_relation_data(station, db)
+	except GettingDataError as e:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 	if station_control.status == StationStatusEnum.MAINTENANCE:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
 	return station

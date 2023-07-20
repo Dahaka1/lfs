@@ -1,6 +1,7 @@
 import datetime
 import uuid
 
+import pydantic
 from geopy.location import Location
 from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
@@ -15,7 +16,7 @@ from ..schemas import schemas_stations, schemas_users, schemas_washing
 from ..utils.general import sa_objects_dicts_list, encrypt_data
 import config
 from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
-from ..exceptions import UpdatingError
+from ..exceptions import UpdatingError, GettingDataError
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
@@ -28,7 +29,10 @@ async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGe
 
 	result = []
 	for station in stations:
-		station_obj = schemas_stations.StationGeneralParams(**station)
+		try:
+			station_obj = schemas_stations.StationGeneralParams(**station)
+		except pydantic.ValidationError:
+			raise GettingDataError(f"Invalid station {station['id']} data")
 		result.append(station_obj)
 
 	return result
@@ -269,7 +273,7 @@ async def update_station_control(
 
 	if (updated_params.program_step is not None or any(updated_params.washing_agents)) \
 		and not updated_params.washing_machine:
-		raise  UpdatingError("Can't define station washing machine, but program step or washing agents was received")
+		raise UpdatingError("Can't define station washing machine, but program step or washing agents was received")
 
 	if any(updated_params.washing_agents):
 		station_washing_agents: list[WashingAgent] = await WashingAgent.get_station_objects(station.id, db)
@@ -280,7 +284,7 @@ async def update_station_control(
 
 	if updated_params.program_step:
 		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db, QueryFromEnum.STATION)
-		if updated_params.program_step.dict() not in [program.dict() for program in station_programs]:
+		if updated_params.program_step.dict() not in [program.dict() for program in station_programs.partial_data]:
 			raise UpdatingError(f"Station program '{updated_params.program_step}' wasn't found in station programs")
 
 	if updated_params.washing_machine:
@@ -295,12 +299,14 @@ async def update_station_control(
 	updated_params_list = [key for key, val in updated_params.dict().items()
 						   if getattr(current_station_control, key) != val]
 
+	result = await StationControl.update_relation_data(station, updated_params, db)
+
 	if any(updated_params_list):
 		info_text = f"Station {station.id} CONTROL was successfully changed by user {action_by.email}.\n" \
 						f"Updated data: {', '.join(list(updated_params_list))}"
 		await ChangesLog.log(db=db, user=action_by, station=station, content=info_text)
 
-	return await StationControl.update_relation_data(station, updated_params, db)
+	return result
 
 
 async def update_station_settings(

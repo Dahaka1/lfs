@@ -219,7 +219,8 @@ class StationControl(BaseModel):
 		"""
 		Этап программы заканчивается на 1-5.
 		"""
-		validators.validate_program_step(program_step)
+		if program_step:
+			validators.validate_program_step(program_step.program_step)
 		return program_step
 
 	@root_validator()
@@ -240,14 +241,10 @@ class StationControl(BaseModel):
 			case StationStatusEnum.WORKING:
 				if not washing_machine:
 					raise ValueError(f"While station status is WORKING, washing machine can't be null")
-				if not any(
-					(program_step, any(washing_agents))
-				):
+				if not program_step and not any(washing_agents):
 					raise ValueError("While station status is WORKING, program step or washing agents "
 									 "must be defined")
-				elif all(
-					(program_step, any(washing_agents))
-				):
+				elif program_step and any(washing_agents):
 					raise ValueError("While station status is WORKING, "
 									 "only one of params (program step, washing agents) could be chosen")
 
@@ -341,8 +338,7 @@ class StationCreate(BaseModel):
 
 		is_active, settings = values.get("is_active"), values.get("settings")
 		if is_active is False and settings:
-			station_power, teh_power = settings.get("station_power"), settings.get("teh_power")
-			if station_power is True or teh_power is True:
+			if settings.station_power is True or settings.teh_power is True:
 				raise ValueError("Inactive station hasn't to be powered on (or its TEH)")
 
 		# __________________________________________________________________________________

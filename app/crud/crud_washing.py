@@ -94,7 +94,7 @@ async def update_washing_object(
 		info_text = f"{model.__class__.__name__} №{getattr(current_object, numeric_field)} " \
 					f"for station {station.id} " \
 					f"was successfully updated by user {action_by.email}. " \
-					f"Updated fields: {', '.join(updated_object)}"
+					f"Updated fields: {', '.join(updated_fields)}"
 		await ChangesLog.log(db, action_by, station, info_text)
 
 	return updated_object

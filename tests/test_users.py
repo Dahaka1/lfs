@@ -229,7 +229,7 @@ class TestUsers:
 		assert non_permissions_r.status_code == 403
 
 		non_existing_id_r = await ac.put(
-			f"/api/v1/users/123",
+			f"/api/v1/users/12345",
 			headers=self.sysadmin.headers,
 			json=dict(user={})
 		)

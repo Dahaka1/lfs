@@ -183,7 +183,6 @@ class StationMixin:
 					cls.__name__
 				)
 				data = result.scalar()
-
 				if data is None:
 					raise GettingDataError(f"Getting {cls.__name__} for station {station.id} error.\n"
 										   f"DB data not found")
@@ -317,24 +316,25 @@ class StationProgram(Base, StationMixin):
 		"""
 		Создание программ станции (при создании самой станции).
 		"""
+		not_found_agent_err_text = "Washing agent №{agent_number} not found in station washing agents"
+
 		for program in programs:
-			washing_agents_to_insert = []
-
 			for washing_agent in program.washing_agents:
-				washing_agent: schemas_washing.WashingAgent | int
-				washing_agent_number = washing_agent if isinstance(washing_agent, int) else washing_agent.agent_number
+				if isinstance(washing_agent, int):
+					washing_agent_number = washing_agent
+					try:
+						washing_agent = next(ag for ag in station.station_washing_agents
+											 if ag.agent_number == washing_agent_number)
+						idx = program.washing_agents.index(washing_agent_number)
+						program.washing_agents[idx] = washing_agent  # линтер ругается, но я заменил ведь инты на объекты
+					except StopIteration:
+						raise CreatingError(not_found_agent_err_text.format(agent_number=washing_agent_number))
+				elif isinstance(washing_agent, schemas_washing.WashingAgentWithoutRollback):
+					washing_agent_number = washing_agent.agent_number
+					if washing_agent_number not in [ag.agent_number for ag in station.station_washing_agents]:
+						raise CreatingError(not_found_agent_err_text.format(agent_number=washing_agent_number))
 
-				if washing_agent_number not in (ag.agent_number for ag in station.station_washing_agents):
-					raise CreatingError(f"{washing_agent_number} "
-												f"washing agent not defined in station washing agents")
-
-				if isinstance(washing_agent, int):  # случай, если передан номер средства, а не объект
-					idx = program.washing_agents.index(washing_agent)
-					washing_agent = next(agent for agent in station.station_washing_agents
-										 if agent.agent_number == washing_agent)
-					program.washing_agents[idx] = washing_agent
-
-			program.washing_agents = sorted([item.dict() for item in washing_agents_to_insert],
+			program.washing_agents = sorted([item.dict() for item in program.washing_agents],
 											key=lambda agent: agent["agent_number"])
 
 			await db.execute(

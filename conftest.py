@@ -107,8 +107,8 @@ async def prepare_app():
 
 	yield
 
-	async with engine_test.begin() as conn:
-		await conn.run_sync(Base.metadata.drop_all)
+	# async with engine_test.begin() as conn:
+	# 	await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture(scope='session')

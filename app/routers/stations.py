@@ -5,15 +5,15 @@ from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.logs import ChangesLog
-from ..schemas import schemas_stations, schemas_washing
+from ..schemas import schemas_stations
 from ..schemas.schemas_users import User
-from ..models.stations import StationProgram
 from ..dependencies.roles import get_sysadmin_user
 from ..dependencies import get_async_session
 from ..dependencies.stations import get_current_station
 from ..crud import crud_stations
 from ..static.enums import StationParamsEnum, QueryFromEnum
 from ..exceptions import GettingDataError, CreatingError
+from ..static import openapi
 
 router = APIRouter(
 	prefix="/stations",
@@ -21,7 +21,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[schemas_stations.StationGeneralParams])
+@router.get("/", responses=openapi.read_all_stations_get, response_model=list[schemas_stations.StationGeneralParams])
 @cache(expire=3600)
 async def read_all_stations(
 	current_user: Annotated[User, Depends(get_sysadmin_user)],
@@ -34,11 +34,14 @@ async def read_all_stations(
 	Основные параметры станций будут меняться редко, поэтому здесь делаю кэширование
 	 ответа на час. Можно сократить время, если потребуется.
 	"""
-	return await crud_stations.read_all_stations(db=db)
+	try:
+		return await crud_stations.read_all_stations(db=db)
+	except GettingDataError as e:
+		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
 
 @router.post("/", response_model=schemas_stations.Station, status_code=status.HTTP_201_CREATED,
-			 tags=["station_creating"])
+			 tags=["station_creating"], responses=openapi.create_station_post)
 async def create_station(
 	current_user: Annotated[User, Depends(get_sysadmin_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
@@ -90,7 +93,7 @@ async def create_station(
 	return created_station
 
 
-@router.get("/me/{dataset}", response_model=schemas_stations.StationPartial)
+@router.get("/me/{dataset}", response_model=schemas_stations.StationPartial, responses=openapi.read_stations_params_get)
 async def read_stations_params(
 	current_station: Annotated[schemas_stations.StationGeneralParams, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
@@ -103,8 +106,6 @@ async def read_stations_params(
 	match dataset:
 		case StationParamsEnum.GENERAL:
 			return schemas_stations.StationPartial(partial_data=current_station)
-		case StationParamsEnum.SETTINGS:
-			return schemas_stations.StationPartial(partial_data=current_station.settings)
 		case _:
 			try:
 				return await crud_stations.read_station(current_station, dataset, db, query_from=QueryFromEnum.STATION)
@@ -112,7 +113,7 @@ async def read_stations_params(
 				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.get("/me", response_model=schemas_stations.StationForStation)
+@router.get("/me", response_model=schemas_stations.StationForStation, responses=openapi.read_stations_me_get)
 async def read_stations_me(
 	current_station: Annotated[schemas_stations.StationGeneralParams, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]

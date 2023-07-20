@@ -112,7 +112,7 @@ async def url_auth_roles_test(url: str, method: Literal["get", "post", "put", "d
 	roles = {
 		role.SYSADMIN: (role.MANAGER, role.LAUNDRY, role.INSTALLER),
 		role.MANAGER: (role.INSTALLER, role.LAUNDRY),
-		role.INSTALLER: role.LAUNDRY
+		role.INSTALLER: (role.LAUNDRY, )
 	}
 
 	roles = roles.get(role)

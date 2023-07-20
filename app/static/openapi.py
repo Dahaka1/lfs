@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from ..schemas.schemas_token import Token
 from ..schemas.schemas_users import User
 from ..schemas.schemas_email_code import RegistrationCode
-from ..schemas import schemas_logs as logs, schemas_users as users
+from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations
 
 tags_metadata = [
 	{
@@ -28,6 +28,14 @@ tags_metadata = [
 	{
 		"name": "users",
 		"description": "Функционал для работы с пользовательскими данными."
+	},
+	{
+		"name": "stations",
+		"description": "Создание новой станции, чтение всех станций, чтение собственных данных станциями."
+	},
+	{
+		"name": "station_creating",
+		"description": "Создание станции."
 	}
 ]
 
@@ -200,6 +208,62 @@ delete_user_delete = {
 	}
 }
 
+read_all_stations_get = {
+	200: {
+		"description": "Все существующие станции (только их основные параметры, не все данные).",
+		"model": list[stations.StationGeneralParams]
+	},
+	403: {
+		"description": "Permissions error / Disabled user / User email not confirmed"
+	},
+	422: {
+		"description": "Invalid station *UUID* data"
+	}
+}
+
+create_station_post = {
+	201: {
+		"description": "Созданная станция (полные данные)",
+		"model": stations.Station
+	},
+	403: {
+		"description": "Permissions error / Disabled user / User email not confirmed"
+	}
+}
+
+read_stations_params_get = {
+	200: {
+		"description": "Запрошенные станцией данные",
+		"model": stations.StationPartial
+	},
+	401: {
+		"description": "Incorrect station UUID"
+	},
+	403: {
+		"description": "Inactive station / Station servicing"
+	},
+	404: {
+		"description": "Getting *DATATYPE* for station *UUID* error. DB data not found"
+	}
+}
+
+read_stations_me_get = {
+	200: {
+		"description": "Полные данные станции",
+		"model": stations.StationForStation
+	},
+	401: {
+		"description": "Incorrect station UUID"
+	},
+	403: {
+		"description": "Inactive station / Station servicing"
+	},
+	404: {
+		"description": "Getting *DATATYPE* for station *UUID* error. DB data not found"
+	}
+
+}
+
 for _ in [
 	token_post_responses,
 	confirm_email_post_responses,
@@ -212,7 +276,9 @@ for _ in [
 	read_users_me_get,
 	read_user_get,
 	update_user_put,
-	delete_user_delete
+	delete_user_delete,
+	read_all_stations_get,
+	create_station_post
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})
 

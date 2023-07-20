@@ -2,21 +2,22 @@ import datetime
 import random
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update, select
+from sqlalchemy import update, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 
 import services
-from app.static.enums import RoleEnum, RegionEnum
+from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum
 from app.schemas import schemas_stations, schemas_washing
 from .users import create_authorized_user, UserData
 from app.models.stations import StationControl, Station, StationSettings, StationProgram
 from app.models.washing import WashingAgent, WashingMachine
 from app.models import logs
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
+from app.database import Base
 
 
 @dataclass
@@ -34,12 +35,15 @@ class StationData:
 	station_washing_agents: list[schemas_washing.WashingAgent]
 	station_control: schemas_stations.StationControl
 	station_settings: schemas_stations.StationSettings
+	created_at: datetime.datetime
+	updated_at: datetime.datetime
 	headers: dict[str, str]
 
 
 async def generate_station(
 	ac: AsyncClient,
-	sync_session: Session,
+	sync_session: Session = None,
+	user: Any = None,
 	**kwargs
 ) -> StationData:
 	"""
@@ -47,7 +51,13 @@ async def generate_station(
 	Работает через запрос к АПИ (иначе оч долго заполнять вручную таблицы).
 	Поэтому поаккуратней с этим =)
 	"""
-	user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN, confirm_email=True)
+	if kwargs:
+		kwargs = kwargs["station"]
+
+	if not user:
+		if not sync_session:
+			raise Exception
+		user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN, confirm_email=True)
 	station_data = dict(station={
 		"is_active": kwargs.get("is_active") or True,
 		"is_protected": kwargs.get("is_protected") or False,
@@ -57,19 +67,12 @@ async def generate_station(
 		"region": "Северо-западный"
 	})
 
-	additional = {
-		"settings": kwargs.get("settings"),
-		"programs": kwargs.get("programs"),
-		"washing_agents": kwargs.get("washing_agents"),
-		"washing_machines": kwargs.get("washing_machines")
-	}
-
-	for k, v in additional.items():
+	for k, v in kwargs.items():
 		if v is not None:
-			station_data.setdefault(k, v)
+			station_data["station"][k] = v
 
-	if not additional["programs"]:
-		station_data["programs"] = generate_station_programs()
+	if not kwargs.get("programs"):
+		station_data["station"]["programs"] = generate_station_programs()
 
 	response = await ac.post(
 		"/api/v1/stations/",
@@ -79,10 +82,9 @@ async def generate_station(
 
 	if response.status_code == 201:
 		station = response.json()
-		station.pop("updated_at")
-		station.pop("created_at")
-		station["headers"] = {"X-Station-Uuid": str(station["id"])}
-		return StationData(**station)
+		headers = {"X-Station-Uuid": str(station["id"])}
+		station_schema = schemas_stations.Station(**station)
+		return StationData(**station_schema.dict(), headers=headers)
 	else:
 		raise AssertionError(str(response))
 
@@ -97,6 +99,10 @@ async def change_station_params(station: StationData, session: AsyncSession, **k
 				query = update(Station).where(Station.id == station.id).values(is_active=v)
 			case "status" | "washing_machine" | "washing_agents":
 				query = update(StationControl).where(StationControl.station_id == station.id).values(
+					**{k: v}
+				)
+			case "station_power" | "teh_power":
+				query = update(StationSettings).where(StationSettings.station_id == station.id).values(
 					**{k: v}
 				)
 			case _:  # надо тут определять аргументы явно
@@ -148,29 +154,31 @@ def generate_station_programs() -> list[dict[str, Any]]:
 	return [pg.dict() for pg in programs]
 
 
+async def get_station_relation(station_id: uuid.UUID, cls: Base, session: AsyncSession, many: bool = False) -> \
+	dict[str, Any] | list[dict[str, Any]]:
+	if not many:
+		try:
+			searched_id = cls.station_id
+		except AttributeError:
+			searched_id = cls.id
+		return sa_object_to_dict((await session.execute(
+			select(cls).where(searched_id == station_id)
+		)).scalar())
+	return sa_objects_dicts_list((await session.execute(
+			select(cls).where(cls.station_id == station_id)
+		)).scalars().all())
+
+
 async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> schemas_stations.Station:
 	"""
 	Собрать данные по станции в БД.
 	"""
-	async def get_station_relation(cls: Any, many: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
-		if not many:
-			try:
-				searched_id = cls.station_id
-			except AttributeError:
-				searched_id = cls.id
-			return sa_object_to_dict((await session.execute(
-				select(cls).where(searched_id == station_id)
-			)).scalar())
-		return sa_objects_dicts_list((await session.execute(
-				select(cls).where(cls.station_id == station_id)
-			)).scalars().all())
-
-	station_general = await get_station_relation(Station)
-	station_washing_machines = await get_station_relation(WashingMachine, many=True)
-	station_washing_agents = await get_station_relation(WashingAgent, many=True)
-	station_settings = await get_station_relation(StationSettings)
-	station_control = await get_station_relation(StationControl)
-	station_programs = await get_station_relation(StationProgram, many=True)
+	station_general = await get_station_relation(station_id, Station, session)
+	station_washing_machines = await get_station_relation(station_id, WashingMachine, session, many=True)
+	station_washing_agents = await get_station_relation(station_id, WashingAgent, session, many=True)
+	station_settings = await get_station_relation(station_id, StationSettings, session)
+	station_control = await get_station_relation(station_id, StationControl, session)
+	station_programs = await get_station_relation(station_id, StationProgram, session, many=True)
 
 	return schemas_stations.Station(
 		**station_general,
@@ -180,3 +188,58 @@ async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> sch
 		station_settings=station_settings,
 		station_control=station_control
 	)
+
+
+async def generate_station_control(station: StationData, session: AsyncSession) -> None:
+	"""
+	Установить случайное текущее состояние станции (рабочее).
+	"""
+	if not station.is_active or station.station_settings.get("station_power") is False \
+		or station.station_settings.get("teh_power") is False:
+		raise ValueError  # ХЗ ПОЧЕМУ, НО ПРИХОДИТСЯ ДЕЛАТЬ .get(), ПОЧЕМУ-ТО В НАСТРОЙКАХ НЕ PYDANTIC-схема
+
+	program = random.choice(station.station_programs)
+	machine = random.choice(station.station_washing_machines)
+	query = update(StationControl).where(StationControl.station_id == station.id).values(
+			program_step=program, washing_machine=machine, status=StationStatusEnum.WORKING,
+			updated_at=datetime.datetime.now()
+		)
+	await session.execute(
+		query
+	)
+	await session.commit()
+
+
+async def change_washing_machine_params(machine_number: int, station: StationData, session: AsyncSession,
+										**kwargs) -> None:
+	"""
+	Обновить данные стиральной машины.
+	"""
+	await session.execute(
+		update(WashingMachine).where(
+			(WashingMachine.station_id == station.id) &
+			(WashingMachine.machine_number == machine_number)
+		).values(**kwargs)
+	)
+	await session.commit()
+
+
+async def delete_washing_services(object_number: int, station: StationData, session: AsyncSession,
+									object_type=Literal["agent", "machine"]) -> None:
+	"""
+	Удаление стирального объекта
+	"""
+	classes = {
+		"agent": WashingAgent,
+		"machine": WashingMachine
+	}
+	cls = classes[object_type]
+	numeric_field = cls.NUMERIC_FIELDS.get(cls.__name__)
+
+	await session.execute(
+		delete(cls).where(
+			(cls.station_id == station.id) &
+			(getattr(cls, numeric_field) == object_number)
+		)
+	)
+	await session.commit()

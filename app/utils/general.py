@@ -71,7 +71,7 @@ def encrypt_data(data: str | dict) -> str:
 	)
 
 
-def decrypt_data(data: str) -> str:
+def decrypt_data(data: str) -> str | dict:
 	"""
 	Расшифровывает строку.
 	"""

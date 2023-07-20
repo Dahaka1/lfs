@@ -67,8 +67,7 @@ async def read_station_all_by_user(
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.GENERAL.value,
-			response_description="Возвращаются основные параметры станции "
-								 "с изменениями (пример не показан, ибо сложности с типизацией во фреймворке)")
+			response_description="Возвращаются основные параметры станции с изменениями")
 async def update_station_general(
 	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -134,7 +133,7 @@ async def update_station_control(
 			station, updating_params, db, action_by=current_user
 		)
 	except UpdatingError as e:
-		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
@@ -166,7 +165,8 @@ async def update_station_settings(
 
 
 @router.post("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
-			 response_model=list[stations.StationProgram], response_description="Возвращает СОЗДАННЫЕ программы")
+			 response_model=list[stations.StationProgram], response_description="Возвращает СОЗДАННЫЕ программы",
+			 status_code=status.HTTP_201_CREATED)
 async def create_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -196,7 +196,7 @@ async def create_station_program(
 			station_full_data, programs, db
 		)
 	except CreatingError as e:
-		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 	return [program for program in station_with_created_programs.station_programs
 			if program not in station_current_programs]
 

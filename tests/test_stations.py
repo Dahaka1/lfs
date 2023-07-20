@@ -1,22 +1,21 @@
-import uuid
+import copy
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import delete
 from httpx import AsyncClient
 
 import services
-from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum
-from app.schemas.schemas_stations import Station
+from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
+from app.schemas import schemas_stations
 from app.schemas import schemas_washing as washing
 from app.models import stations
-from tests.additional.stations import get_station_by_id
+from tests.additional.stations import get_station_by_id, generate_station
 from tests.additional import auth
-from app.utils.general import sa_object_to_dict
 from tests.fills import stations as station_fills
 
 
-@pytest.mark.usefixtures("generate_users")
+@pytest.mark.usefixtures("generate_users", "generate_default_station")
 class TestStationCreate:
 	"""
 	Тестирование создания станции.
@@ -37,7 +36,7 @@ class TestStationCreate:
 			headers=self.sysadmin.headers,
 			json=station_data
 		)
-		station_response = Station(**response.json())  # Validation error может подняться, если что-то не так
+		station_response = schemas_stations.Station(**response.json())  # Validation error может подняться, если что-то не так
 		station_in_db = await get_station_by_id(station_response.id, session)
 
 		assert station_in_db.dict() == station_in_db.dict()
@@ -76,7 +75,7 @@ class TestStationCreate:
 			json=params
 		)
 
-		station_response = Station(**response.json())
+		station_response = schemas_stations.Station(**response.json())
 		station_in_db = await get_station_by_id(station_response.id, session)
 		params = params["station"]
 		params["region"] = RegionEnum.NORTHWEST  # или менять на строковый регион в полученных объектах
@@ -135,17 +134,260 @@ class TestStationCreate:
 				else:
 					assert getattr(washing_machine, param) == default_param
 
+		params["region"] = "Северо-западный"  # меняю обратно для след тестов
+
 	async def test_create_station_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
+		- Нельзя передать в программу несуществующее стиральное средство;
+		- Нельзя передать невалидные параметры станции (норм проверяются в schemas_stations);
 		- roles auto test;
 		- users auth auto test.
 		"""
+		params = copy.deepcopy(station_fills.test_create_station_with_advanced_params)
+		# _______________________________________________________________
+		params["station"]["programs"].append(
+			{
+				"program_step": 13,
+				"washing_agents": [
+					{
+						"agent_number": 5  # такого в списке нет
+					}
+				]
+			}
+		)
+
+		non_existing_washing_agent_r = await ac.post(
+			"/api/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=params
+		)
+
+		assert non_existing_washing_agent_r.status_code == 422
+
+		params["station"]["programs"].remove(params["station"]["programs"][-1])
+
+		# ________________________________________________________
+
+		params["station"]["settings"]["station_power"] = True
+		params["station"]["is_active"] = False
+
+		invalid_params_r = await ac.post(
+			"/api/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=params
+		)
+
+		assert invalid_params_r.status_code == 422
+
+		# ________________________________________________________
+
 		await auth.url_auth_roles_test(
 			"/api/v1/stations/", "post",
 			RoleEnum.SYSADMIN, self.sysadmin,
 			session, ac, json=station_fills.test_create_station_with_advanced_params
 		)
 		await auth.url_auth_test(
-			"/api/v1/stations", "post", self.sysadmin, ac, session,
+			"/api/v1/stations/", "post", self.sysadmin, ac, session,
 			json=station_fills.test_create_station_with_advanced_params
 		)
+
+	async def test_read_all_stations(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Чтение списка всех станций.
+		"""
+		stations_list = []
+		for _ in range(5):
+			station = await generate_station(ac, user=self.sysadmin)
+			stations_list.append(station)
+
+		response = await ac.get(
+			"/api/v1/stations/",
+			headers=self.sysadmin.headers
+		)
+
+		assert response.status_code == 200
+		for station in response.json():
+			station = schemas_stations.StationGeneralParams(**station)  # если что, будет Validation error
+			station.id = str(station.id)
+			station.region = station.region.value
+			try:
+				defined_station = next(st for st in stations_list if st.id == station.id)
+			except StopIteration:  # там станции лежат уже с других тестов просто
+				continue
+			for k, v in station.dict().items():
+				if k in defined_station.__dict__:
+					assert getattr(defined_station, k) == v
+
+	async def test_read_all_stations_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- users auth auto test;
+		- roles auto test
+		"""
+		await auth.url_auth_roles_test(
+			"/api/v1/stations/", "get",
+			RoleEnum.SYSADMIN, self.sysadmin, session, ac
+		)
+		await auth.url_auth_test(
+			"/api/v1/stations/", "get", self.sysadmin, ac, session
+		)
+
+	async def test_read_stations_params(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Частичное чтение данных станции станцией.
+		"""
+		params = station_fills.test_create_station_with_advanced_params
+		station = await generate_station(ac, user=self.sysadmin,
+										 **params)
+
+		general_params_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.GENERAL.value,
+			headers=station.headers
+		)
+		assert general_params_r.status_code == 200
+		result = schemas_stations.StationGeneralParamsForStation(**general_params_r.json()["partial_data"])
+		result.id = str(result.id)
+		result.region = result.region.value
+		for k, v in station.__dict__.items():
+			if k in result.dict():
+				assert getattr(result, k) == v
+
+		# _____________________________________________________
+
+		settings_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.SETTINGS.value,
+			headers=station.headers
+		)
+
+		assert settings_r.status_code == 200
+		settings_result = schemas_stations.StationSettings(**settings_r.json()["partial_data"])
+		assert settings_result.station_power == params["station"]["settings"]["station_power"]
+		assert settings_result.teh_power == params["station"]["settings"]["teh_power"]
+
+		# _____________________________________________________
+
+		control_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
+			headers=station.headers
+		)
+		assert control_r.status_code == 200
+		result = schemas_stations.StationControl(**control_r.json()["partial_data"])
+
+		assert settings_result.station_power is True and result.status == StationStatusEnum.AWAITING or \
+			settings_result.station_power is False and result.status is None
+
+		# _____________________________________________________
+
+		washing_agents_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.WASHING_AGENTS.value,
+			headers=station.headers
+		)
+		assert washing_agents_r.status_code == 200
+		washing_agents_result = washing_agents_r.json()["partial_data"]
+
+		for washing_agent in washing_agents_result:
+			washing_agent = washing.WashingAgent(**washing_agent)  # Validation error
+			assert services.MIN_WASHING_AGENTS_VOLUME <= washing_agent.volume <= services.MAX_WASHING_AGENTS_VOLUME
+			defined_washing_agent = next(ag for ag in params["station"]["washing_agents"] if ag["agent_number"] \
+										 == washing_agent.agent_number)
+			if "rollback" in defined_washing_agent:
+				assert washing_agent.rollback == defined_washing_agent["rollback"]
+			else:
+				assert washing_agent.rollback == services.DEFAULT_WASHING_AGENTS_ROLLBACK
+		# _____________________________________________________
+
+		programs_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.PROGRAMS.value,
+			headers=station.headers
+		)
+		assert programs_r.status_code == 200
+
+		result = programs_r.json()["partial_data"]
+		for program in result:
+			program = schemas_stations.StationProgram(**program)
+			assert program.program_number == program.program_step // 10
+			for washing_agent in program.washing_agents:
+				assert washing_agent.agent_number in [ag["agent_number"] for ag in washing_agents_result]
+				assert services.MIN_STATION_WASHING_AGENTS_AMOUNT <= washing_agent.agent_number <= \
+					services.MAX_STATION_WASHING_AGENTS_AMOUNT
+
+		# ____________________________________________________
+
+		washing_machines_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.WASHING_MACHINES.value,
+			headers=station.headers
+		)
+
+		assert washing_machines_r.status_code == 200
+		result = washing_machines_r.json()["partial_data"]
+
+		for machine in result:
+			machine = washing.WashingMachine(**machine)
+			assert services.MIN_WASHING_MACHINE_VOLUME <= machine.volume <= services.MAX_WASHING_MACHINE_VOLUME
+			assert services.MIN_STATION_WASHING_MACHINES_AMOUNT <= machine.machine_number \
+				   <= services.MAX_STATION_WASHING_MACHINES_AMOUNT
+			assert services.MIN_WASHING_MACHINE_TRACK_LENGTH <= machine.track_length <= \
+				   services.MAX_WASHING_MACHINE_TRACK_LENGTH
+			defined_washing_machine = next(m for m in params["station"]["washing_machines"] if m["machine_number"] \
+										   == machine.machine_number)
+			if "is_active" in defined_washing_machine:
+				assert machine.is_active == defined_washing_machine["is_active"]
+			else:
+				assert machine.is_active == services.DEFAULT_WASHING_MACHINES_IS_ACTIVE
+
+	async def test_read_stations_params_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Отсутствие данных по станции;
+		- stations auth auto test
+		"""
+		if isinstance(self.station.id, str):  # линтер ругается
+			await session.execute(
+				delete(stations.StationControl).where(stations.StationControl.station_id == self.station.id)
+			)
+		await session.commit()
+
+		non_existing_data_r = await ac.get(
+			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
+			headers=self.station.headers
+		)
+		print(non_existing_data_r.json())
+		assert non_existing_data_r.status_code == 404
+
+		station = await generate_station(ac, user=self.sysadmin)
+
+		await auth.url_auth_stations_test(
+			"/api/v1/stations/me/" + StationParamsEnum.GENERAL.value,
+			"get", station, session, ac
+		)
+
+	async def test_read_stations_me(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Чтение всех данных по станции станцией.
+		"""
+		response = await ac.get(
+			"/api/v1/stations/me",
+			headers=self.station.headers
+		)
+		assert response.status_code == 200
+		schemas_stations.StationForStation(**response.json())  # Validation error
+
+	async def test_read_station_me_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Отсутствие данных по станции;
+		- stations auth auto test
+		"""
+		if isinstance(self.station.id, str):  # линтер ругается
+			await session.execute(
+				delete(stations.StationSettings).where(stations.StationSettings.station_id == self.station.id)
+			)
+		await session.commit()
+
+		non_existing_data_r = await ac.get(
+			"/api/v1/stations/me",
+			headers=self.station.headers
+		)
+		assert non_existing_data_r.status_code == 404
+
+		await auth.url_auth_stations_test(
+			"/api/v1/stations/me", "get", self.station, session, ac
+		)
+

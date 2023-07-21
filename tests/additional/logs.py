@@ -17,3 +17,11 @@ async def get_user_last_changes_log(user: UserData, session: AsyncSession) -> di
 	)).scalar()
 	if log:
 		return sa_object_to_dict(log)
+
+
+async def check_user_log_exists(user: UserData, session: AsyncSession) -> None:
+	"""
+	Проверяет наличие созданного лога у пользователя
+	"""
+	assert (await get_user_last_changes_log(user, session)) is not None
+

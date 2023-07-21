@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas import schemas_washing as washing, schemas_users
 from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
-from ..models.washing import WashingMixin, WashingAgent, WashingMachine
+from ..models.washing import WashingAgent, WashingMachine
 from ..models.stations import StationControl
 from ..exceptions import UpdatingError, DeletingError
 from ..models.logs import ChangesLog
@@ -26,45 +26,40 @@ async def update_washing_object(
 	"""
 	station_control = await StationControl.get_relation_data(station, db)
 
+
 	async def check_updating_washing_machine() -> bool:
 		"""
 		Возвращает True, если стиральная машина сейчас занята и нужно обновить ее в текущем
 		 состоянии станции тоже.
 		"""
-		if station_control.washing_machine.dict() == current_object.dict():
+		if station_control.washing_machine and station_control.washing_machine.dict() == current_object.dict():
 			machine_using = True
 		else:
 			machine_using = False
 
-		if machine_using and current_object.is_active and not updated_object.is_active:
+		if machine_using and current_object.is_active and updated_object.is_active is False:
 			raise UpdatingError("Can't mark washing machine as non-active if now using by station")
 		return machine_using
-
-	def check_updating_washing_agent() -> bool:
-		"""
-		Возвращает True, если станция сейчас работает по программе, которая
-		 использует данное средство.
-		"""
-		if station_control.program_step:
-			if current_object.agent_number in \
-				map(lambda ag: ag.agent_number, station_control.program_step.washing_agents):
-				return True
-		return False
 
 	match schema:
 		case washing.WashingAgentUpdate:
 			numeric_field = "agent_number"
 			model = WashingAgent
-			object_uses = check_updating_washing_agent()
 
 		case washing.WashingMachineUpdate:
 			numeric_field = "machine_number"
 			model = WashingMachine
 			object_uses = await check_updating_washing_machine()
 
-	if getattr(updated_object, numeric_field) != getattr(current_object, numeric_field):
-		existing_object = await WashingMixin.get_obj_by_number(
-			db, getattr(updated_object, numeric_field), station.id
+	for k, v in updated_object.dict().items():
+		if v is None:
+			setattr(updated_object, k, getattr(current_object, k))
+
+	updated_object_number = getattr(updated_object, numeric_field)
+
+	if updated_object_number and updated_object_number != getattr(current_object, numeric_field):
+		existing_object = await model.get_obj_by_number(
+			db, updated_object_number, station.id
 		)
 		if existing_object:
 			raise UpdatingError("Can't change object number to existing object number")
@@ -73,25 +68,18 @@ async def update_washing_object(
 		station.id, db, updated_object, getattr(current_object, numeric_field)
 	)
 
-	if object_uses:
-		match schema:
-			case washing.WashingAgentUpdate:
-				idx = station_control.program_step.washing_agents.index(
-					next(ag for ag in station_control.program_step.washing_agents
-						 if ag.agent_number == current_object.agent_number)
-				)
-				station_control.program_step.washing_agents[idx] = updated_object.dict()
-			case washing.WashingMachineUpdate:
-				station_control.washing_machine = updated_object.dict()
+	if schema == washing.WashingMachineUpdate and object_uses:
+		station_control.washing_machine = updated_object.dict()
+
 		await StationControl.update_relation_data(
-			station, StationControlUpdate(**updated_object.dict()), db
+			station, StationControlUpdate(**station_control.dict()), db
 		)
 
 	updated_fields = [key for key, val in updated_object.dict().items() if
 					  getattr(current_object, key) != val]
 
 	if any(updated_fields):
-		info_text = f"{model.__class__.__name__} №{getattr(current_object, numeric_field)} " \
+		info_text = f"{model.__name__} №{getattr(current_object, numeric_field)} " \
 					f"for station {station.id} " \
 					f"was successfully updated by user {action_by.email}. " \
 					f"Updated fields: {', '.join(updated_fields)}"

@@ -5,13 +5,17 @@ from httpx import AsyncClient
 
 from app.schemas import schemas_users as users
 from app.models.users import User
-from tests.additional import auth
+from tests.additional import auth, users as users_funcs
 from app.static.enums import RoleEnum, RegionEnum
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
 
 
 @pytest.mark.usefixtures("generate_users")
 class TestUsers:
+	installer: users_funcs.UserData
+	manager: users_funcs.UserData
+	sysadmin: users_funcs.UserData
+	laundry: users_funcs.UserData
 	"""
 	Тестирование функционала пользователей.
 	"""

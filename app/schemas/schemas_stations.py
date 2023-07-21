@@ -189,7 +189,8 @@ class StationProgramUpdate(StationProgramCreate):
 	"""
 	Обновление программы станции.
 	"""
-	pass
+	program_step: Optional[int] = Field(ge=11, title="Новый шаг (этап) программы станции",
+										example="11-15, 21-25, 31-35, ...")
 
 
 class StationControl(BaseModel):

@@ -10,13 +10,19 @@ from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationPar
 from app.schemas import schemas_stations
 from app.schemas import schemas_washing as washing
 from app.models import stations
-from tests.additional.stations import get_station_by_id, generate_station
-from tests.additional import auth
+from tests.additional.stations import get_station_by_id, generate_station, StationData
+from tests.additional import auth, users as users_funcs
 from tests.fills import stations as station_fills
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")
-class TestStationCreate:
+class TestStations:
+	installer: users_funcs.UserData
+	manager: users_funcs.UserData
+	sysadmin: users_funcs.UserData
+	laundry: users_funcs.UserData
+	station: StationData
+
 	"""
 	Тестирование создания станции.
 	"""
@@ -42,7 +48,7 @@ class TestStationCreate:
 		assert station_in_db.dict() == station_in_db.dict()
 		assert len(station_in_db.station_washing_agents) == services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT
 		assert len(station_in_db.station_washing_machines) == services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT
-		assert not any(station_in_db.station_programs)
+		assert not station_in_db.station_programs
 		assert station_in_db.location["latitude"] == 59.938732 and station_in_db.location["longitude"] == 30.316229
 		assert station_in_db.is_active == services.DEFAULT_STATION_IS_ACTIVE
 		assert station_in_db.is_protected == services.DEFAULT_STATION_IS_PROTECTED
@@ -96,7 +102,8 @@ class TestStationCreate:
 			for washing_agent in program.washing_agents:
 				try:
 					defined_washing_agent = next(ag for ag in defined_program["washing_agents"]
-												 if ag["agent_number"] == washing_agent.agent_number)
+												 if (ag["agent_number"] if isinstance(ag, dict) else ag) ==
+												 washing_agent.agent_number)
 				except StopIteration:
 					defined_washing_agent = washing.WashingAgentCreateMixedInfo(
 						**next(ag for ag in params["washing_agents"] if isinstance(ag, int) and
@@ -236,18 +243,14 @@ class TestStationCreate:
 		Частичное чтение данных станции станцией.
 		"""
 		params = station_fills.test_create_station_with_advanced_params
-		station = await generate_station(ac, user=self.sysadmin,
-										 **params)
 
 		general_params_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.GENERAL.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 		assert general_params_r.status_code == 200
 		result = schemas_stations.StationGeneralParamsForStation(**general_params_r.json()["partial_data"])
-		result.id = str(result.id)
-		result.region = result.region.value
-		for k, v in station.__dict__.items():
+		for k, v in self.station.__dict__.items():
 			if k in result.dict():
 				assert getattr(result, k) == v
 
@@ -255,7 +258,7 @@ class TestStationCreate:
 
 		settings_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.SETTINGS.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 
 		assert settings_r.status_code == 200
@@ -267,7 +270,7 @@ class TestStationCreate:
 
 		control_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 		assert control_r.status_code == 200
 		result = schemas_stations.StationControl(**control_r.json()["partial_data"])
@@ -279,7 +282,7 @@ class TestStationCreate:
 
 		washing_agents_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.WASHING_AGENTS.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 		assert washing_agents_r.status_code == 200
 		washing_agents_result = washing_agents_r.json()["partial_data"]
@@ -290,14 +293,14 @@ class TestStationCreate:
 			defined_washing_agent = next(ag for ag in params["station"]["washing_agents"] if ag["agent_number"] \
 										 == washing_agent.agent_number)
 			if "rollback" in defined_washing_agent:
-				assert washing_agent.rollback == defined_washing_agent["rollback"]
+				assert washing_agent.rollback is defined_washing_agent["rollback"]
 			else:
-				assert washing_agent.rollback == services.DEFAULT_WASHING_AGENTS_ROLLBACK
+				assert washing_agent.rollback is services.DEFAULT_WASHING_AGENTS_ROLLBACK
 		# _____________________________________________________
 
 		programs_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.PROGRAMS.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 		assert programs_r.status_code == 200
 
@@ -314,7 +317,7 @@ class TestStationCreate:
 
 		washing_machines_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.WASHING_MACHINES.value,
-			headers=station.headers
+			headers=self.station.headers
 		)
 
 		assert washing_machines_r.status_code == 200
@@ -339,17 +342,16 @@ class TestStationCreate:
 		- Отсутствие данных по станции;
 		- stations auth auto test
 		"""
-		if isinstance(self.station.id, str):  # линтер ругается
-			await session.execute(
-				delete(stations.StationControl).where(stations.StationControl.station_id == self.station.id)
-			)
+		await session.execute(
+			delete(stations.StationControl).where(stations.StationControl.station_id == self.station.id)
+		)
 		await session.commit()
 
 		non_existing_data_r = await ac.get(
 			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
 			headers=self.station.headers
 		)
-		print(non_existing_data_r.json())
+
 		assert non_existing_data_r.status_code == 404
 
 		station = await generate_station(ac, user=self.sysadmin)
@@ -375,10 +377,9 @@ class TestStationCreate:
 		- Отсутствие данных по станции;
 		- stations auth auto test
 		"""
-		if isinstance(self.station.id, str):  # линтер ругается
-			await session.execute(
-				delete(stations.StationSettings).where(stations.StationSettings.station_id == self.station.id)
-			)
+		await session.execute(
+			delete(stations.StationSettings).where(stations.StationSettings.station_id == self.station.id)
+		)
 		await session.commit()
 
 		non_existing_data_r = await ac.get(

@@ -4,6 +4,7 @@ import datetime
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
 	UUID, JSON, DateTime, func, insert, select, PrimaryKeyConstraint, update
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
@@ -227,22 +228,19 @@ class StationMixin:
 						washing_agent = next(ag for ag in station_washing_agents if ag.agent_number == washing_agent)
 						updated_params.washing_agents[idx] = washing_agent
 
-		updated_params_dict = dict(**updated_params.dict(),
-								   updated_at=datetime.datetime.now())  # updated_at почему-то автоматически не обновляется =(
+		updated_params_dict = dict(**updated_params.dict(), updated_at=datetime.datetime.now())
+		# updated_at почему-то автоматически не обновляется =(
 
 		match cls.__name__:
 			case "StationProgram":
 				query = update(cls).where(
 					(cls.station_id == station_id) &
-					(cls.program_step == updated_params.program_step).values(
-						**updated_params_dict
-					)
-				)
+					(cls.program_step == updated_params.program_step)
+					).values(**updated_params_dict)
 			case _:
 				query = update(cls).where(
 					cls.station_id == station_id
 				).values(**updated_params_dict)
-
 		await db.execute(query)
 		await db.commit()
 

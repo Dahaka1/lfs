@@ -10,7 +10,8 @@ class WashingMachineBase(BaseModel):
 	Стиральная машина. Основные параметры.
 	"""
 	machine_number: int = Field(title="Номер стиральной машины", description="Номер относительно станции",
-								ge=1, le=services.MAX_STATION_WASHING_MACHINES_AMOUNT)
+								ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
+								le=services.MAX_STATION_WASHING_MACHINES_AMOUNT)
 	volume: int = Field(title="Вместимость, кг")
 	is_active: bool = Field(title="Активна/нет")
 	track_length: float = Field(title="Длина трассы, м")
@@ -49,7 +50,14 @@ class WashingMachineUpdate(WashingMachineCreateMixedInfo):
 	"""
 	Обновление стиральной машины.
 	"""
-	pass
+	machine_number: Optional[int] = Field(title="Номер стиральной машины", description="Номер относительно станции",
+								ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
+								le=services.MAX_STATION_WASHING_MACHINES_AMOUNT)
+	volume: Optional[int] = Field(title="Вместимость, кг", ge=services.MIN_WASHING_MACHINE_VOLUME,
+								  le=services.MAX_WASHING_MACHINE_VOLUME)
+	is_active: Optional[bool] = Field(title="Активна/нет")
+	track_length: Optional[float] = Field(title="Длина трассы, м", ge=services.MIN_WASHING_MACHINE_TRACK_LENGTH,
+										  le=services.MAX_WASHING_MACHINE_TRACK_LENGTH)
 
 
 class WashingAgentBase(BaseModel):
@@ -57,7 +65,8 @@ class WashingAgentBase(BaseModel):
 	Стиральное средство. Основные параметры.
 	"""
 	agent_number: int = Field(title="Номер стирального средства", description="Номер относительно станции",
-							  ge=1, le=services.MAX_STATION_WASHING_AGENTS_AMOUNT)
+							  ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
+							  le=services.MAX_STATION_WASHING_AGENTS_AMOUNT)
 	volume: int = Field(title="Концентрация средства")
 	rollback: bool = Field(title="\"Откат\" средства")
 
@@ -67,7 +76,7 @@ class WashingAgentCreate(WashingAgentBase):
 	Добавление стирального средства.
 	"""
 	station_id: UUID4 = Field(title="ИД станции")
-	volume: Optional[int] = Field(title="Концентрация средства", ge=1,
+	volume: Optional[int] = Field(title="Концентрация средства", ge=services.MIN_WASHING_AGENTS_VOLUME,
 											  le=services.MAX_WASHING_AGENTS_VOLUME,
 											  default=services.DEFAULT_WASHING_AGENTS_VOLUME)
 	rollback: Optional[bool] = Field(title="\"Откат\" средства", default=services.DEFAULT_WASHING_AGENTS_ROLLBACK)
@@ -100,4 +109,10 @@ class WashingAgentUpdate(WashingAgentCreateMixedInfo):
 	"""
 	Обновление стирального средства.
 	"""
-	pass
+	agent_number: Optional[int] = Field(title="Номер стирального средства", description="Номер относительно станции",
+							  ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
+							  le=services.MAX_STATION_WASHING_AGENTS_AMOUNT)
+	volume: Optional[int] = Field(title="Концентрация средства", ge=services.MIN_WASHING_AGENTS_VOLUME,
+								  le=services.MAX_WASHING_AGENTS_VOLUME)
+	rollback: Optional[bool] = Field(title="\"Откат\" средства")
+

@@ -4,10 +4,12 @@ import random
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
-from fastapi.encoders import jsonable_encoder
+from geopy.geocoders import Nominatim
+from geopy.adapters import AioHTTPAdapter
 
-from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
-from tests.additional import auth, stations as stations_funcs, logs as logs_funcs
+import services
+from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum, WashingServicesEnum
+from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs, strings, static
 from app.schemas import schemas_stations as stations, schemas_washing as washing
 from app.models import stations as stations_models
 from app.utils.general import decrypt_data
@@ -18,6 +20,12 @@ class TestManagement:
 	"""
 	Тестирование менеджмента станций.
 	"""
+	installer: users_funcs.UserData
+	manager: users_funcs.UserData
+	sysadmin: users_funcs.UserData
+	laundry: users_funcs.UserData
+	station: stations_funcs.StationData
+
 	async def test_read_station_partial_by_user(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Тест по данным станции есть в test_stations (методы для станции и для юзеров работают аналогично);
@@ -63,7 +71,8 @@ class TestManagement:
 			url + StationParamsEnum.GENERAL.value, "get", self.sysadmin, ac, session
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value, "get", self.sysadmin, self.station,
+			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value, "get", self.sysadmin,
+			self.station,
 			session, ac
 		)
 
@@ -88,10 +97,10 @@ class TestManagement:
 		url = "/api/v1/manage/station/"
 
 		await auth.url_auth_test(
-			url + self.station.id, "get", self.sysadmin, ac, session
+			url + str(self.station.id), "get", self.sysadmin, ac, session
 		)
 		await auth.url_auth_roles_test(
-			url + self.station.id, "get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
+			url + str(self.station.id), "get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
 		)
 		await auth.url_get_station_by_id_test(
 			"/api/v1/manage/station/{station_id}", "get", self.sysadmin, self.station,
@@ -106,38 +115,37 @@ class TestManagement:
 		- Если wifi обновился, он вернется вместе с результатом, если не обновился - его не будет видно;
 		- При успешном обновлении создается лог об изменениях.
 		"""
-		updated_data = dict(is_protected=False, address="Москва",
-							region="Центральный", wifi_name="test",
-							wifi_password="test")
+		random_region = random.choice(list(RegionEnum))
+		params = dict(
+			is_protected=False, address=random.choice(static.CITIES),
+			region=random_region.value, wifi_name=strings.generate_string(),
+			wifi_password=strings.generate_string()
+		)
+		async with Nominatim(user_agent="Test", adapter_factory=AioHTTPAdapter) as geolocator:
+			location = await geolocator.geocode(params.get("address"))
 
 		response = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
-			json=dict(updating_params=updated_data)
+			json=dict(updating_params=params)
 		)
-		assert response.status_code == 200
-		result = response.json()
-		stations.StationGeneralParamsForStation(**result)  # Validation error
-		station = await stations_funcs.get_station_by_id(self.station.id, session)
-		station.id = str(station.id)
-		del result["updated_at"]
-		del result["created_at"]  # костылики
-		station.region = station.region.value
 
-		assert station.region == RegionEnum.CENTRAL.value
-		assert station.is_protected is False
-		assert station.location == {"latitude": 55.7504461, "longitude": 37.6174943}
-		assert result["wifi_name"] == "test" and result["wifi_password"] == "test"
+		assert response.status_code == 200
+		result = stations.StationGeneralParamsForStation(**response.json())
+		await self.station.refresh(session)
+
+		assert self.station.region == result.region == random_region
+		assert self.station.is_protected is result.is_protected is params.get("is_protected")
+		assert self.station.location == result.location == {"latitude": location.latitude,
+															"longitude": location.longitude}
+		assert result.wifi_name == params.get("wifi_name") and result.wifi_password == params.get("wifi_password")
 
 		station_general = await stations_funcs.get_station_relation(self.station.id, stations_models.Station, session)
 		wifi_data = decrypt_data(station_general["hashed_wifi_data"])
-		assert wifi_data["login"] == "test" and wifi_data["password"] == "test"
+		assert wifi_data["login"] == params.get("wifi_name") and wifi_data["password"] == params.get("wifi_password")
+		assert self.station.updated_at is not None
 
-		for k, v in station.__dict__.items():
-			if k in result:
-				assert result[k] == v
-
-		assert (await logs_funcs.get_user_last_changes_log(self.sysadmin, session)) is not None
+		await logs_funcs.check_user_log_exists(self.sysadmin, session)
 
 		# _____________________________________________________________________________________
 
@@ -153,11 +161,11 @@ class TestManagement:
 		stations.StationGeneralParams(**response.json())  # Validation error
 		assert "wifi_name" not in response.json() and "wifi_password" not in response.json()
 
-		station = await stations_funcs.get_station_by_id(self.station.id, session)
+		await self.station.refresh(session)
 
-		assert station.is_active is False
-		assert station.station_settings.station_power is False and station.station_settings.teh_power is False
-		control = station.station_control
+		assert self.station.is_active is False
+		assert self.station.station_settings.station_power is False and self.station.station_settings.teh_power is False
+		control = self.station.station_control
 		assert all(
 			(val is None for val in (control.status, control.washing_machine,
 									 control.program_step))
@@ -210,21 +218,19 @@ class TestManagement:
 		- А вот программу и машину нужно передавать со всеми существующими в БД параметрами, иначе будет ошибка.
 		"""
 		await stations_funcs.generate_station_control(self.station, session)
+
 		status_r = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value})
 		)
 		assert status_r.status_code == 200
+		await self.station.refresh(session)
 
-		station = await stations_funcs.get_station_by_id(self.station.id, session)
-		ctrl = station.station_control
+		ctrl = self.station.station_control
 		assert ctrl.status == StationStatusEnum.AWAITING
 
-		ctrl.status = ctrl.status.value
-		ctrl.updated_at = ctrl.updated_at.isoformat()  # чтобы сравнить с ответом серва
-
-		assert status_r.json() == ctrl
+		assert stations.StationControl(**status_r.json()).dict() == ctrl.dict()
 
 		assert all(
 			(val is None for val in (ctrl.program_step, ctrl.washing_machine))
@@ -235,29 +241,31 @@ class TestManagement:
 
 		await stations_funcs.generate_station_control(self.station, session)
 
-		ctrl = await stations_funcs.get_station_relation(self.station.id, stations_models.StationControl, session)
-		programs = await stations_funcs.get_station_relation(self.station.id, stations_models.StationProgram, session,
-															 many=True)
-		current_washing_machine = ctrl["washing_machine"]
-		random_program = jsonable_encoder(stations.StationProgram(**random.choice(programs)))
+		await self.station.refresh(session)
+		ctrl = copy.deepcopy(self.station.station_control)
+		current_washing_machine = ctrl.washing_machine
+		random_program = random.choice(self.station.station_programs)
 
 		response = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			json=dict(updating_params={"program_step": random_program})
+			json=dict(updating_params={"program_step": random_program.dict()})
 		)
 		assert response.status_code == 200
 
-		updated_ctrl = await stations_funcs.get_station_relation(self.station.id, stations_models.StationControl, session)
-		assert updated_ctrl["washing_machine"]["machine_number"] == current_washing_machine["machine_number"]
-		assert updated_ctrl["status"] == StationStatusEnum.WORKING
-		assert response.json()["washing_machine"]["machine_number"] == current_washing_machine["machine_number"]
-		assert updated_ctrl["program_step"] == random_program
-		assert response.json()["program_step"] == random_program
+		await self.station.refresh(session)
+
+		updated_ctrl = self.station.station_control
+		assert updated_ctrl.washing_machine.machine_number == current_washing_machine.machine_number
+		assert updated_ctrl.status == StationStatusEnum.WORKING
+		response_control = stations.StationControl(**response.json())
+		assert response_control.washing_machine.machine_number == current_washing_machine.machine_number
+		assert updated_ctrl.program_step.dict() == random_program
+		assert response_control.program_step.dict() == random_program
 
 		# ____________________________________________________________________________
 
-		agent = washing.WashingAgentWithoutRollback(**random.choice(station.station_washing_agents).dict())
+		agent = washing.WashingAgentWithoutRollback(**random.choice(self.station.station_washing_agents).dict())
 		agent.volume = 40
 
 		await ac.put(
@@ -265,12 +273,11 @@ class TestManagement:
 			headers=self.installer.headers,
 			json=dict(updating_params={"washing_agents": [agent.dict()]})
 		)
-
-		updated_ctrl = await stations_funcs.get_station_relation(self.station.id, stations_models.StationControl, session)
-
-		assert updated_ctrl["program_step"] is None
-		assert updated_ctrl["washing_machine"] == current_washing_machine
-		assert updated_ctrl["washing_agents"] == [agent.dict()]
+		await self.station.refresh(session)
+		updated_ctrl = self.station.station_control
+		assert updated_ctrl.program_step is None
+		assert updated_ctrl.washing_machine == current_washing_machine
+		assert updated_ctrl.washing_agents == [agent.dict()]
 
 		assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
 
@@ -290,17 +297,17 @@ class TestManagement:
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value,
-									   "program_step": program_step})
+									   "program_step": program_step.dict()})
 		)
 		assert status_invalid_data_r.status_code == 422
 
 		# ________________________________________________________________________
 
-		machine = washing.WashingMachine(**copy.deepcopy(self.station.station_washing_machines[1]))
-		machine.volume = 7
-		program = stations.StationProgram(**copy.deepcopy(self.station.station_programs[1]))
-		washing_agent = washing.WashingAgent(**self.station.station_washing_agents[1])
-		program.washing_agents = [{"agent_number": washing_agent.agent_number,"volume": 17}]
+		machine = copy.deepcopy(random.choice(self.station.station_washing_machines))
+		machine.volume -= 1
+		program = copy.deepcopy(random.choice(self.station.station_programs))
+		washing_agent_number = random.choice(self.station.station_washing_agents).agent_number
+		program.washing_agents = [{"agent_number": washing_agent_number, "volume": 17}]
 
 		invalid_machine_data_r = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
@@ -327,7 +334,7 @@ class TestManagement:
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
-									   "washing_machine": machine, "program_step": program})
+									   "washing_machine": machine.dict(), "program_step": program.dict()})
 		)
 		assert powered_off_station_r.status_code == 409
 
@@ -335,7 +342,6 @@ class TestManagement:
 
 		# ________________________________________________________________________
 
-		machine = washing.WashingMachine(**machine)
 		await stations_funcs.change_washing_machine_params(
 			machine.machine_number, self.station, session, is_active=False
 		)
@@ -345,7 +351,7 @@ class TestManagement:
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
-									   "washing_machine": machine.dict(), "program_step": program})
+									   "washing_machine": machine.dict(), "program_step": program.dict()})
 		)
 		assert inactive_machine_r.status_code == 409
 
@@ -357,7 +363,7 @@ class TestManagement:
 		# ________________________________________________________________________
 
 		testing_data = dict(updating_params={"status": StationStatusEnum.WORKING.value,
-						 "washing_machine": machine.dict(), "program_step": program})
+											 "washing_machine": machine.dict(), "program_step": program.dict()})
 
 		await auth.url_auth_test(
 			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
@@ -372,6 +378,91 @@ class TestManagement:
 			"put", self.sysadmin, self.station, session, ac, json=testing_data
 		)
 
+	async def test_update_station_settings(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Обновление настроек станции.
+
+		Если передать station_power 'False', в текущем состоянии станции все автоматически обнуляется
+		 (ТЭН не выключается при выключении станции).
+		Если station_power был 'False' и стал 'True' - статус автоматически становится "ожидание".
+		Выключение/включение ТЭН'а ни на что не влияет.
+		"""
+		await stations_funcs.generate_station_control(self.station, session)
+		current_station_teh_power = self.station.station_settings.teh_power
+
+		turn_off_response = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			headers=self.installer.headers,
+			json={"updating_params": {"station_power": False}}
+		)
+
+		assert turn_off_response.status_code == 200
+
+		settings_response = stations.StationSettings(**turn_off_response.json())
+		await self.station.refresh(session)
+		assert settings_response.dict() == self.station.station_settings
+
+		assert self.station.station_settings.station_power is False and self.station.station_settings.teh_power == \
+			   current_station_teh_power
+
+		ctrl = self.station.station_control
+
+		assert all(
+			(val is None for val in (ctrl.status, ctrl.program_step, ctrl.washing_machine))
+		) and ctrl.washing_agents == []
+		assert ctrl.updated_at is not None
+
+		assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
+
+		# ____________________________________________________________________________________
+
+		turn_on_response = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			headers=self.installer.headers,
+			json={"updating_params": {"station_power": True}}
+		)
+		assert turn_on_response.status_code == 200
+
+		ctrl = stations.StationControl(**(await stations_funcs.get_station_relation(self.station.id,
+																					stations_models.StationControl,
+																					session)))
+		assert ctrl.status == StationStatusEnum.AWAITING
+		assert all(
+			(val is None for val in (ctrl.program_step, ctrl.washing_machine))
+		) and ctrl.washing_agents == []
+
+	async def test_update_station_settings_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Если передать station_power 'True' при неактивной станции, вернется ошибка;
+		- users auth auto test;
+		- roles auto test;
+		- get station by id auto test
+		"""
+		await stations_funcs.change_station_params(self.station, session, is_active=False, station_power=False)
+		test_json = dict(updating_params={"station_power": True})
+
+		non_active_station_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			headers=self.installer.headers,
+			json=test_json
+		)
+		assert non_active_station_r.status_code == 409
+
+		# __________________________________________________________________________________
+
+		await auth.url_auth_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			"put", self.installer, ac, session, json=test_json
+		)
+		await auth.url_auth_roles_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=test_json
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
+			"put", self.sysadmin, self.station, session, ac, json=test_json
+		)
+
 	async def test_create_station_program(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		Создание программ станции.
@@ -379,7 +470,7 @@ class TestManagement:
 		 указав их номера, или передать кастомные программы;
 		- Номер программы можно не указывать - по номеру этапа (шага) программы он определится автоматически.
 		"""
-		washing_agents = [ag["agent_number"] for ag in self.station.station_washing_agents]
+		washing_agents = [ag.agent_number for ag in self.station.station_washing_agents]
 		programs = [
 			{"program_step": num, "washing_agents": washing_agents} for num in range(31, 36)
 		]
@@ -391,14 +482,11 @@ class TestManagement:
 
 		assert response.status_code == 201
 
-		programs_in_db = await stations_funcs.get_station_relation(
-			self.station.id, stations_models.StationProgram, session, many=True
-		)
+		await self.station.refresh(session)
 
 		for pg in response.json():
-			assert pg in programs_in_db
+			assert pg in [p.dict() for p in self.station.station_programs]
 
-		for pg in response.json():
 			defined_program = next(p for p in programs if p["program_step"] == pg["program_step"])
 			washing_agents_numbers = [ag["agent_number"] for ag in pg["washing_agents"]]
 			for washing_agent_number in defined_program["washing_agents"]:
@@ -420,18 +508,15 @@ class TestManagement:
 
 		assert response.status_code == 201
 
-		programs_in_db = await stations_funcs.get_station_relation(
-			self.station.id, stations_models.StationProgram, session, many=True
-		)
+		await self.station.refresh(session)
 
 		for pg in response.json():
+			assert pg in [p.dict() for p in self.station.station_programs]
 
-			assert pg in programs_in_db
-
-		for pg in programs_in_db:
-			if pg["program_step"] in range(41, 46):
-				assert pg["washing_agents"] == [{"agent_number": 2, "volume": 16},
-													 {"agent_number": 3, "volume": 18}]
+		for pg in self.station.station_programs:
+			if pg.program_step in range(41, 46):
+				assert pg.dict()["washing_agents"] == [{"agent_number": 2, "volume": 16},
+												{"agent_number": 3, "volume": 18}]
 
 	async def test_create_station_program_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -457,10 +542,10 @@ class TestManagement:
 		)
 
 		non_existing_agent_response = await ac.post(
-				f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
-				headers=self.installer.headers,
-				json=dict(programs=[{"program_step": 52, "washing_agents": [1, 2]}])
-			)
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			headers=self.installer.headers,
+			json=dict(programs=[{"program_step": 52, "washing_agents": [1, 2]}])
+		)
 		assert non_existing_agent_response.status_code == 404
 
 		# ____________________________________________________________________________________
@@ -478,3 +563,563 @@ class TestManagement:
 			"post", self.sysadmin, self.station, session, ac, json=testing_data
 		)
 
+	# async def test_update_station_program(self, ac: AsyncClient, session: AsyncSession):
+	# 	"""
+	# 	Обновление программы станции.
+	# 	- Как и в других методах, можно передать как кастомные стиральные средства, так и просто номера существующих
+	#  	 у станции средств;
+	#  	- Средства нужно передавать ЯВНЫМ списком (напр., если передать пустой список, то список средств программы
+	#  	 станет пустым) - нельзя обновить произвольно выбранные средства программы;
+	#  	- Если обновляется программа, по которой станция в данный момент работает, то в текущем состоянии программа
+	#      тоже обновится;
+	#     - Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать и
+	# 	 даже изменить на новый - в этом случае выполнится проверка на занятость номера;
+	# 	- Можно не передавать номер программы, а только номер шага - номер программы определится автоматически.
+	# 	"""
+	# 	rand_program = random.choice(self.station.station_programs)
+	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
+	#
+	# 	washing_agent_object_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+	# 	)
+	# 	assert washing_agent_object_r.status_code == 200
+	# 	response_program = stations.StationProgram(**washing_agent_object_r.json())
+	# 	await self.station.refresh(session)
+	# 	program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == rand_program.program_step)
+	# 	response_program.updated_at = program_in_db.updated_at
+	# 	assert response_program.dict() == program_in_db.dict()
+	#
+	# 	washing_agent = next(ag for ag in self.station.station_washing_agents
+	# 													if ag.agent_number == rand_washing_agent.agent_number)
+	#
+	# 	assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**washing_agent.dict())]
+	#
+	# 	await logs_funcs.check_user_log_exists(self.installer, session)
+	#
+	# 	# _____________________________________________________________________________________________
+	#
+	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
+	# 	rand_washing_agent.volume = 32
+	#
+	# 	washing_agent_number_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+	# 	)
+	#
+	# 	assert washing_agent_number_r.status_code == 200
+	# 	response_program = stations.StationProgram(**washing_agent_number_r.json())
+	# 	# assert response_program.updated_at is not None # ПОКА НЕ РАБОТАЕТ =(
+	# 	assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**rand_washing_agent.dict())]
+	# 	assert response_program.program_step == rand_program.program_step and response_program.program_number == \
+	# 		   rand_program.program_number
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	washing_agents_empty_list_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": []})
+	# 	)
+	#
+	# 	assert washing_agents_empty_list_r.status_code == 200
+	# 	assert washing_agents_empty_list_r.json()["washing_agents"] == []
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	await stations_funcs.generate_station_control(self.station, session)
+	#
+	# 	await self.station.refresh(session)
+	# 	ctrl = self.station.station_control
+	#
+	# 	program_step_number = ctrl.program_step.program_step
+	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
+	#
+	# 	response = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+	# 	)
+	# 	assert response.status_code == 200
+	#
+	# 	await self.station.refresh(session)
+	#
+	# 	assert self.station.station_control.program_step.washing_agents == \
+	# 		   [washing.WashingAgentWithoutRollback(**rand_washing_agent.dict())]
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	rand_program = random.choice(self.station.station_programs)
+	#
+	# 	change_program_number_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"program_step": 201})
+	# 	)
+	# 	print(change_program_number_r.json())
+	# 	assert change_program_number_r.status_code == 200
+	#
+	# 	await self.station.refresh(session)
+	#
+	# 	program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == 201)
+	#
+	# 	assert program_in_db.washing_agents == rand_program.washing_agents
+	# 	assert program_in_db.program_number == 20
+	#
+	# async def test_update_station_program_errors(self, ac: AsyncClient, session: AsyncSession):
+	# 	"""
+	# 	- Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать, указав
+	#  	 новый нужный номер - в этом случае выполнится проверка на занятость номера;
+	#  	 - Программа должна существовать;
+	#  	 - Стиральное средство должно существовать;
+	#  	- users auth auto test;
+	#  	- get station by id auto test;
+	#  	- roles auto test
+	# 	"""
+	# 	rand_program, rand_program_ = random.choice(self.station.station_programs), \
+	# 		random.choice(self.station.station_programs)
+	#
+	# 	existing_program_step_number_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"program_step": rand_program.program_step})
+	# 	)
+	# 	assert existing_program_step_number_r.status_code == 409
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
+	# 	await stations_funcs.delete_washing_services(rand_washing_agent.agent_number, self.station,
+	# 												 session, "agent")
+	# 	await self.station.refresh(session)
+	# 	non_existing_washing_agent_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+	# 	)
+	# 	assert non_existing_washing_agent_r.status_code == 404
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	non_existing_program_step_r = await ac.put(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
+	# 		headers=self.installer.headers,
+	# 		json=dict(updating_params={"washing_agents": []})
+	# 	)
+	#
+	# 	assert non_existing_program_step_r.status_code == 404
+	#
+	# 	# ___________________________________________________________________________________________
+	#
+	# 	testing_json = dict(updating_params={"washing_agents": []})
+	#
+	# 	await auth.url_auth_test(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		"put", self.installer, ac, session, json=testing_json
+	# 	)
+	# 	await auth.url_auth_roles_test(
+	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+	# 	)
+	# 	await auth.url_get_station_by_id_test(
+	# 		"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+	# 		"put", self.installer, self.station, session, ac, json=testing_json
+	# 	)
+
+	async def test_delete_program(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Удаление этапа программы станции
+		"""
+		rand_program = random.choice(self.station.station_programs)
+
+		response = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers
+		)
+		assert response.status_code == 200
+		await self.station.refresh(session)
+
+		assert rand_program.dict() not in (pg.dict() for pg in self.station.station_programs)
+
+	async def test_delete_program_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Нельзя удалить программу, если в данный момент станция работает по ней;
+		- Программа должна существовать;
+		- users auth auto test;
+		- roles auto test;
+		- get station by id auto test
+		"""
+		await stations_funcs.generate_station_control(self.station, session)
+		await self.station.refresh(session)
+		program_step = self.station.station_control.program_step
+
+		program_in_control_r = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			headers=self.installer.headers
+		)
+		assert program_in_control_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		non_existing_program_r = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
+			headers=self.installer.headers
+		)
+		assert non_existing_program_r.status_code == 404
+
+		# ___________________________________________________________________________________________
+
+		await auth.url_auth_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			"delete", self.installer, ac, session
+		)
+		await auth.url_auth_roles_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			"delete", RoleEnum.INSTALLER, self.installer, session, ac
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			"delete", self.sysadmin, self.station, session, ac
+		)
+
+	async def test_delete_station(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Удаление станции
+		"""
+		response = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}",
+			headers=self.sysadmin.headers
+		)
+		assert response.status_code == 200
+
+		station_exists = await stations_funcs.get_station_by_id(self.station.id, session)
+		assert not station_exists
+
+	async def test_delete_station_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- users auth auto test;
+		- get station by id auto test;
+		- roles auto test
+		"""
+		url = f"/api/v1/manage/station/{self.station.id}"
+		await auth.url_auth_test(
+			url, "delete", self.sysadmin, ac, session
+		)
+		await auth.url_auth_roles_test(
+			url, "delete", RoleEnum.SYSADMIN, self.sysadmin, session, ac
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}", "delete", self.sysadmin, self.station, session, ac
+		)
+
+	async def test_create_station_washing_services(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Создание стирального объекта (можно создать, указав только номер объекта).
+		"""
+		washing_agent_number = random.randint(1, services.MAX_STATION_WASHING_AGENTS_AMOUNT)
+
+		await stations_funcs.delete_washing_services(washing_agent_number, self.station, session, "agent")
+		washing_agent_r = await ac.post(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			headers=self.installer.headers,
+			json=dict(creating_params={"agent_number": washing_agent_number})
+		)
+		assert washing_agent_r.status_code == 201
+
+		await self.station.refresh(session)
+
+		agent_in_db = next(ag for ag in self.station.station_washing_agents if ag.agent_number == washing_agent_number)
+
+		assert washing.WashingAgent(**washing_agent_r.json()).dict() == agent_in_db.dict()
+
+		assert agent_in_db.volume == services.DEFAULT_WASHING_AGENTS_VOLUME
+		assert agent_in_db.rollback == services.DEFAULT_WASHING_AGENTS_ROLLBACK
+
+		# ___________________________________________________________________________________________
+
+		washing_machine_number = random.randint(1, services.MAX_STATION_WASHING_MACHINES_AMOUNT)
+
+		await stations_funcs.delete_washing_services(washing_machine_number, self.station, session, "machine")
+
+		machine_params = {"machine_number": washing_machine_number, "is_active": False, "volume": 30,
+						  "track_length": 12.5}
+
+		washing_machine_r = await ac.post(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
+			headers=self.installer.headers,
+			json=dict(creating_params=machine_params)
+		)
+
+		assert washing_machine_r.status_code == 201
+
+		await self.station.refresh(session)
+
+		machine_in_db = next(
+			m for m in self.station.station_washing_machines if m.machine_number == washing_machine_number)
+
+		assert machine_in_db.dict() == washing.WashingMachine(**washing_machine_r.json()).dict()
+
+		for k, v in machine_params.items():
+			assert getattr(machine_in_db, k) == v
+
+	async def test_create_station_washing_services_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Нельзя создать объект с уже существующим номером;
+		- users auth auto test;
+		- get station by id auto test;
+		- roles auto test
+		"""
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+		testing_json = dict(creating_params={"agent_number": rand_washing_agent.agent_number})
+
+		existing_object_r = await ac.post(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			headers=self.installer.headers,
+			json=testing_json
+		)
+		assert existing_object_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		await auth.url_auth_test(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			"post", self.installer, ac, session, json=testing_json
+		)
+		await auth.url_auth_roles_test(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			"post", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			"post", self.sysadmin, self.station, session, ac, json=testing_json
+		)
+
+	async def test_update_station_washing_services(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Обновление стирального средства.
+		"""
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+
+		response = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" +
+			WashingServicesEnum.WASHING_AGENTS.value + f"/{rand_washing_agent.agent_number}",
+			headers=self.installer.headers,
+			json=dict(updating_params={"rollback": False, "volume": 14})
+		)
+
+		assert response.status_code == 200
+
+		await self.station.refresh(session)
+
+		agent_in_db = next(ag for ag in self.station.station_washing_agents if ag.agent_number ==
+						   rand_washing_agent.agent_number)
+
+		assert washing.WashingAgent(**response.json()).dict() == agent_in_db.dict()
+		assert agent_in_db.volume == 14
+		assert agent_in_db.rollback is False
+
+		await logs_funcs.check_user_log_exists(self.installer, session)
+
+		# ___________________________________________________________________________________________
+
+		rand_washing_machine = random.choice(self.station.station_washing_machines)
+		testing_data = dict(updating_params={"volume": 11, "track_length": 15.5})
+
+		response = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
+			f"{rand_washing_machine.machine_number}",
+			headers=self.installer.headers,
+			json=testing_data
+		)
+
+		assert response.status_code == 200
+
+		await self.station.refresh(session)
+
+		machine_in_db = next(m for m in self.station.station_washing_machines if m.machine_number ==
+							 rand_washing_machine.machine_number)
+
+		assert machine_in_db.track_length == 15.5
+		assert machine_in_db.volume == 11
+		assert machine_in_db.dict() == washing.WashingMachine(**response.json()).dict()
+
+		# ___________________________________________________________________________________________
+
+		await stations_funcs.generate_station_control(self.station, session)
+		await self.station.refresh(session)
+		machine = copy.deepcopy(self.station.station_control.washing_machine)
+
+		using_machine_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
+			f"{machine.machine_number}",
+			headers=self.installer.headers,
+			json=testing_data
+		)
+
+		assert using_machine_r.status_code == 200
+		await self.station.refresh(session)
+
+		updated_machine = self.station.station_control.washing_machine
+
+		assert updated_machine.machine_number == machine.machine_number
+		assert updated_machine.volume == testing_data["updating_params"]["volume"]
+		assert updated_machine.track_length == testing_data["updating_params"]["track_length"]
+
+		# ___________________________________________________________________________________________
+
+		await stations_funcs.delete_washing_services(updated_machine.machine_number, self.station,
+													 session, "machine")
+
+		await self.station.refresh(session)
+
+		rand_washing_machine = random.choice(self.station.station_washing_machines)
+
+		change_obj_number_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{rand_washing_machine.machine_number}",
+			headers=self.installer.headers,
+			json=dict(updating_params={"machine_number": updated_machine.machine_number})
+		)
+
+		assert change_obj_number_r.status_code == 200
+
+		await self.station.refresh(session)
+
+		next(m for m in self.station.station_washing_machines if m.machine_number == updated_machine.machine_number)
+
+		# StopIteration error
+
+	async def test_update_station_washing_services_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Нельзя обновить номер объекта на уже существующий;
+		- Нельзя сделать неактивной стиральную машину, которая в данный момент в работе;
+		- Объект должен существовать;
+		- users auth auto test;
+		- roles auto test;
+		- get station by id auto test
+		"""
+		rand_washing_agent, rand_washing_agent_ = (random.choice(self.station.station_washing_agents) for _ in range(2))
+
+		change_obj_number_to_existing_number_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/{rand_washing_agent_.agent_number}",
+			headers=self.installer.headers,
+			json=dict(updating_params={"agent_number": rand_washing_agent.agent_number})
+		)
+
+		assert change_obj_number_to_existing_number_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		await stations_funcs.generate_station_control(self.station, session)
+		await self.station.refresh(session)
+		machine_number = self.station.station_control.washing_machine.machine_number
+
+		using_machine_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{machine_number}",
+			headers=self.installer.headers,
+			json=dict(updating_params={"is_active": False})
+		)
+
+		assert using_machine_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		testing_json = dict(updating_params={"volume": 40})
+
+		non_existing_obj_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
+			headers=self.installer.headers,
+			json=testing_json
+		)
+		assert non_existing_obj_r.status_code == 404
+
+		# ___________________________________________________________________________________________
+
+		await auth.url_auth_test(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{machine_number}",
+			"put", self.sysadmin, ac, session, json=testing_json
+		)
+
+		await auth.url_auth_roles_test(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{machine_number}", "put",
+			RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+		)
+
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{machine_number}", "put", self.sysadmin, self.station, session, ac, json=testing_json
+		)
+
+	async def test_delete_station_washing_services(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Удаление стирального объекта
+		"""
+		rand_machine = random.choice(self.station.station_washing_machines)
+
+		response = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{rand_machine.machine_number}",
+			headers=self.installer.headers
+		)
+
+		assert response.status_code == 200
+
+		await self.station.refresh(session)
+
+		assert rand_machine.machine_number not in [m.machine_number for m in self.station.station_washing_machines]
+
+	async def test_delete_station_washing_services_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Если объект в данный момент используется станцией, удалить его нельзя;
+		- users auth auto test;
+		- roles auto test;
+		- get station by id auto test
+		"""
+		await stations_funcs.generate_station_control(self.station, session)
+		await self.station.refresh(session)
+
+		machine_number = self.station.station_control.washing_machine.machine_number
+
+		using_machine_r = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/{machine_number}",
+			headers=self.installer.headers
+		)
+		assert using_machine_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		agent_number = random.choice(self.station.station_control.program_step.washing_agents).agent_number
+		if not agent_number:
+			raise ValueError("Expected for object")
+
+		using_agent_r = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/{agent_number}",
+			headers=self.installer.headers
+		)
+
+		assert using_agent_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		testing_url = f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + \
+					  f"/{agent_number}"
+
+		await auth.url_auth_test(
+			testing_url, "delete", self.installer, ac, session
+		)
+		await auth.url_auth_roles_test(
+			testing_url, "delete", RoleEnum.INSTALLER, self.installer, session, ac
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/{agent_number}", "delete", self.sysadmin,
+			self.station, session, ac
+		)

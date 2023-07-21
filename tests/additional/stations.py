@@ -2,10 +2,10 @@ import datetime
 import random
 import uuid
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update, select, delete
+from sqlalchemy import update, select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 
@@ -36,8 +36,20 @@ class StationData:
 	station_control: schemas_stations.StationControl
 	station_settings: schemas_stations.StationSettings
 	created_at: datetime.datetime
-	updated_at: datetime.datetime
+	updated_at: Optional[datetime.datetime]
 	headers: dict[str, str]
+
+	# пришлось сделать дикты вторым вариантом атрибутов, иначе везде ошибка линтера =(
+	# а pydantic модели почему-то вообще не работают внутри этого класса
+
+	async def refresh(self, session: AsyncSession):
+		"""
+		Обновить все данные станции
+		"""
+		updated_data = await get_station_by_id(self.id, session)
+		for k in updated_data.dict():
+			if k in self.__dict__:
+				setattr(self, k, getattr(updated_data, k))
 
 
 async def generate_station(
@@ -81,10 +93,12 @@ async def generate_station(
 	)
 
 	if response.status_code == 201:
-		station = response.json()
-		headers = {"X-Station-Uuid": str(station["id"])}
-		station_schema = schemas_stations.Station(**station)
-		return StationData(**station_schema.dict(), headers=headers)
+		station = schemas_stations.Station(**response.json())
+		headers = {"X-Station-Uuid": str(station.id)}
+		attrs = {attr: getattr(station, attr) for attr in station.dict()}
+		return StationData(
+			**attrs, headers=headers
+		)
 	else:
 		raise AssertionError(str(response))
 
@@ -155,58 +169,63 @@ def generate_station_programs() -> list[dict[str, Any]]:
 
 
 async def get_station_relation(station_id: uuid.UUID, cls: Base, session: AsyncSession, many: bool = False) -> \
-	dict[str, Any] | list[dict[str, Any]]:
+	Optional[dict[str, Any] | list[dict[str, Any]]]:
 	if not many:
 		try:
 			searched_id = cls.station_id
 		except AttributeError:
 			searched_id = cls.id
-		return sa_object_to_dict((await session.execute(
+		result = (await session.execute(
 			select(cls).where(searched_id == station_id)
-		)).scalar())
-	return sa_objects_dicts_list((await session.execute(
+		)).scalar()
+		if result:
+			return sa_object_to_dict(result)
+		return
+
+	result = (await session.execute(
 			select(cls).where(cls.station_id == station_id)
-		)).scalars().all())
+		)).scalars().all()
+
+	if any(result):
+		return sa_objects_dicts_list(result)
 
 
-async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> schemas_stations.Station:
+async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> Optional[schemas_stations.Station]:
 	"""
 	Собрать данные по станции в БД.
 	"""
 	station_general = await get_station_relation(station_id, Station, session)
-	station_washing_machines = await get_station_relation(station_id, WashingMachine, session, many=True)
-	station_washing_agents = await get_station_relation(station_id, WashingAgent, session, many=True)
-	station_settings = await get_station_relation(station_id, StationSettings, session)
-	station_control = await get_station_relation(station_id, StationControl, session)
-	station_programs = await get_station_relation(station_id, StationProgram, session, many=True)
+	if station_general:
+		station_washing_machines = await get_station_relation(station_id, WashingMachine, session, many=True)
+		station_washing_agents = await get_station_relation(station_id, WashingAgent, session, many=True)
+		station_settings = await get_station_relation(station_id, StationSettings, session)
+		station_control = await get_station_relation(station_id, StationControl, session)
+		station_programs = await get_station_relation(station_id, StationProgram, session, many=True)
 
-	return schemas_stations.Station(
-		**station_general,
-		station_programs=station_programs,
-		station_washing_agents=station_washing_agents,
-		station_washing_machines=station_washing_machines,
-		station_settings=station_settings,
-		station_control=station_control
-	)
+		return schemas_stations.Station(
+			**station_general,
+			station_programs=station_programs,
+			station_washing_agents=station_washing_agents,
+			station_washing_machines=station_washing_machines,
+			station_settings=station_settings,
+			station_control=station_control
+		)
 
 
 async def generate_station_control(station: StationData, session: AsyncSession) -> None:
 	"""
 	Установить случайное текущее состояние станции (рабочее).
 	"""
-	if not station.is_active or station.station_settings.get("station_power") is False \
-		or station.station_settings.get("teh_power") is False:
-		raise ValueError  # ХЗ ПОЧЕМУ, НО ПРИХОДИТСЯ ДЕЛАТЬ .get(), ПОЧЕМУ-ТО В НАСТРОЙКАХ НЕ PYDANTIC-схема
+	if not station.is_active or station.station_settings.station_power is False \
+		or station.station_settings.teh_power is False:
+		raise ValueError
 
 	program = random.choice(station.station_programs)
 	machine = random.choice(station.station_washing_machines)
 	query = update(StationControl).where(StationControl.station_id == station.id).values(
-			program_step=program, washing_machine=machine, status=StationStatusEnum.WORKING,
-			updated_at=datetime.datetime.now()
+			program_step=program.dict(), washing_machine=machine.dict(), status=StationStatusEnum.WORKING
 		)
-	await session.execute(
-		query
-	)
+	await session.execute(query)
 	await session.commit()
 
 
@@ -225,7 +244,7 @@ async def change_washing_machine_params(machine_number: int, station: StationDat
 
 
 async def delete_washing_services(object_number: int, station: StationData, session: AsyncSession,
-									object_type=Literal["agent", "machine"]) -> None:
+									object_type: Literal["agent", "machine"]) -> None:
 	"""
 	Удаление стирального объекта
 	"""

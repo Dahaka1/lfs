@@ -5,6 +5,7 @@ import pydantic
 from geopy.location import Location
 from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from loguru import logger
 from pydantic import UUID4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
@@ -175,8 +176,7 @@ async def delete_station(
 	await db.commit()
 
 	if action_by:
-		info_text = f"Station {station.id} was successfully deleted by user {action_by.email}"
-		await ChangesLog.log(db, action_by, station, info_text)
+		logger.info(f"Station {station.id} was successfully deleted by user {action_by.email}")
 
 
 async def update_station_general(
@@ -217,11 +217,11 @@ async def update_station_general(
 			updated_params_list.append("location")
 
 	if any(updated_params_list):
-		current_data["updated_at"] = datetime.datetime.now()
+		current_data["updated_at"] = datetime.datetime.now()  # updated_at почему-то автоматически не обновляется =(
 
 		query = update(Station).where(
 			Station.id == station.id
-		).values(**current_data)  # updated_at почему-то автоматически не обновляется =(
+		).values(**current_data)
 
 		await db.execute(query)
 		await db.commit()
@@ -372,7 +372,7 @@ async def update_station_program(
 		(agent_number not in map(lambda ag: ag.agent_number, station_washing_agents)
 		 for agent_number in washing_agents_numbers)
 	):
-		raise UpdatingError("Got an non-existing washing agent number")
+		raise GettingDataError("Got an non-existing washing agent number")
 
 	if not updated_program.program_step:
 		updated_program.program_step = current_program.program_step
@@ -398,9 +398,8 @@ async def update_station_program(
 
 	if station.is_active:
 		station_control = await StationControl.get_relation_data(station, db)
-		if station_control.program_step and station_control.program_step.program_step == current_program.program_step:
-			station_control.program_step = updated_program
-			updates = schemas_stations.StationControlUpdate(**updated_program.dict())
+		if station_control.program_step and station_control.program_step.program_step == updated_program.program_step:
+			updates = schemas_stations.StationControlUpdate(program_step=updated_program.dict())
 			await StationControl.update_relation_data(station, updates, db)
 
 	return updated_program

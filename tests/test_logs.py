@@ -10,14 +10,19 @@ from sqlalchemy import select, delete
 from app.schemas import schemas_logs
 from app.models.stations import StationControl
 from app.models.logs import StationMaintenanceLog
-from tests.additional import auth
-from tests.additional.stations import create_random_station_logs, change_station_params
+from tests.additional import auth, users as users_funcs
+from tests.additional.stations import create_random_station_logs, change_station_params, StationData
 from app.static.enums import CreateLogByStationEnum, LogTypeEnum, StationStatusEnum
 from app.utils.general import sa_object_to_dict
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")
 class TestLog:
+	installer: users_funcs.UserData
+	manager: users_funcs.UserData
+	sysadmin: users_funcs.UserData
+	laundry: users_funcs.UserData
+	station: StationData
 	"""
 	Тестирование логирования.
 	"""

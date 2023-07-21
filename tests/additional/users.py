@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update, select
 from sqlalchemy.orm import Session
 from httpx import AsyncClient
+from pydantic import BaseModel
 
 import services
 from app.static.enums import RoleEnum, RegionEnum
@@ -16,8 +17,7 @@ from app.utils.general import get_data_hash, sa_object_to_dict
 from app.schemas.schemas_token import Token
 
 
-@dataclass
-class UserData:
+class UserData(BaseModel):
 	"""
 	Набор данных пользователя для тестов.
 	"""

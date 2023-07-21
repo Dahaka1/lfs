@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, Boolean, UUID, insert, select, Float, \
 	update, delete
@@ -39,7 +40,7 @@ class WashingMixin:
 		if any(
 			(key not in cls.FIELDS for key in kwargs)
 		):
-			raise AttributeError(f"Expected fields for washing machine creating are {cls.FIELDS}")
+			raise AttributeError(f"Expected fields for {cls.__name__} creating are {cls.FIELDS}")
 
 		if not defaults:
 			current_objects = await cls.get_station_objects(station_id, db)
@@ -54,13 +55,13 @@ class WashingMixin:
 		model = getattr(schemas_washing, cls.__name__ + "Create")
 
 		await db.execute(query)
-
+		await db.commit()
 		return model(**kwargs)
 
 	@classmethod
 	async def get_obj_by_number(
 		cls, db: AsyncSession, object_number: int, station_id: uuid.UUID
-	) -> schemas_washing.WashingMachine | schemas_washing.WashingAgent:
+	) -> Optional[schemas_washing.WashingMachine | schemas_washing.WashingAgent]:
 		"""
 		Поиск объекта по номеру станции и номеру объекта.
 		"""
@@ -107,14 +108,15 @@ class WashingMixin:
 	async def update_object(
 		cls, station_id: uuid.UUID, db: AsyncSession,
 		updated_object: schemas_washing.WashingMachineUpdate | schemas_washing.WashingAgentUpdate,
-		object_number: int
+		obj_number: int
 	) -> schemas_washing.WashingMachine | schemas_washing.WashingAgent:
 		"""
 		Обновление объекта.
 		"""
+		numeric_field = cls.NUMERIC_FIELDS[cls.__name__]
 		query = update(cls).where(
 			(cls.station_id == station_id) &
-			(getattr(cls, cls.NUMERIC_FIELDS[cls.__name__]) == object_number)
+			(getattr(cls, numeric_field) == obj_number)
 		).values(
 			**updated_object.dict()
 		)
@@ -125,7 +127,7 @@ class WashingMixin:
 		schema = getattr(schemas_washing, cls.__name__)
 
 		return schema(
-			**updated_object.dict()
+			**updated_object.__dict__
 		)
 
 	@classmethod

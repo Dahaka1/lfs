@@ -36,6 +36,7 @@ app.include_router(api_router)
 origins = [
     "http://localhost",
     "http://localhost:8080",
+	"https://lfs.onrenderer.com"
 ]
 
 app.add_middleware(

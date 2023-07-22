@@ -33,12 +33,12 @@ for r in (auth, users, stations, management, logs):
 
 app.include_router(api_router)
 
-# origins = [
-#     "http://localhost",
-#     "http://localhost:8080",
-# 	"https://lfs.onrenderer.com"
-# ]
-#
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+	"https://lfs.onrenderer.com"
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,7 +55,7 @@ async def startup():
 	"""
 	logger.add(**LOGGING_PARAMS)
 	logger.info("Starting server...")
-	# await check_connections()
+	await check_connections()
 	await fastapi_cache_init()
 	logger.info("All connections are available. Server started successfully.")
 

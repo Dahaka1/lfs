@@ -55,7 +55,8 @@ def start_app(**kwargs) -> None:
 	Если запуск в "продакшн" (debug = False), то запускается gunicorn-сервер.
 	"""
 	debug = kwargs.get("debug")
-	if debug:
+	render_test = os.getenv("render")
+	if debug and not render_test:
 		os.system(config.STARTING_APP_CMD_DEBUG_MODE)
 	else:
 		os.system(config.STARTING_APP_CMD)

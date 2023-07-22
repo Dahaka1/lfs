@@ -8,6 +8,9 @@ SMTP_PORT = 587
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
+if SMTP_PASSWORD == "null" or SMTP_USER == "null":
+	raise RuntimeError("For testing app, write your SMTP data into .env-docker file")
+
 # USERS PARAMS
 USER_DEFAULT_ROLE = RoleEnum.LAUNDRY
 

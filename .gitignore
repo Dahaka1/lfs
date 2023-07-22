@@ -7,5 +7,4 @@ app/routers/__pycache__
 logs
 alembic/__pycache__
 .env
-app/static/enums.py
 .env-render

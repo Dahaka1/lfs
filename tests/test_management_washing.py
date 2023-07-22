@@ -286,7 +286,6 @@ class TestManagementWashing:
 
 		assert rand_machine.machine_number not in [m.machine_number for m in self.station.station_washing_machines]
 
-
 	async def test_delete_station_washing_services_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Если объект в данный момент используется станцией, удалить его нельзя;
@@ -305,6 +304,18 @@ class TestManagementWashing:
 			headers=self.installer.headers
 		)
 		assert using_machine_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		using_washing_agent_number = random.choice(self.station.station_control.program_step.washing_agents).agent_number
+
+		using_agent_r = await ac.delete(
+			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/{using_washing_agent_number}",
+			headers=self.installer.headers
+		)
+
+		assert using_agent_r.status_code == 409
 
 		# ___________________________________________________________________________________________
 

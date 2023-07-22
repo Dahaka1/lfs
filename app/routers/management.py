@@ -14,6 +14,7 @@ from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingSe
 from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
 from ..exceptions import PermissionsError, CreatingError, DeletingError
+from ..static import openapi
 
 
 router = APIRouter(
@@ -22,7 +23,8 @@ router = APIRouter(
 )
 
 
-@router.get("/station/{station_id}/{dataset}", response_model=stations.StationPartialForUser)
+@router.get("/station/{station_id}/{dataset}", responses=openapi.read_station_partial_by_user_get,
+			response_model=stations.StationPartialForUser)
 async def read_station_partial_by_user(
 	current_user: Annotated[users.User, Depends(get_current_active_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -67,7 +69,7 @@ async def read_station_all_by_user(
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.GENERAL.value,
-			response_description="Возвращаются основные параметры станции с изменениями")
+			responses=openapi.update_station_general_put)
 async def update_station_general(
 	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -102,6 +104,7 @@ async def update_station_general(
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.CONTROL.value,
+			responses=openapi.update_station_control_put,
 			response_model=stations.StationControl)
 async def update_station_control(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
@@ -167,7 +170,8 @@ async def update_station_settings(
 
 
 @router.post("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
-			 response_model=list[stations.StationProgram], response_description="Возвращает СОЗДАННЫЕ программы",
+			 response_model=list[stations.StationProgram],
+			 responses=openapi.create_station_program_post,
 			 status_code=status.HTTP_201_CREATED)
 async def create_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
@@ -205,7 +209,7 @@ async def create_station_program(
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}",
-			response_model=stations.StationProgram, deprecated=True)
+			response_model=stations.StationProgram, responses=openapi.update_station_program_put, deprecated=True)
 async def update_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_and_program: Annotated[tuple[stations.StationGeneralParams, stations.StationProgram],
@@ -240,7 +244,8 @@ async def update_station_program(
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
 
 
-@router.delete("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}")
+@router.delete("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}",
+			   responses=openapi.delete_station_program_delete)
 async def delete_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_and_program: Annotated[tuple[stations.StationGeneralParams, stations.StationProgram],
@@ -265,7 +270,7 @@ async def delete_station_program(
 	)
 
 
-@router.delete("/station/{station_id}")
+@router.delete("/station/{station_id}", responses=openapi.delete_station_delete)
 async def delete_station(
 	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -280,7 +285,7 @@ async def delete_station(
 	return {"deleted": station.id}
 
 
-@router.post("/station/{station_id}/{dataset}", response_description="Созданный объект",
+@router.post("/station/{station_id}/{dataset}", responses=openapi.create_station_washing_services_post,
 			 tags=["washing_services_management"], status_code=status.HTTP_201_CREATED)
 async def create_station_washing_services(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
@@ -323,6 +328,7 @@ async def create_station_washing_services(
 
 @router.put("/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/{agent_number}",
 			response_model=washing.WashingAgent,
+			responses=openapi.update_station_washing_agent_put,
 			tags=["washing_services_management"])
 async def update_station_washing_agent(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
@@ -361,6 +367,7 @@ async def update_station_washing_agent(
 
 @router.put("/station/{station_id}/" + WashingServicesEnum.WASHING_MACHINES.value + "/{machine_number}",
 			response_model=washing.WashingMachine,
+			responses=openapi.update_station_washing_machine_put,
 			tags=["washing_services_management"])
 async def update_station_washing_machine(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
@@ -395,7 +402,8 @@ async def update_station_washing_machine(
 	return machine
 
 
-@router.delete("/station/{station_id}/{dataset}/{object_number}", tags=["washing_services_management"])
+@router.delete("/station/{station_id}/{dataset}/{object_number}", tags=["washing_services_management"],
+			   responses=openapi.delete_station_washing_services_delete)
 async def delete_station_washing_services(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],

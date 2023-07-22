@@ -20,6 +20,7 @@ app = FastAPI(
 	description=app_description(),
 	summary="LFS stations",
 	version="0.0.1",
+	root_path="/api/v1/",
 	contact={
 		"name": "Yaroslav",
 		"email": "ijoech@gmail.com",

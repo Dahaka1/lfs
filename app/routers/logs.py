@@ -106,7 +106,7 @@ async def get_station_logs(
 
 
 @router.post("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"],
-			 responses=openapi.station_maintenance_log_post)
+			 responses=openapi.station_maintenance_log_post, response_model=logs.StationMaintenanceLog)
 async def station_maintenance_log(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],
@@ -156,7 +156,7 @@ async def station_maintenance_log(
 
 
 @router.put("/" + LogTypeEnum.MAINTENANCE.value + "/{station_id}", tags=["maintenance_logs"],
-			responses=openapi.station_maintenance_log_put)
+			responses=openapi.station_maintenance_log_put, response_model=logs.StationMaintenanceLog)
 async def station_maintenance_log(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_id: Annotated[uuid.UUID, Path(title="ИД станции")],

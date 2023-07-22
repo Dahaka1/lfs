@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import pytz
 
 import services
-from ..schemas import schemas_users
+from ..schemas import schemas_users, schemas_token, schemas_email_code
 from ..dependencies import get_async_session,get_sync_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
@@ -26,7 +26,7 @@ router = APIRouter(
 )
 
 
-@router.post("/token", tags=["token"], responses=openapi.token_post_responses)
+@router.post("/token", tags=["token"], responses=openapi.token_post_responses, response_model=schemas_token.Token)
 async def login_for_access_token(
 	email: Annotated[str, Form(title="Email пользователя")],
 	password: Annotated[str, Form(title="Пароль пользователя")],
@@ -57,7 +57,8 @@ async def login_for_access_token(
 @router.post(
 	"/confirm_email",
 	tags=["confirming_email"],
-	responses=openapi.confirm_email_post_responses
+	responses=openapi.confirm_email_post_responses,
+	response_model=dict[str, schemas_users.User | schemas_email_code.RegistrationCode]
 )
 async def confirm_user_email(
 	current_user: Annotated[schemas_users.User, Depends(get_current_user)],
@@ -99,7 +100,8 @@ async def confirm_user_email(
 
 @router.get(
 	"/confirm_email", tags=["confirming_email"],
-	description="Ручной запрос отправки кода подтверждения."
+	description="Ручной запрос отправки кода подтверждения.",
+	responses=openapi.confirm_email_get_responses
 )
 async def request_confirmation_code(
 	current_user: Annotated[schemas_users.User, Depends(get_current_user)],

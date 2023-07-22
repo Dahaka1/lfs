@@ -79,7 +79,7 @@ confirm_email_post_responses = {
 
 confirm_email_get_responses = {
 	200: {
-		"description": "Пустой положительный ответ в случае успешного подтверждения кода пользователем."
+		"description": "Пустой положительный ответ в случае успешной отправки кода пользователю."
 	},
 	403: {
 		"description": "User email already confirmed / Disabled user"

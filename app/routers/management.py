@@ -51,7 +51,7 @@ async def read_station_partial_by_user(
 				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.get("/station/{station_id}", response_model=stations.Station)
+@router.get("/station/{station_id}", response_model=stations.Station, responses=openapi.read_station_all_by_user)
 async def read_station_all_by_user(
 	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -140,7 +140,7 @@ async def update_station_control(
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.put("/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
+@router.put("/station/{station_id}/" + StationParamsEnum.SETTINGS.value, responses=openapi.update_station_settings_put,
 			response_model=stations.StationSettings)
 async def update_station_settings(
 	current_user: Annotated[users.User, Depends(get_installer_user)],

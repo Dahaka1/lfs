@@ -48,7 +48,7 @@ DB_AUTO_UPDATING = False
 
 # starting params
 STARTING_APP_CMD_DEBUG_MODE = "uvicorn app.main:app"
-STARTING_APP_CMD = "gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:8000"
+STARTING_APP_CMD = "gunicorn app.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:8000"
 
 # users passwords hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

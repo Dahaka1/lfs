@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, status
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 import config
@@ -31,6 +32,19 @@ for r in (auth, users, stations, management, logs):
 	api_router.include_router(r.router)
 
 app.include_router(api_router)
+
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")

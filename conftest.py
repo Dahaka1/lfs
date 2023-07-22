@@ -36,9 +36,7 @@ from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY, DATABA
 from app.dependencies import get_async_session, get_sync_session
 from app.main import app
 from app import fastapi_cache_init
-from app.schemas.schemas_users import User
-from tests.additional.users import create_authorized_user, generate_user_data, create_user, create_multiple_users, \
-	UserData
+from tests.additional.users import create_authorized_user, generate_user_data, create_user, create_multiple_users
 from tests.additional.stations import generate_station
 
 engine_test = create_async_engine(DATABASE_URL_TEST, poolclass=NullPool)
@@ -107,8 +105,8 @@ async def prepare_app():
 
 	yield
 
-	# async with engine_test.begin() as conn:
-	# 	await conn.run_sync(Base.metadata.drop_all)
+	async with engine_test.begin() as conn:
+		await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture(scope='session')

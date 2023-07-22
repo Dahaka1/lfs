@@ -57,7 +57,7 @@ class TestUsers:
 			"first_name": "Test",
 			"last_name": "Test",
 			"region": RegionEnum.NORTHWEST.value,
-			"email": "test_123@gmail.com",
+			"email": "awdafggdgsefdwed@gmail.com",
 			"password": "qwerty123"
 		})
 
@@ -164,14 +164,14 @@ class TestUsers:
 		put_from_sysadmin_data = dict(user={
 			"password": "testtesttest",
 			"role": RoleEnum.MANAGER.value,
-			"email": "testitplease@gmail.com",
+			"email": "testitplease12341@gmail.com",
 			"disabled": True
 		})
-		if isinstance(self.laundry.id, int):  # чтобы линтер не ругался
-			user_before_put = await session.execute(
-				select(User).where(User.id == self.laundry.id)
-			)
-			current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
+
+		user_before_put = await session.execute(
+			select(User).where(User.id == self.laundry.id)
+		)
+		current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
 
 		response = await ac.put(
 			f"/api/v1/users/{self.laundry.id}",

@@ -16,6 +16,7 @@ from ..models.users import User
 from .. import tasks
 from ..static import openapi
 from .config import CACHE_EXPIRING_DEFAULT
+from ..utils.general import sa_object_to_dict
 
 
 router = APIRouter(

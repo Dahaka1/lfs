@@ -30,7 +30,7 @@ class TestLog:
 		"""
 		Создание лога станцией.
 		"""
-		log = dict(content={"station_id": self.station.id, "code": 0, "content": "Qwerty"})
+		log = dict(content={"station_id": str(self.station.id), "code": 0, "content": "Qwerty"})
 		response = await ac.post(
 			"/api/v1/logs/" + CreateLogByStationEnum.ERRORS.value,
 			headers=self.station.headers,
@@ -38,14 +38,14 @@ class TestLog:
 		)
 		assert response.status_code == 201
 		error = response.json()
-		assert error.get("station_id") == self.station.id and error.get("code") == 0 and error.get("content") == "Qwerty"
+		assert error.get("station_id") == str(self.station.id) and error.get("code") == 0 and error.get("content") == "Qwerty"
 
 	async def test_add_station_log_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Некорректное содержание лога (тип лога указан один, а содержание - другого типа);
 		- auto auth test.
 		"""
-		log = dict(content={"station_id": self.station.id, "code": 0, "content": "Qwerty"})
+		log = dict(content={"station_id": str(self.station.id), "code": 0, "content": "Qwerty"})
 		incorrect_log_r = await ac.post(
 			"/api/v1/logs/" + CreateLogByStationEnum.PROGRAMS_USING.value,
 			headers=self.station.headers,
@@ -141,10 +141,9 @@ class TestLog:
 		)
 		station_control = await StationControl.get_relation_data(self.station.id, session)
 
-		if isinstance(self.station.id, str):  # чтобы не ругался линтер
-			inserted_log = await session.execute(
-				select(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
-			)
+		inserted_log = await session.execute(
+			select(StationMaintenanceLog).where(StationMaintenanceLog.station_id == self.station.id)
+		)
 		inserted_log_schema = schemas_logs.StationMaintenanceLog(
 			**sa_object_to_dict(
 				inserted_log.scalar()
@@ -190,7 +189,7 @@ class TestLog:
 		rand_washing_machine = random.choice(self.station.station_washing_machines)
 		rand_washing_agent = random.choice(self.station.station_washing_agents)
 		await change_station_params(self.station, session, status=StationStatusEnum.WORKING,
-									washing_machine=rand_washing_machine, washing_agents=[rand_washing_agent])
+									washing_machine=rand_washing_machine.dict(), washing_agents=[rand_washing_agent.dict()])
 
 		working_station_r = await ac.post(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',

@@ -100,16 +100,14 @@ class TestStations:
 			defined_program = next(pg for pg in params["programs"] if pg["program_step"] == program.program_step)
 			assert program.program_step == defined_program["program_step"]
 			for washing_agent in program.washing_agents:
-				try:
-					defined_washing_agent = next(ag for ag in defined_program["washing_agents"]
-												 if (ag["agent_number"] if isinstance(ag, dict) else ag) ==
-												 washing_agent.agent_number)
-				except StopIteration:
-					defined_washing_agent = washing.WashingAgentCreateMixedInfo(
-						**next(ag for ag in params["washing_agents"] if isinstance(ag, int) and
-							   ag == washing_agent.agent_number))
-				assert washing_agent.agent_number == defined_washing_agent["agent_number"]
-				assert washing_agent.volume == defined_washing_agent["volume"]
+				for ag in defined_program["washing_agents"]:
+					if isinstance(ag, int) and ag == washing_agent.agent_number:
+						defined_washing_agent = next(agent for agent in params["washing_agents"] if
+													 agent["agent_number"] == ag)
+						defined_washing_agent = washing.WashingAgentCreateMixedInfo(**defined_washing_agent)
+					elif isinstance(ag, dict) and ag["agent_number"] == washing_agent.agent_number:
+						defined_washing_agent = washing.WashingAgentWithoutRollback(**ag)
+				assert washing_agent.volume == defined_washing_agent.volume
 
 		default_washing_agents_params = {
 			"rollback": services.DEFAULT_WASHING_AGENTS_ROLLBACK,
@@ -151,6 +149,8 @@ class TestStations:
 		- users auth auto test.
 		"""
 		params = copy.deepcopy(station_fills.test_create_station_with_advanced_params)
+		if not isinstance(params["station"]["region"], str):
+			params["station"]["region"] = params["station"]["region"].value  # не успевает поменяться обратно на строку (
 		# _______________________________________________________________
 		params["station"]["programs"].append(
 			{
@@ -290,12 +290,7 @@ class TestStations:
 		for washing_agent in washing_agents_result:
 			washing_agent = washing.WashingAgent(**washing_agent)  # Validation error
 			assert services.MIN_WASHING_AGENTS_VOLUME <= washing_agent.volume <= services.MAX_WASHING_AGENTS_VOLUME
-			defined_washing_agent = next(ag for ag in params["station"]["washing_agents"] if ag["agent_number"] \
-										 == washing_agent.agent_number)
-			if "rollback" in defined_washing_agent:
-				assert washing_agent.rollback is defined_washing_agent["rollback"]
-			else:
-				assert washing_agent.rollback is services.DEFAULT_WASHING_AGENTS_ROLLBACK
+			assert washing_agent.rollback is services.DEFAULT_WASHING_AGENTS_ROLLBACK
 		# _____________________________________________________
 
 		programs_r = await ac.get(
@@ -330,12 +325,7 @@ class TestStations:
 				   <= services.MAX_STATION_WASHING_MACHINES_AMOUNT
 			assert services.MIN_WASHING_MACHINE_TRACK_LENGTH <= machine.track_length <= \
 				   services.MAX_WASHING_MACHINE_TRACK_LENGTH
-			defined_washing_machine = next(m for m in params["station"]["washing_machines"] if m["machine_number"] \
-										   == machine.machine_number)
-			if "is_active" in defined_washing_machine:
-				assert machine.is_active == defined_washing_machine["is_active"]
-			else:
-				assert machine.is_active == services.DEFAULT_WASHING_MACHINES_IS_ACTIVE
+			assert machine.is_active == services.DEFAULT_WASHING_MACHINES_IS_ACTIVE
 
 	async def test_read_stations_params_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""

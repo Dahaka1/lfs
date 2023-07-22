@@ -26,7 +26,6 @@ async def update_washing_object(
 	"""
 	station_control = await StationControl.get_relation_data(station, db)
 
-
 	async def check_updating_washing_machine() -> bool:
 		"""
 		Возвращает True, если стиральная машина сейчас занята и нужно обновить ее в текущем

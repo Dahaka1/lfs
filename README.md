@@ -20,6 +20,6 @@ LFS company backed server. Developed right now.
 - Use Yandex geopy instead of Nominatim;
 - Add loguru errors email notifications if needed;
 - Add refresh token to authenticate;
-- Refactor DB operations with queries to ORM operations;
+- Refactor DB operations with queries to ORM operations, including update ORM defining to SQLAlchemy v2 (mapped columns;
 - Add Celery tasks handling in case of low-speed background tasks handling by FastAPI;
-- Add advanced path operations responses description (openapi).
+- Add advanced path operations responses description (openapi) - DONE.

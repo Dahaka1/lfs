@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update, select, delete, func
+from sqlalchemy import update, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 
@@ -138,10 +138,10 @@ async def create_random_station_logs(station: StationData,
 
 	error = logs.ErrorsLog(station_id=station.id, code=0, content="qwerty")
 	washing_agents_using = logs.WashingAgentsUsingLog(station_id=station.id,
-													  washing_machine=rand_washing_machine,
-													  washing_agent=rand_washing_agent)
+													  washing_machine=rand_washing_machine.dict(),
+													  washing_agent=rand_washing_agent.dict())
 	change = logs.ChangesLog(station_id=station.id, user_id=user.id, content="qwerty")
-	program_using = logs.StationProgramsLog(station_id=station.id, program_step=rand_program)
+	program_using = logs.StationProgramsLog(station_id=station.id, program_step=rand_program.dict())
 	maintenance = logs.StationMaintenanceLog(station_id=station.id, user_id=user.id,
 											 started_at=datetime.datetime.now() - datetime.timedelta(days=1),
 											 ended_at=datetime.datetime.now())

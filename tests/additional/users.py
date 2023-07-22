@@ -13,7 +13,7 @@ import services
 from app.static.enums import RoleEnum, RegionEnum
 from app.models.users import User
 from app.schemas import schemas_users
-from app.utils.general import get_data_hash, sa_object_to_dict
+from app.utils.general import get_data_hash, sa_object_to_dict, sa_objects_dicts_list
 from app.schemas.schemas_token import Token
 
 
@@ -156,4 +156,15 @@ async def get_user_by_id(id: int, session: AsyncSession) -> schemas_users.User:
 	)
 	return schemas_users.User(
 		**sa_object_to_dict(user.scalar())
+	)
+
+
+async def get_all_users(session: AsyncSession) -> list[dict]:
+	"""
+	Список всех пользователей
+	"""
+	return sa_objects_dicts_list(
+		(await session.execute(
+			select(User)
+		)).scalars().all()
 	)

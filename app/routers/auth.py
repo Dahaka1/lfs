@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 import pytz
 
+import services
 from ..schemas import schemas_users
 from ..dependencies import get_async_session,get_sync_session
 from ..dependencies.users import get_current_user
@@ -45,7 +46,7 @@ async def login_for_access_token(
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
 
 	access_token = create_jwt_token(
-		data={"sub": user.email}, expires_at_hours=24
+		data={"sub": user.email}, expires_at_hours=services.ACCESS_TOKEN_EXPIRE_HOURS
 	)
 
 	logger.info(f"User {email} (ID: {user.id}) was successfully authorized")

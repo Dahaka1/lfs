@@ -10,17 +10,16 @@ geolocator_sync = Nominatim(user_agent=GEO_APP, timeout=10)
 
 STARTING_APP_FROM_CMD_DEBUG_ARG = "--debug"
 
-# if STARTING_APP_FROM_CMD_DEBUG_ARG in sys.argv:  # если запуск сервера из докера, используется .env-docker;
-# если запуск локальный - можно использовать только debug-mode
-load_dotenv()
+if STARTING_APP_FROM_CMD_DEBUG_ARG in sys.argv:  # если запуск сервера из докера, используется .env-docker;
+	# если запуск локальный - можно использовать только debug-mode
+	load_dotenv()
 
 DB_PARAMS = {"user": os.environ.get("DB_USER"), "password": os.environ.get("DB_PASSWORD"),
-	"host": os.environ.get("DB_HOST"), "port": os.environ.get("DB_PORT"), "dbname": os.environ.get("DB_NAME")}
+			 "host": os.environ.get("DB_HOST"), "port": os.environ.get("DB_PORT"), "dbname": os.environ.get("DB_NAME")}
 
 DB_PARAMS_TEST = {"user": os.environ.get("DB_USER_TEST"), "password": os.environ.get("DB_PASSWORD_TEST"),
-	"host": os.environ.get("DB_HOST_TEST"), "port": os.environ.get("DB_PORT_TEST"),
+				  "host": os.environ.get("DB_HOST_TEST"), "port": os.environ.get("DB_PORT_TEST"),
 				  "dbname": os.environ.get("DB_NAME_TEST")}
-
 
 DATABASE_URL = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())
 DATABASE_URL_SYNC = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())  # for alembic and sync SA
@@ -28,7 +27,7 @@ DATABASE_URL_TEST = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST
 DATABASE_URL_SYNC_TEST = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
 
 API_DOCS_URL = "/api/v1/docs"
-API_REDOC_URL = "/api/v1/docs"
+API_REDOC_URL = "/api/v1/redoc"
 OPENAPI_URL = "/api/v1/openapi.json"
 
 # loguru logger settings
@@ -64,7 +63,6 @@ REDIS_PORT = os.environ.get("REDIS_PORT")
 REDIS_URL = f"{REDIS_HOST}:{REDIS_PORT}"
 REDIS_CACHE_PREFIX = "lfs-cache"
 
-
 # STATIC FILES DIR
 STATIC_FILES_DIR = "app/static"
 HTML_TEMPLATES_DIR = STATIC_FILES_DIR + "/templates"
@@ -74,4 +72,3 @@ FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")
 
 # SMTP SERVER
 SMTP_SERVER_TIMEOUT = 10
-

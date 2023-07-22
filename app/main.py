@@ -60,10 +60,3 @@ async def docs():
 		status_code=status.HTTP_308_PERMANENT_REDIRECT
 	)
 
-
-@app.get("/redoc")
-async def redoc():
-	return RedirectResponse(
-		url=config.API_REDOC_URL,
-		status_code=status.HTTP_308_PERMANENT_REDIRECT
-	)

@@ -329,7 +329,7 @@ update_station_control_put = {
 update_station_settings_put = {
 	200: {
 		"description": "Обновленные настройки станции",
-		"moodel": stations.StationSettings
+		"model": stations.StationSettings
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed / Station servicing"

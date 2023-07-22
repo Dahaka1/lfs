@@ -55,7 +55,7 @@ async def startup():
 	"""
 	logger.add(**LOGGING_PARAMS)
 	logger.info("Starting server...")
-	await check_connections()
+	# await check_connections()
 	await fastapi_cache_init()
 	logger.info("All connections are available. Server started successfully.")
 

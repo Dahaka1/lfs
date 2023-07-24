@@ -1,12 +1,16 @@
-from datetime import timedelta, datetime
+import random
+from datetime import timedelta, datetime, timezone
 from typing import Any, Sequence
 import json
+from string import ascii_letters
 
+from fastapi.responses import JSONResponse
 from jose import jwt
 from cryptography.fernet import Fernet
 
-import config, services
+import config
 from ..database import Base
+from ..schemas.schemas_token import Token, RefreshToken
 
 
 def verify_data_hash(data, hashed_data) -> bool:
@@ -23,18 +27,46 @@ def get_data_hash(data: str) -> str:
 	return config.pwd_context.hash(data)
 
 
-def create_jwt_token(data: dict, expires_at_hours: int) -> str:
+def create_jwt_token(data: dict, expires_at: timedelta) -> str:
 	"""
 	Создание JWT-токена. "Живет" в течение переданного времени. По умолчанию время указывается в конфиге.
 	В data должен содержаться обязательный для JWT-токена параметр: "sub" (субъект - имя пользователя/email/...).
-	:param expires_at_hours: через сколько ЧАСОВ истекает
+	:param expires_at: через сколько истекает
 	:param data: содержание payload
 	"""
-	expires_delta = timedelta(hours=expires_at_hours)
-	expire = datetime.utcnow() + expires_delta
+	expire = datetime.utcnow() + expires_at
 	data.update({"exp": expire})  # std jwt data param
 	encoded_jwt = jwt.encode(claims=data, key=config.JWT_SECRET_KEY, algorithm=config.JWT_SIGN_ALGORITHM)
+
 	return encoded_jwt
+
+
+def create_token_response(token: Token, refresh: RefreshToken) -> JSONResponse:
+	"""
+	Создать ответ сервера с токенами (refresh - cookie, access - body).
+	"""
+	response = JSONResponse(content=token.dict())
+	exp_at = refresh.expires_at.timestamp()
+	refresh.expires_at = datetime.fromtimestamp(exp_at, tz=timezone.utc)
+	response.set_cookie(key="refreshToken", value=refresh.refresh_token, expires=refresh.expires_at, httponly=True)
+
+	return response
+
+
+def decode_jwt(token: str) -> dict[str, Any]:
+	"""
+	Расшифровать JWT
+	"""
+	return jwt.decode(token=token, key=config.JWT_SECRET_KEY, algorithms=[config.JWT_SIGN_ALGORITHM])
+
+
+def generate_refresh_token(length: int = 20) -> str:
+	"""
+	Генерирует рефреш-токен.
+	"""
+	return ''.join(
+		(random.choice(ascii_letters) for _ in range(length))
+	)
 
 
 def sa_object_to_dict(sa_object: Base) -> dict[str, Any]:

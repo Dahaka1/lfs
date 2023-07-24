@@ -3,8 +3,7 @@ from typing import Optional
 import datetime
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
-	UUID, JSON, DateTime, func, insert, select, PrimaryKeyConstraint, update
-from fastapi.encoders import jsonable_encoder
+	UUID, JSON, func, insert, select, PrimaryKeyConstraint, update, TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import Base
@@ -41,8 +40,8 @@ class Station(Base):
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected = Column(Boolean)
 	hashed_wifi_data = Column(String)
-	created_at = Column(DateTime, server_default=func.now())
-	updated_at = Column(DateTime, onupdate=func.now())
+	created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 	region = Column(Enum(RegionEnum))
 
 	@staticmethod
@@ -265,7 +264,7 @@ class StationSettings(Base, StationMixin):
 						index=True)
 	station_power = Column(Boolean, default=services.DEFAULT_STATION_POWER)
 	teh_power = Column(Boolean, default=services.DEFAULT_STATION_TEH_POWER)
-	updated_at = Column(DateTime, onupdate=func.now())
+	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
 	@classmethod
 	async def create(cls, db: AsyncSession, station_id: uuid.UUID, **kwargs) -> schemas_stations.StationSettingsCreate:
@@ -305,7 +304,7 @@ class StationProgram(Base, StationMixin):
 	program_step = Column(Integer, nullable=False)
 	program_number = Column(Integer, nullable=False)
 	washing_agents = Column(JSON)
-	updated_at = Column(DateTime, onupdate=func.now())
+	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
 	@staticmethod
 	async def create_station_programs(station: schemas_stations.Station,
@@ -365,7 +364,7 @@ class StationControl(Base, StationMixin):
 	program_step = Column(JSON)
 	washing_machine = Column(JSON)
 	washing_agents = Column(JSON, default=[])
-	updated_at = Column(DateTime, onupdate=func.now())
+	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
 	@staticmethod
 	async def create(db: AsyncSession, station_id: uuid.UUID, **kwargs) -> schemas_stations.StationControl:

@@ -6,8 +6,9 @@ import random
 from email.message import EmailMessage
 from typing import Optional
 
-from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, \
-	func, Boolean, PrimaryKeyConstraint, select, update
+import pytz
+from sqlalchemy import Column, Integer, String, ForeignKey, \
+	Boolean, PrimaryKeyConstraint, select, update, delete, TIMESTAMP, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from loguru import logger
@@ -15,8 +16,10 @@ from loguru import logger
 import services, config
 from ..database import Base
 from ..schemas.schemas_users import User
+from . import users as users_models
 from ..schemas.schemas_email_code import RegistrationCodeInDB
-from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash
+from ..schemas import schemas_token
+from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash, create_jwt_token, generate_refresh_token
 
 
 class RegistrationCode(Base):
@@ -41,15 +44,15 @@ class RegistrationCode(Base):
 	sended_to = Column(String)
 	sended_from = Column(String)
 	hashed_code = Column(String)
-	sended_at = Column(DateTime(timezone=True), server_default=func.now())
+	sended_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	is_confirmed = Column(Boolean, default=False)
-	confirmed_at = Column(DateTime(timezone=True), onupdate=func.now(), default=None)
-	expires_at = Column(DateTime(timezone=True))
+	confirmed_at = Column(TIMESTAMP(timezone=True), onupdate=func.now(), default=None)
+	expires_at = Column(TIMESTAMP(timezone=True))
 
 	@staticmethod
 	def create_obj(
 		email_message: EmailMessage, verification_code: str, user: User, db: Session,
-		expires_at=datetime.datetime.now() + datetime.timedelta(minutes=services.CODE_EXPIRING_IN_MINUTES)
+		expires_at: datetime.datetime = None
 	) -> None:
 		"""
 		Создать запись об отправленном коде напрямую в БД.
@@ -57,6 +60,9 @@ class RegistrationCode(Base):
 		"""
 		verification_code_hash = get_data_hash(data=verification_code)
 
+		if expires_at is None:
+			expires_at = datetime.datetime.now() + datetime.timedelta(minutes=services.CODE_EXPIRING_IN_MINUTES)
+			expires_at = expires_at
 		code = RegistrationCode(
 			user_id=user.id,
 			hashed_code=verification_code_hash,
@@ -155,3 +161,64 @@ class RegistrationCode(Base):
 			with open(config.HTML_TEMPLATES_DIR + "/sending_verification_code.html", encoding='utf-8') as template:
 				html = template.read()
 				return html.format(username=user.first_name, code=code)
+
+
+class RefreshToken(Base):
+	"""
+	Таблица для хранения рефреш-токенов.
+	"""
+	__tablename__ = "refresh_token"
+
+	user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+	data = Column(String, unique=True)
+	created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+	expires_at = Column(TIMESTAMP(timezone=True))
+
+	@staticmethod
+	async def generate(user: User, session: AsyncSession) -> tuple[schemas_token.Token, schemas_token.RefreshToken]:
+		"""
+		Генерирует токены для пользователя.
+		"""
+		payload = {
+			"sub": user.email
+		}
+		access_token = create_jwt_token(payload, datetime.timedelta(minutes=services.ACCESS_TOKEN_EXPIRE_MINUTES))
+
+		refresh_token = generate_refresh_token() + access_token[-6:]
+		refresh_expiring = datetime.datetime.now() + datetime.timedelta(days=services.REFRESH_TOKEN_EXPIRE_DAYS)
+
+		db_obj = RefreshToken(user_id=user.id, data=refresh_token, expires_at=refresh_expiring)
+		await session.merge(db_obj)
+		await session.commit()
+
+		return schemas_token.Token(access_token=access_token, token_type="bearer"), \
+			schemas_token.RefreshToken(
+				refresh_token=refresh_token,
+				expires_at=refresh_expiring
+			)
+
+	@staticmethod
+	async def validate(token: str, session: AsyncSession) -> Optional[User]:
+		"""
+		Поиск пользователя по переданному рефреш-токену. Проверка срока жизни токена.
+		"""
+		result = (await session.execute(
+			select(RefreshToken).where(RefreshToken.data == token)
+		)).scalar()
+
+		if result:
+			token_expiring: datetime.datetime = result.__dict__["expires_at"]
+			if token_expiring > datetime.datetime.now().replace(tzinfo=pytz.UTC):
+				user_id = result.__dict__["user_id"]
+				user = await users_models.User.get_user_by_id(session, user_id)
+				return user
+
+	@staticmethod
+	async def deactivate(user: User, session: AsyncSession) -> None:
+		"""
+		Удаляет рефреш-токен из БД при логауте.
+		"""
+		await session.execute(
+			delete(RefreshToken).where(RefreshToken.user_id == user.id)
+		)
+		await session.commit()

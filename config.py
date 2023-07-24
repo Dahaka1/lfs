@@ -72,3 +72,10 @@ FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")
 
 # SMTP SERVER
 SMTP_SERVER_TIMEOUT = 10
+
+# CORS
+ORIGINS = [
+    "http://localhost",
+    "http://localhost:8080",
+	"https://lfs.onrenderer.com"
+]

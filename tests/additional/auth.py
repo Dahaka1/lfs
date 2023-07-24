@@ -1,16 +1,16 @@
 import datetime
 import uuid
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, update
-from fastapi.encoders import jsonable_encoder
+from sqlalchemy import delete, update, select
 
-from app.models.auth import RegistrationCode
+from app.models.auth import RegistrationCode, RefreshToken
 from .users import change_user_data, UserData
 from app.static.enums import StationStatusEnum, RoleEnum
 from .stations import StationData, change_station_params
+from app.utils.general import sa_object_to_dict
 
 
 async def delete_user_code(user: Any, session: AsyncSession) -> None:
@@ -24,6 +24,28 @@ async def delete_user_code(user: Any, session: AsyncSession) -> None:
 		await session.commit()
 
 
+async def user_refresh_token_in_db(user_id: int, session: AsyncSession) -> Optional[str]:
+	"""
+	Поиск в БД рефреш-токена пользователя.
+	"""
+	token = await session.execute(
+		select(RefreshToken).where(RefreshToken.user_id == user_id)
+	)
+	result = token.scalar()
+	if result:
+		return sa_object_to_dict(result).get("data")
+
+
+async def delete_user_refresh_token_in_db(user_id: int, session: AsyncSession) -> None:
+	"""
+	Удаление в БД рефреш-токена пользователя.
+	"""
+	await session.execute(
+		delete(RefreshToken).where(RefreshToken.user_id == user_id)
+	)
+	await session.commit()
+
+
 async def do_code_expired(user: Any, session: AsyncSession) -> None:
 	"""
 	Делает код истекшим.
@@ -35,7 +57,7 @@ async def do_code_expired(user: Any, session: AsyncSession) -> None:
 				RegistrationCode.user_id == user.id
 			).
 			values(
-				expires_at=datetime.datetime.now() - datetime.timedelta(hours=10)
+				expires_at=(datetime.datetime.now() - datetime.timedelta(hours=10))
 			)
 		)
 		await session.commit()
@@ -54,7 +76,7 @@ async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"
 	}
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers}
+	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}
@@ -102,7 +124,7 @@ async def url_auth_roles_test(url: str, method: Literal["get", "post", "put", "d
 	}
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers}
+	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}
@@ -188,7 +210,7 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 	url = correct_url.format(station_id=uuid.uuid4())
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers}
+	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}

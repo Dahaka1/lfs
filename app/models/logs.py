@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, String, Integer, DateTime, func, ForeignKey, UUID, insert
+from sqlalchemy import JSON, Column, String, Integer, ForeignKey, UUID, insert, func, TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 
@@ -18,7 +18,7 @@ class ErrorsLog(Base):
 
 	id = Column(Integer, primary_key=True)
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
-	timestamp = Column(DateTime(timezone=True), server_default=func.now())
+	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	code = Column(Integer)
 	content = Column(String)
 
@@ -34,7 +34,7 @@ class WashingAgentsUsingLog(Base):
 	__tablename__ = "washing_agents_using_log"
 
 	id = Column(Integer, primary_key=True)
-	timestamp = Column(DateTime(timezone=True), server_default=func.now())
+	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	washing_machine = Column(JSON)
 	washing_agent = Column(JSON)
@@ -51,7 +51,7 @@ class ChangesLog(Base):
 	__tablename__ = "changes_log"
 
 	id = Column(Integer, primary_key=True)
-	timestamp = Column(DateTime(timezone=True), server_default=func.now())
+	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"))
 	content = Column(String, nullable=False)
@@ -81,7 +81,7 @@ class StationProgramsLog(Base):
 	__tablename__ = "station_programs_log"
 
 	id = Column(Integer, primary_key=True)
-	timestamp = Column(DateTime(timezone=True), server_default=func.now())
+	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	program_step = Column(JSON)
 
@@ -98,6 +98,6 @@ class StationMaintenanceLog(Base):
 	id = Column(Integer, primary_key=True)
 	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"))
-	started_at = Column(DateTime(timezone=True), server_default=func.now())
-	ended_at = Column(DateTime(timezone=True))
+	started_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+	ended_at = Column(TIMESTAMP(timezone=True))
 

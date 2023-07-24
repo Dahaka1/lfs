@@ -26,6 +26,7 @@ class TestLog:
 	"""
 	Тестирование логирования.
 	"""
+
 	async def test_add_station_log(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		Создание лога станцией.
@@ -38,7 +39,8 @@ class TestLog:
 		)
 		assert response.status_code == 201
 		error = response.json()
-		assert error.get("station_id") == str(self.station.id) and error.get("code") == 0 and error.get("content") == "Qwerty"
+		assert error.get("station_id") == str(self.station.id) and error.get("code") == 0 and error.get(
+			"content") == "Qwerty"
 
 	async def test_add_station_log_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -69,11 +71,13 @@ class TestLog:
 						 LogTypeEnum.WASHING_AGENTS_USING, LogTypeEnum.PROGRAMS_USING):
 			sysadmin_response = await ac.get(
 				"/api/v1/logs/" + log_type.value + f"/{self.station.id}",
-				headers=self.sysadmin.headers
+				headers=self.sysadmin.headers,
+				cookies=self.sysadmin.cookies
 			)
 			manager_response = await ac.get(
 				"/api/v1/logs/" + log_type.value + f"/{self.station.id}",
-				headers=self.manager.headers
+				headers=self.manager.headers,
+				cookies=self.manager.cookies
 			)
 			responses.extend((sysadmin_response, manager_response))
 
@@ -81,13 +85,15 @@ class TestLog:
 						 LogTypeEnum.PROGRAMS_USING):
 			installer_response = await ac.get(
 				"/api/v1/logs/" + log_type.value + f"/{self.station.id}",
-				headers=self.installer.headers
+				headers=self.installer.headers,
+				cookies=self.installer.cookies
 			)
 			responses.append(installer_response)
 
 		laundry_response = await ac.get(
 			"/api/v1/logs/" + LogTypeEnum.PROGRAMS_USING.value + f"/{self.station.id}",
-			headers=self.laundry.headers
+			headers=self.laundry.headers,
+			cookies=self.laundry.cookies
 		)
 		responses.append(laundry_response)
 
@@ -107,20 +113,23 @@ class TestLog:
 						 LogTypeEnum.MAINTENANCE, LogTypeEnum.WASHING_AGENTS_USING):
 			forbidden_laundry_r = await ac.get(
 				"/api/v1/logs/" + log_type.value + f"/{self.station.id}",
-				headers=self.laundry.headers
+				headers=self.laundry.headers,
+				cookies=self.laundry.cookies
 			)
 			assert forbidden_laundry_r.status_code == 403
 
 		for log_type in (LogTypeEnum.CHANGES, LogTypeEnum.MAINTENANCE):
 			forbidden_installer_r = await ac.get(
 				"/api/v1/logs/" + log_type.value + f"/{self.station.id}",
-				headers=self.installer.headers
+				headers=self.installer.headers,
+				cookies=self.installer.cookies
 			)
 			assert forbidden_installer_r.status_code == 403
 
 		non_existing_station_r = await ac.get(
 			"/api/v1/logs/" + LogTypeEnum.ERRORS.value + f"/{uuid.uuid4()}",
-			headers=self.sysadmin.headers
+			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies
 		)
 		assert non_existing_station_r.status_code == 404
 
@@ -137,7 +146,8 @@ class TestLog:
 		"""
 		response = await ac.post(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f"/{self.station.id}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 		station_control = await StationControl.get_relation_data(self.station.id, session)
 
@@ -158,7 +168,8 @@ class TestLog:
 
 		end_maintenance_response = await ac.put(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f"/{self.station.id}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert end_maintenance_response.status_code == 200
@@ -178,7 +189,8 @@ class TestLog:
 		for _ in range(2):
 			existing_maintenance_r = await ac.post(
 				"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
-				headers=self.installer.headers
+				headers=self.installer.headers,
+				cookies=self.installer.cookies
 			)
 		assert existing_maintenance_r.status_code == 409
 		if isinstance(self.station.id, uuid.UUID):  # чтоб не ругался линтер
@@ -189,18 +201,21 @@ class TestLog:
 		rand_washing_machine = random.choice(self.station.station_washing_machines)
 		rand_washing_agent = random.choice(self.station.station_washing_agents)
 		await change_station_params(self.station, session, status=StationStatusEnum.WORKING,
-									washing_machine=rand_washing_machine.dict(), washing_agents=[rand_washing_agent.dict()])
+									washing_machine=rand_washing_machine.dict(),
+									washing_agents=[rand_washing_agent.dict()])
 
 		working_station_r = await ac.post(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert working_station_r.status_code == 409
 
 		non_existing_station_r = await ac.post(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{uuid.uuid4()}',
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert non_existing_station_r.status_code == 404
@@ -218,13 +233,15 @@ class TestLog:
 		"""
 		non_existing_maintenance_r = await ac.put(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{self.station.id}',
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 		assert non_existing_maintenance_r.status_code == 409
 
 		non_existing_station = await ac.put(
 			"/api/v1/logs/" + LogTypeEnum.MAINTENANCE.value + f'/{uuid.uuid4()}',
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert non_existing_station.status_code == 404

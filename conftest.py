@@ -31,8 +31,8 @@ from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAg
 from app.models.users import User
 from app.models.washing import WashingAgent, WashingMachine
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
-from app.models.auth import RegistrationCode
-from config import DATABASE_URL_TEST, JWT_SIGN_ALGORITHM, JWT_SECRET_KEY, DATABASE_URL_SYNC_TEST
+from app.models.auth import RegistrationCode, RefreshToken
+from config import DATABASE_URL_TEST, DATABASE_URL_SYNC_TEST
 from app.dependencies import get_async_session, get_sync_session
 from app.main import app
 from app import fastapi_cache_init
@@ -137,7 +137,7 @@ async def generate_user_random_data(request):
 		setattr(request.cls, k, v)
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 async def generate_user(request):
 	"""
 	Генерация зарегистрированного (неавторизованного) пользователя.
@@ -198,12 +198,3 @@ async def generate_default_station(request):
 			station = await generate_station(ac, session)
 
 	request.cls.station = station
-
-
-@pytest.fixture
-async def get_jwt_token_params(request):
-	"""
-	Определяет секретный ключ и алгоритм JWT для тестирования токена.
-	"""
-	request.cls.jwt_secret_key = JWT_SECRET_KEY
-	request.cls.jwt_algorithm = JWT_SIGN_ALGORITHM

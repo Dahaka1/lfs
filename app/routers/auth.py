@@ -1,24 +1,23 @@
 import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, BackgroundTasks
-from fastapi.responses import Response
+import pytz
+from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, BackgroundTasks, Cookie
+from fastapi.responses import Response, JSONResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-import pytz
 
-import services
 from ..schemas import schemas_users, schemas_token, schemas_email_code
 from ..dependencies import get_async_session,get_sync_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
 from ..models.users import User
-from ..models.auth import RegistrationCode
+from ..models.auth import RegistrationCode, RefreshToken
 from ..schemas.schemas_email_code import RegistrationCodeInDB
 from .. import tasks
-from ..utils.general import create_jwt_token
 from ..static import openapi
+from ..utils.general import create_token_response
 
 router = APIRouter(
 	prefix="/auth",
@@ -26,15 +25,17 @@ router = APIRouter(
 )
 
 
-@router.post("/token", tags=["token"], responses=openapi.token_post_responses, response_model=schemas_token.Token)
-async def login_for_access_token(
+@router.post("/login", responses=openapi.login_post,
+			 response_model=schemas_token.Token)
+async def login(
 	email: Annotated[str, Form(title="Email пользователя")],
 	password: Annotated[str, Form(title="Пароль пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
 	Проверка логина и пароля (хэша) пользователя при авторизации.
-	Если они верны, то создается access_token (JWT token) и возвращается.
+	Если они верны, то создаются access_token и refresh_token (JWT token) и возвращаются.
+	Refresh - в cookie, access - в body.
 	"""
 	user = await User.authenticate_user(
 		db=db, email=email, password=password
@@ -45,13 +46,58 @@ async def login_for_access_token(
 	if user.disabled:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
 
-	access_token = create_jwt_token(
-		data={"sub": user.email}, expires_at_hours=services.ACCESS_TOKEN_EXPIRE_HOURS
-	)
+	token, refresh = await RefreshToken.generate(user, db)
 
 	logger.info(f"User {email} (ID: {user.id}) was successfully authorized")
 
-	return {"access_token": access_token, "token_type": "bearer"}
+	return create_token_response(token, refresh)
+
+
+@router.get("/token", response_model=schemas_token.Token, responses=openapi.refresh_access_token_get)
+async def refresh_access_token(
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	refreshToken: str | None = Cookie(default=None, title="Refresh токен")
+):
+	"""
+	Обновление токенов пользователя при истечении срока действия Access токена.
+	"""
+	if refreshToken is None:
+		raise CredentialsException()
+
+	user = await RefreshToken.validate(refreshToken, db)
+
+	if not user:
+		raise CredentialsException()
+	if user.disabled:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
+
+	token, refresh = await RefreshToken.generate(user, db)
+
+	logger.info(f"User {user.email} (ID: {user.id}) authorization was successfully refreshed")
+
+	response = create_token_response(token, refresh)
+
+	return response
+
+
+@router.get("/logout", responses=openapi.logout_get)
+async def logout(
+	current_user: Annotated[schemas_users.User, Depends(get_current_user)],
+	db: Annotated[AsyncSession, Depends(get_async_session)]
+):
+	"""
+	Удаляет из кук и БД рефреш-токен.
+	+ на стороне фронта нужно удалить access-токен из headers!
+	"""
+	if current_user.disabled:
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Disabled user")
+
+	await RefreshToken.deactivate(current_user, db)
+
+	response = JSONResponse(content={"logout": current_user.email})
+	response.set_cookie("refreshToken", "", 0, httponly=True)
+
+	return response
 
 
 @router.post(
@@ -83,8 +129,7 @@ async def confirm_user_email(
 	if current_db_code is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User code not found")
 	code_verifying = RegistrationCode.verify_code(code=code, hashed_code=current_db_code.hashed_code)
-	if current_db_code.expires_at < datetime.datetime.now(tz=pytz.UTC):
-		# pytz.UTC -  конвертация текущего времени в UTC-формат
+	if current_db_code.expires_at < datetime.datetime.utcnow().replace(tzinfo=pytz.UTC):
 		raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Confirmation code expired")
 	if not code_verifying:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid confirmation code")
@@ -125,8 +170,7 @@ async def request_confirmation_code(
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User email already confirmed")
 
 	if not last_user_confirmation_code is None:
-		if datetime.datetime.now(tz=pytz.UTC) < last_user_confirmation_code.expires_at:
-			# pytz.UTC -  конвертация текущего времени в UTC-формат
+		if datetime.datetime.utcnow().replace(tzinfo=pytz.UTC) < last_user_confirmation_code.expires_at:
 			raise HTTPException(status_code=status.HTTP_425_TOO_EARLY,
 								detail="Active user confirmation code already exists")
 

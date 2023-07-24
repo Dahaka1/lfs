@@ -53,4 +53,3 @@ class LogTypeEnum(Enum):
 	PROGRAMS_USING = "programs_using"
 	CHANGES = "changes"
 	MAINTENANCE = "maintenance"
-

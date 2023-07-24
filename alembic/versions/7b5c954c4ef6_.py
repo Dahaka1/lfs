@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 4da3c259ff61
+Revision ID: 7b5c954c4ef6
 Revises: 
-Create Date: 2023-07-17 13:09:23.960009
+Create Date: 2023-07-24 21:01:01.072054
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4da3c259ff61'
+revision = '7b5c954c4ef6'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,8 +24,8 @@ def upgrade() -> None:
     sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('is_protected', sa.Boolean(), nullable=True),
     sa.Column('hashed_wifi_data', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column('region', sa.Enum('CENTRAL', 'NORTHWEST', 'SOUTH', 'SIBERIA', name='regionenum'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
@@ -37,8 +37,8 @@ def upgrade() -> None:
     sa.Column('role', sa.Enum('SYSADMIN', 'MANAGER', 'INSTALLER', 'LAUNDRY', name='roleenum'), nullable=True),
     sa.Column('disabled', sa.Boolean(), nullable=True),
     sa.Column('hashed_password', sa.String(), nullable=True),
-    sa.Column('registered_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.Column('last_action_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('registered_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('last_action_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column('email_confirmed', sa.Boolean(), nullable=True),
     sa.Column('region', sa.Enum('CENTRAL', 'NORTHWEST', 'SOUTH', 'SIBERIA', name='regionenum'), nullable=True),
     sa.PrimaryKeyConstraint('id')
@@ -47,7 +47,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_table('changes_log',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('timestamp', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('station_id', sa.UUID(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('content', sa.String(), nullable=False),
@@ -59,22 +59,31 @@ def upgrade() -> None:
     op.create_table('errors_log',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('station_id', sa.UUID(), nullable=True),
-    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('timestamp', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('code', sa.Integer(), nullable=True),
     sa.Column('content', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_errors_log_station_id'), 'errors_log', ['station_id'], unique=False)
+    op.create_table('refresh_token',
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('data', sa.String(), nullable=True),
+    sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('expires_at', sa.TIMESTAMP(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('user_id'),
+    sa.UniqueConstraint('data')
+    )
     op.create_table('registration_code',
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('sended_to', sa.String(), nullable=True),
     sa.Column('sended_from', sa.String(), nullable=True),
     sa.Column('hashed_code', sa.String(), nullable=True),
-    sa.Column('sended_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('sended_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('is_confirmed', sa.Boolean(), nullable=True),
-    sa.Column('confirmed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('confirmed_at', sa.TIMESTAMP(timezone=True), nullable=True),
+    sa.Column('expires_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('user_id', 'sended_at')
     )
@@ -85,7 +94,7 @@ def upgrade() -> None:
     sa.Column('program_step', sa.JSON(), nullable=True),
     sa.Column('washing_machine', sa.JSON(), nullable=True),
     sa.Column('washing_agents', sa.JSON(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id')
     )
@@ -94,8 +103,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('station_id', sa.UUID(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('started_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('ended_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -106,14 +115,14 @@ def upgrade() -> None:
     sa.Column('program_step', sa.Integer(), nullable=False),
     sa.Column('program_number', sa.Integer(), nullable=False),
     sa.Column('washing_agents', sa.JSON(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id', 'program_step')
     )
     op.create_index(op.f('ix_station_program_station_id'), 'station_program', ['station_id'], unique=False)
     op.create_table('station_programs_log',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('timestamp', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('station_id', sa.UUID(), nullable=True),
     sa.Column('program_step', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
@@ -124,7 +133,7 @@ def upgrade() -> None:
     sa.Column('station_id', sa.UUID(), nullable=False),
     sa.Column('station_power', sa.Boolean(), nullable=True),
     sa.Column('teh_power', sa.Boolean(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id')
     )
@@ -141,7 +150,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_washing_agent_station_id'), 'washing_agent', ['station_id'], unique=False)
     op.create_table('washing_agents_using_log',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('timestamp', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('station_id', sa.UUID(), nullable=True),
     sa.Column('washing_machine', sa.JSON(), nullable=True),
     sa.Column('washing_agent', sa.JSON(), nullable=True),
@@ -164,4 +173,34 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_washing_machine_station_id'), table_name='washing_machine')
+    op.drop_index(op.f('ix_washing_machine_machine_number'), table_name='washing_machine')
+    op.drop_table('washing_machine')
+    op.drop_index(op.f('ix_washing_agents_using_log_station_id'), table_name='washing_agents_using_log')
+    op.drop_table('washing_agents_using_log')
+    op.drop_index(op.f('ix_washing_agent_station_id'), table_name='washing_agent')
+    op.drop_index(op.f('ix_washing_agent_agent_number'), table_name='washing_agent')
+    op.drop_table('washing_agent')
+    op.drop_index(op.f('ix_station_settings_station_id'), table_name='station_settings')
+    op.drop_table('station_settings')
+    op.drop_index(op.f('ix_station_programs_log_station_id'), table_name='station_programs_log')
+    op.drop_table('station_programs_log')
+    op.drop_index(op.f('ix_station_program_station_id'), table_name='station_program')
+    op.drop_table('station_program')
+    op.drop_index(op.f('ix_station_maintenance_log_station_id'), table_name='station_maintenance_log')
+    op.drop_table('station_maintenance_log')
+    op.drop_index(op.f('ix_station_control_station_id'), table_name='station_control')
+    op.drop_table('station_control')
+    op.drop_index(op.f('ix_registration_code_user_id'), table_name='registration_code')
+    op.drop_table('registration_code')
+    op.drop_table('refresh_token')
+    op.drop_index(op.f('ix_errors_log_station_id'), table_name='errors_log')
+    op.drop_table('errors_log')
+    op.drop_index(op.f('ix_changes_log_station_id'), table_name='changes_log')
+    op.drop_table('changes_log')
+    op.drop_index(op.f('ix_users_id'), table_name='users')
+    op.drop_index(op.f('ix_users_email'), table_name='users')
+    op.drop_table('users')
+    op.drop_table('station')
+    # ### end Alembic commands ###

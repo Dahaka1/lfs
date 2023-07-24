@@ -24,7 +24,7 @@ from app.models.users import User
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
 from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
 from app.models.washing import WashingAgent, WashingMachine
-from app.models.auth import RegistrationCode
+from app.models.auth import RegistrationCode, RefreshToken
 
 target_metadata = Base.metadata
 

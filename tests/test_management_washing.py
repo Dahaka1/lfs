@@ -32,6 +32,7 @@ class TestManagementWashing:
 		washing_agent_r = await ac.post(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(creating_params={"agent_number": washing_agent_number})
 		)
 		assert washing_agent_r.status_code == 201
@@ -57,6 +58,7 @@ class TestManagementWashing:
 		washing_machine_r = await ac.post(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(creating_params=machine_params)
 		)
 
@@ -72,7 +74,6 @@ class TestManagementWashing:
 		for k, v in machine_params.items():
 			assert getattr(machine_in_db, k) == v
 
-
 	async def test_create_station_washing_services_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Нельзя создать объект с уже существующим номером;
@@ -86,6 +87,7 @@ class TestManagementWashing:
 		existing_object_r = await ac.post(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=testing_json
 		)
 		assert existing_object_r.status_code == 409
@@ -105,7 +107,6 @@ class TestManagementWashing:
 			"post", self.sysadmin, self.station, session, ac, json=testing_json
 		)
 
-
 	async def test_update_station_washing_services(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		Обновление стирального средства.
@@ -116,6 +117,7 @@ class TestManagementWashing:
 			f"/api/v1/manage/station/{self.station.id}/" +
 			WashingServicesEnum.WASHING_AGENTS.value + f"/{rand_washing_agent.agent_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(updating_params={"rollback": False, "volume": 14})
 		)
 
@@ -141,6 +143,7 @@ class TestManagementWashing:
 			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=testing_data
 		)
 
@@ -165,6 +168,7 @@ class TestManagementWashing:
 			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{machine.machine_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=testing_data
 		)
 
@@ -190,6 +194,7 @@ class TestManagementWashing:
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(updating_params={"machine_number": updated_machine.machine_number})
 		)
 
@@ -198,7 +203,6 @@ class TestManagementWashing:
 		await self.station.refresh(session)
 
 		next(m for m in self.station.station_washing_machines if m.machine_number == updated_machine.machine_number)
-
 
 	# StopIteration error
 
@@ -211,12 +215,14 @@ class TestManagementWashing:
 		- roles auto test;
 		- get station by id auto test
 		"""
-		rand_washing_agent, rand_washing_agent_ = (random.choice(self.station.station_washing_agents) for _ in range(2))
+		rand_washing_agent, rand_washing_agent_ = self.station.station_washing_agents[0], \
+			self.station.station_washing_agents[1]
 
 		change_obj_number_to_existing_number_r = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{rand_washing_agent_.agent_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(updating_params={"agent_number": rand_washing_agent.agent_number})
 		)
 
@@ -232,6 +238,7 @@ class TestManagementWashing:
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=dict(updating_params={"is_active": False})
 		)
 
@@ -244,6 +251,7 @@ class TestManagementWashing:
 		non_existing_obj_r = await ac.put(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=testing_json
 		)
 		assert non_existing_obj_r.status_code == 404
@@ -267,7 +275,6 @@ class TestManagementWashing:
 			f"/{machine_number}", "put", self.sysadmin, self.station, session, ac, json=testing_json
 		)
 
-
 	async def test_delete_station_washing_services(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		Удаление стирального объекта
@@ -277,7 +284,8 @@ class TestManagementWashing:
 		response = await ac.delete(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_machine.machine_number}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert response.status_code == 200
@@ -301,18 +309,21 @@ class TestManagementWashing:
 		using_machine_r = await ac.delete(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 		assert using_machine_r.status_code == 409
 
 		# ___________________________________________________________________________________________
 
-		using_washing_agent_number = random.choice(self.station.station_control.program_step.washing_agents).agent_number
+		using_washing_agent_number = random.choice(
+			self.station.station_control.program_step.washing_agents).agent_number
 
 		using_agent_r = await ac.delete(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{using_washing_agent_number}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert using_agent_r.status_code == 409
@@ -326,7 +337,8 @@ class TestManagementWashing:
 		using_agent_r = await ac.delete(
 			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{agent_number}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 
 		assert using_agent_r.status_code == 409

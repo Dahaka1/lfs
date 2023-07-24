@@ -40,9 +40,11 @@ class TestStations:
 		response = await ac.post(
 			"/api/v1/stations/",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=station_data
 		)
-		station_response = schemas_stations.Station(**response.json())  # Validation error может подняться, если что-то не так
+		station_response = schemas_stations.Station(
+			**response.json())  # Validation error может подняться, если что-то не так
 		station_in_db = await get_station_by_id(station_response.id, session)
 
 		assert station_in_db.dict() == station_in_db.dict()
@@ -78,6 +80,7 @@ class TestStations:
 		response = await ac.post(
 			"/api/v1/stations/",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -131,7 +134,7 @@ class TestStations:
 		}
 		for washing_machine in station_in_db.station_washing_machines:
 			defined_washing_machine = next(machine for machine in params["washing_machines"]
-										 if machine["machine_number"] == washing_machine.machine_number)
+										   if machine["machine_number"] == washing_machine.machine_number)
 			for param in default_washing_machines_params:
 				default_param = default_washing_machines_params.get(param)
 				if param in defined_washing_machine:
@@ -150,7 +153,8 @@ class TestStations:
 		"""
 		params = copy.deepcopy(station_fills.test_create_station_with_advanced_params)
 		if not isinstance(params["station"]["region"], str):
-			params["station"]["region"] = params["station"]["region"].value  # не успевает поменяться обратно на строку (
+			params["station"]["region"] = params["station"][
+				"region"].value  # не успевает поменяться обратно на строку (
 		# _______________________________________________________________
 		params["station"]["programs"].append(
 			{
@@ -166,6 +170,7 @@ class TestStations:
 		non_existing_washing_agent_r = await ac.post(
 			"/api/v1/stations/",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -181,6 +186,7 @@ class TestStations:
 		invalid_params_r = await ac.post(
 			"/api/v1/stations/",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -209,7 +215,8 @@ class TestStations:
 
 		response = await ac.get(
 			"/api/v1/stations/",
-			headers=self.sysadmin.headers
+			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies
 		)
 
 		assert response.status_code == 200
@@ -276,7 +283,7 @@ class TestStations:
 		result = schemas_stations.StationControl(**control_r.json()["partial_data"])
 
 		assert settings_result.station_power is True and result.status == StationStatusEnum.AWAITING or \
-			settings_result.station_power is False and result.status is None
+			   settings_result.station_power is False and result.status is None
 
 		# _____________________________________________________
 
@@ -306,7 +313,7 @@ class TestStations:
 			for washing_agent in program.washing_agents:
 				assert washing_agent.agent_number in [ag["agent_number"] for ag in washing_agents_result]
 				assert services.MIN_STATION_WASHING_AGENTS_AMOUNT <= washing_agent.agent_number <= \
-					services.MAX_STATION_WASHING_AGENTS_AMOUNT
+					   services.MAX_STATION_WASHING_AGENTS_AMOUNT
 
 		# ____________________________________________________
 
@@ -381,4 +388,3 @@ class TestStations:
 		await auth.url_auth_stations_test(
 			"/api/v1/stations/me", "get", self.station, session, ac
 		)
-

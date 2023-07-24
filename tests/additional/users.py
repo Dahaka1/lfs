@@ -1,7 +1,6 @@
 import datetime
 from typing import Any
 import random
-from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update, select
@@ -32,10 +31,11 @@ class UserData(BaseModel):
 	email_confirmed: bool
 	token: str
 	headers: dict
+	cookies: dict
 	registered_at: datetime.datetime
 
 
-async def get_user_token(email: str, password: str, ac: AsyncClient) -> Token:
+async def get_user_token(email: str, password: str, ac: AsyncClient) -> tuple[Token, str]:
 	"""
 	Аутентификация пользователя.
 	Без проверки на ошибки (это не тест, а побочная функция).
@@ -45,11 +45,10 @@ async def get_user_token(email: str, password: str, ac: AsyncClient) -> Token:
 		"password": password
 	}
 	response = await ac.post(
-		"/api/v1/auth/token",
+		"/api/v1/auth/login",
 		data=data
 	)
-
-	return Token(**response.json())
+	return Token(**response.json()), response.cookies.get("refreshToken")
 
 
 def generate_user_data() -> dict[str, str]:
@@ -108,11 +107,12 @@ async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: R
 	if confirm_email:
 		params["email_confirmed"] = True
 	user = create_user(**params)
-	token = await get_user_token(user.get("email"), user.get("password"), ac)
+	token, refresh = await get_user_token(user.get("email"), user.get("password"), ac)
 
 	user.setdefault("token", token.access_token)
 	user.pop("last_action_at")
 	user["headers"] = {"Authorization": f"Bearer {token.access_token}"}
+	user["cookies"] = {"refreshToken": refresh}
 
 	return UserData(**user), schemas_users.User(**user)
 
@@ -128,7 +128,7 @@ async def create_multiple_users(ac: AsyncClient, sync_session: Session) -> list[
 	return users
 
 
-async def change_user_data(user: Any, session: AsyncSession, **kwargs) -> None:
+async def change_user_data(user: Any | int, session: AsyncSession, **kwargs) -> None:
 	"""
 	Изменяет данные пользователя в БД.
 	"""
@@ -138,13 +138,12 @@ async def change_user_data(user: Any, session: AsyncSession, **kwargs) -> None:
 	):
 		raise ValueError
 
-	if isinstance(user.id, int):
-		await session.execute(
-			update(User).where(User.id == user.id).values(**kwargs)
-		)
-		await session.commit()
-	else:
-		raise ValueError
+	user_id = user.id if not isinstance(user, int) else user
+
+	await session.execute(
+		update(User).where(User.id == user_id).values(**kwargs)
+	)
+	await session.commit()
 
 
 async def get_user_by_id(id: int, session: AsyncSession) -> schemas_users.User:

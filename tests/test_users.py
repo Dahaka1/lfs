@@ -26,7 +26,8 @@ class TestUsers:
 		"""
 		response = await ac.get(
 			"/api/v1/users/",
-			headers=self.sysadmin.headers
+			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies
 		)
 
 		assert response.status_code == 200
@@ -102,7 +103,8 @@ class TestUsers:
 		"""
 		response = await ac.get(
 			"/api/v1/users/me",
-			headers=self.laundry.headers
+			headers=self.laundry.headers,
+			cookies=self.laundry.cookies
 		)
 
 		assert response.status_code == 200
@@ -124,7 +126,8 @@ class TestUsers:
 		"""
 		r_1 = await ac.get(
 			f"/api/v1/users/{self.laundry.id}",
-			headers=self.laundry.headers
+			headers=self.laundry.headers,
+			cookies=self.laundry.cookies
 		)
 
 		assert r_1.status_code == 200
@@ -132,7 +135,8 @@ class TestUsers:
 
 		r_2 = await ac.get(
 			f"/api/v1/users/{self.laundry.id}",
-			headers=self.sysadmin.headers
+			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies
 		)
 
 		assert r_2.status_code == 200
@@ -145,7 +149,8 @@ class TestUsers:
 		"""
 		permissions_error_r = await ac.get(
 			f"/api/v1/users/{self.laundry.id}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 		assert permissions_error_r.status_code == 403
 
@@ -176,6 +181,7 @@ class TestUsers:
 		response = await ac.put(
 			f"/api/v1/users/{self.laundry.id}",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=put_from_sysadmin_data
 		)
 		assert response.status_code == 200
@@ -205,6 +211,7 @@ class TestUsers:
 		response = await ac.put(
 			f"/api/v1/users/{self.installer.id}",
 			headers=self.installer.headers,
+			cookies=self.installer.cookies,
 			json=put_from_user_data
 		)
 		assert response.status_code == 200
@@ -227,6 +234,7 @@ class TestUsers:
 		non_permissions_r = await ac.put(
 			f"/api/v1/users/{self.installer.id}",
 			headers=self.laundry.headers,
+			cookies=self.laundry.cookies,
 			json=dict(user={})
 		)
 
@@ -235,6 +243,7 @@ class TestUsers:
 		non_existing_id_r = await ac.put(
 			f"/api/v1/users/12345",
 			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies,
 			json=dict(user={})
 		)
 		assert non_existing_id_r.status_code == 404
@@ -251,13 +260,15 @@ class TestUsers:
 		"""
 		response_sysadmin = await ac.delete(
 			f"/api/v1/users/{self.laundry.id}",
-			headers=self.sysadmin.headers
+			headers=self.sysadmin.headers,
+			cookies=self.sysadmin.cookies
 		)
 		assert response_sysadmin.status_code == 200
 
 		response_user = await ac.delete(
 			f"/api/v1/users/{self.installer.id}",
-			headers=self.installer.headers
+			headers=self.installer.headers,
+			cookies=self.installer.cookies
 		)
 		assert response_user.status_code == 200
 
@@ -279,7 +290,8 @@ class TestUsers:
 		"""
 		non_permissions_r = await ac.delete(
 			f"/api/v1/users/{self.installer.id}",
-			headers=self.laundry.headers
+			headers=self.laundry.headers,
+			cookies=self.laundry.cookies
 		)
 
 		assert non_permissions_r.status_code == 403

@@ -2,7 +2,8 @@ from pydantic import BaseModel
 from ..schemas.schemas_token import Token
 from ..schemas.schemas_users import User
 from ..schemas.schemas_email_code import RegistrationCode
-from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations, schemas_washing as washing
+from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations,\
+	schemas_washing as washing, schemas_token as tokens
 
 tags_metadata = [
 	{
@@ -48,9 +49,9 @@ tags_metadata = [
 ]
 
 
-token_post_responses = {
+login_post = {
 	200: {
-		"description": "Валидный токен пользователя",
+		"description": "Refresh (cookie) и Access (body) токены пользователя",
 		"model": Token
 	},
 	401: {
@@ -60,6 +61,31 @@ token_post_responses = {
 		"description": "Disabled user"
 	}
 }
+
+refresh_access_token_get = {
+	200: {
+		"description": "Обновленные токены пользователя",
+		"model": tokens.Token
+	},
+	403: {
+		"description": "Disabled user"
+	}
+}
+
+logout_get = {
+	200: {
+		"description": "ИД пользователя в случае успешного выхода",
+		"content": {
+			"application/json": {
+				"example": {"logout": "user_id"}
+			}
+		}
+	},
+	403: {
+		"description": "Disabled user"
+	}
+}
+
 
 confirm_email_post_responses = {
 	200: {
@@ -470,7 +496,9 @@ delete_station_washing_services_delete = {
 }
 
 for _ in [
-	token_post_responses,
+	login_post,
+	refresh_access_token_get,
+	logout_get,
 	confirm_email_post_responses,
 	confirm_email_get_responses,
 	add_station_log_post_responses,

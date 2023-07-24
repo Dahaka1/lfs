@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional, Any
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, select, Enum, func, update
+from sqlalchemy import Column, Integer, String, Boolean, select, Enum, update, TIMESTAMP, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
@@ -29,8 +29,8 @@ class User(Base):
 	role = Column(Enum(RoleEnum), default=services.USER_DEFAULT_ROLE)
 	disabled = Column(Boolean, default=False)
 	hashed_password = Column(String)
-	registered_at = Column(DateTime(timezone=True), server_default=func.now())
-	last_action_at = Column(DateTime(timezone=True))
+	registered_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+	last_action_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 	email_confirmed = Column(Boolean, default=False)
 	region = Column(Enum(RegionEnum))
 
@@ -64,6 +64,18 @@ class User(Base):
 		Поиск пользователя по email.
 		"""
 		query = select(User).where(User.email == email)
+		result = await db.execute(query)
+		user: User | None = result.scalar()
+		if isinstance(user, User):
+			user_dict: dict[str, Any] = sa_object_to_dict(user)
+			return schemas_users.UserInDB(**user_dict)
+
+	@staticmethod
+	async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[schemas_users.UserInDB]:
+		"""
+		Поиск пользователя по ID.
+		"""
+		query = select(User).where(User.id == user_id)
 		result = await db.execute(query)
 		user: User | None = result.scalar()
 		if isinstance(user, User):

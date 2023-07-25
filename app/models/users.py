@@ -5,9 +5,8 @@ from sqlalchemy import Column, Integer, String, Boolean, select, Enum, update, T
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
-from .auth import RegistrationCode
 from ..database import Base
-from ..schemas import schemas_users, schemas_email_code
+from ..schemas import schemas_users
 from ..static.enums import RoleEnum, RegionEnum
 from ..utils.general import sa_object_to_dict, verify_data_hash
 
@@ -97,18 +96,13 @@ class User(Base):
 		return user
 
 	@staticmethod
-	async def confirm_user_email(
-		db: AsyncSession, user: schemas_users.User, email_code: schemas_email_code.RegistrationCodeInDB
-	) -> tuple[schemas_users.User, schemas_email_code.RegistrationCode]:
+	async def confirm_user_email(db: AsyncSession, user: schemas_users.User) -> schemas_users.User:
 		"""
 		Подтвердить Email пользователя.
 		Изменяются:
 		- Пользователь в БД (email_confirmed);
 		- Запись об отправленном коде пользователю в БД.
 		"""
-		confirmed_user_code = await RegistrationCode.confirm_user_code(
-			user=user, registration_code=email_code, db=db
-		)
 		query = update(User).where(
 			User.id == user.id
 		).values(email_confirmed=True)
@@ -116,5 +110,5 @@ class User(Base):
 		await db.execute(query)
 		await db.commit()
 
-		return await User.get_user_by_email(email=user.email, db=db), confirmed_user_code
+		return await User.get_user_by_email(email=user.email, db=db)
 

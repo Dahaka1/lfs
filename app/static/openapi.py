@@ -9,11 +9,7 @@ from ..schemas.schemas_users import User
 tags_metadata = [
 	{
 		"name": "authentication",
-		"description": "Аутентификация/регистрация/авторизация в приложении"
-	},
-	{
-		"name": "token",
-		"description": "Проверка данных пользователя для входа и получение им аутентификационных токенов"
+		"description": "Аутентификация/авторизация пользователя в приложении"
 	},
 	{
 		"name": "confirming_email",

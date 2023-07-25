@@ -134,7 +134,8 @@ async def confirm_user_email(
 	if not code_verifying:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid confirmation code")
 
-	confirmed_user, confirmed_code = await User.confirm_user_email(user=current_user, email_code=current_db_code, db=db)
+	confirmed_code = await RegistrationCode.confirm_user_code(user=current_user, registration_code=current_db_code, db=db)
+	confirmed_user = await User.confirm_user_email(user=current_user, db=db)
 
 	logger.info(f"User email {current_user.email} was successfully confirmed.")
 

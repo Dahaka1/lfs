@@ -268,7 +268,8 @@ create_station_post = {
 read_stations_params_get = {
 	200: {
 		"description": "Запрошенные станцией данные",
-		"model": stations.StationPartial
+		"model": stations.StationGeneralParamsForStation | stations.StationControl | \
+				stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[washing.WashingMachine]
 	},
 	401: {
 		"description": "Incorrect station UUID"
@@ -300,7 +301,8 @@ read_stations_me_get = {
 read_station_partial_by_user_get = {
 	200: {
 		"description": "Запрошенные данные станции",
-		"model": stations.StationPartialForUser
+		"model": stations.StationGeneralParams | stations.StationControl | \
+				stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[washing.WashingMachine]
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed / Station servicing"

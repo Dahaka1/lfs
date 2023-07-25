@@ -23,8 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("/station/{station_id}/{dataset}", responses=openapi.read_station_partial_by_user_get,
-			response_model=stations.StationPartialForUser)
+@router.get("/station/{station_id}/{dataset}", responses=openapi.read_station_partial_by_user_get)
 async def read_station_partial_by_user(
 	current_user: Annotated[users.User, Depends(get_current_active_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
@@ -41,12 +40,12 @@ async def read_station_partial_by_user(
 		case StationParamsEnum.GENERAL:
 			if current_user.role != RoleEnum.SYSADMIN:
 				raise PermissionsError()
-			return stations.StationPartialForUser(partial_data=station)
+			return stations.StationGeneralParams(**station.dict())
 		case _:
 			if current_user.role not in (RoleEnum.SYSADMIN, RoleEnum.MANAGER, RoleEnum.INSTALLER):
 				raise PermissionsError()
 			try:
-				return await crud_stations.read_station(station, dataset, db, query_from=QueryFromEnum.USER)
+				return await crud_stations.read_station(station, dataset, db)
 			except GettingDataError as e:
 				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -209,7 +208,7 @@ async def create_station_program(
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}",
-			response_model=stations.StationProgram, responses=openapi.update_station_program_put, deprecated=True)
+			response_model=stations.StationProgram, responses=openapi.update_station_program_put)
 async def update_station_program(
 	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station_and_program: Annotated[tuple[stations.StationGeneralParams, stations.StationProgram],
@@ -218,8 +217,6 @@ async def update_station_program(
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
-	!!ПОКА ЧТО ТЕХНИЧЕСКИЕ ПРОБЛЕМЫ С ЭТИМ МЕТОДОМ!!
-
 	Обновление программы станции.
 	Как и в других методах, можно передать как кастомные стиральные средства, так и просто номера существующих
 	 у станции средств.

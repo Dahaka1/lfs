@@ -46,8 +46,14 @@ class TestManagement:
 			(r.status_code == 200 for r in roles_responses)
 		), [r for r in roles_responses]
 
-		for r in roles_responses:
-			stations.StationPartialForUser(**r.json())  # Validation error
+		stations.StationGeneralParams(**roles_responses[0].json())
+		stations.StationSettings(**roles_responses[1].json())
+		stations.StationControl(**roles_responses[2].json())
+
+		gen_r = roles_responses[0].json()
+		assert all(
+			(key not in gen_r for key in ("wifi_name", "wifi_password", "hashed_wifi_data"))
+		)
 
 	async def test_read_station_partial_by_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -91,8 +97,11 @@ class TestManagement:
 			cookies=self.sysadmin.cookies
 		)
 		assert response.status_code == 200
-
-		stations.Station(**response.json())  # Validation error
+		result = response.json()
+		assert "wifi_name" not in result
+		assert "wifi_password" not in result
+		assert "hashed_wifi_data" not in result
+		stations.Station(**result)  # Validation error
 
 	async def test_read_station_all_by_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -592,179 +601,205 @@ class TestManagement:
 			"post", self.sysadmin, self.station, session, ac, json=testing_data
 		)
 
-	# TODO: РЕШИТЬ ПРОБЛЕМУ С ЗАКОНМЕНТИРОВАННЫМ ТЕСТОМ (SA-ОШИБКА)
-	# async def test_update_station_program(self, ac: AsyncClient, session: AsyncSession):
-	# 	"""
-	# 	Обновление программы станции.
-	# 	- Как и в других методах, можно передать как кастомные стиральные средства, так и просто номера существующих
-	#  	 у станции средств;
-	#  	- Средства нужно передавать ЯВНЫМ списком (напр., если передать пустой список, то список средств программы
-	#  	 станет пустым) - нельзя обновить произвольно выбранные средства программы;
-	#  	- Если обновляется программа, по которой станция в данный момент работает, то в текущем состоянии программа
-	#      тоже обновится;
-	#     - Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать и
-	# 	 даже изменить на новый - в этом случае выполнится проверка на занятость номера;
-	# 	- Можно не передавать номер программы, а только номер шага - номер программы определится автоматически.
-	# 	"""
-	# 	rand_program = random.choice(self.station.station_programs)
-	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
-	#
-	# 	washing_agent_object_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
-	# 	)
-	# 	assert washing_agent_object_r.status_code == 200
-	# 	response_program = stations.StationProgram(**washing_agent_object_r.json())
-	# 	await self.station.refresh(session)
-	# 	program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == rand_program.program_step)
-	# 	response_program.updated_at = program_in_db.updated_at
-	# 	assert response_program.dict() == program_in_db.dict()
-	#
-	# 	washing_agent = next(ag for ag in self.station.station_washing_agents
-	# 													if ag.agent_number == rand_washing_agent.agent_number)
-	#
-	# 	assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**washing_agent.dict())]
-	#
-	# 	await logs_funcs.check_user_log_exists(self.installer, session)
-	#
-	# 	# _____________________________________________________________________________________________
-	#
-	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
-	# 	rand_washing_agent.volume = 32
-	#
-	# 	washing_agent_number_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
-	# 	)
-	#
-	# 	assert washing_agent_number_r.status_code == 200
-	# 	response_program = stations.StationProgram(**washing_agent_number_r.json())
-	# 	# assert response_program.updated_at is not None # ПОКА НЕ РАБОТАЕТ =(
-	# 	assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**rand_washing_agent.dict())]
-	# 	assert response_program.program_step == rand_program.program_step and response_program.program_number == \
-	# 		   rand_program.program_number
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	washing_agents_empty_list_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": []})
-	# 	)
-	#
-	# 	assert washing_agents_empty_list_r.status_code == 200
-	# 	assert washing_agents_empty_list_r.json()["washing_agents"] == []
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	await stations_funcs.generate_station_control(self.station, session)
-	#
-	# 	await self.station.refresh(session)
-	# 	ctrl = self.station.station_control
-	#
-	# 	program_step_number = ctrl.program_step.program_step
-	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
-	#
-	# 	response = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
-	# 	)
-	# 	assert response.status_code == 200
-	#
-	# 	await self.station.refresh(session)
-	#
-	# 	assert self.station.station_control.program_step.washing_agents == \
-	# 		   [washing.WashingAgentWithoutRollback(**rand_washing_agent.dict())]
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	rand_program = random.choice(self.station.station_programs)
-	#
-	# 	change_program_number_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"program_step": 201})
-	# 	)
-	# 	print(change_program_number_r.json())
-	# 	assert change_program_number_r.status_code == 200
-	#
-	# 	await self.station.refresh(session)
-	#
-	# 	program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == 201)
-	#
-	# 	assert program_in_db.washing_agents == rand_program.washing_agents
-	# 	assert program_in_db.program_number == 20
-	#
-	# async def test_update_station_program_errors(self, ac: AsyncClient, session: AsyncSession):
-	# 	"""
-	# 	- Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать, указав
-	#  	 новый нужный номер - в этом случае выполнится проверка на занятость номера;
-	#  	 - Программа должна существовать;
-	#  	 - Стиральное средство должно существовать;
-	#  	- users auth auto test;
-	#  	- get station by id auto test;
-	#  	- roles auto test
-	# 	"""
-	# 	rand_program, rand_program_ = random.choice(self.station.station_programs), \
-	# 		random.choice(self.station.station_programs)
-	#
-	# 	existing_program_step_number_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"program_step": rand_program.program_step})
-	# 	)
-	# 	assert existing_program_step_number_r.status_code == 409
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	rand_washing_agent = random.choice(self.station.station_washing_agents)
-	# 	await stations_funcs.delete_washing_services(rand_washing_agent.agent_number, self.station,
-	# 												 session, "agent")
-	# 	await self.station.refresh(session)
-	# 	non_existing_washing_agent_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
-	# 	)
-	# 	assert non_existing_washing_agent_r.status_code == 404
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	non_existing_program_step_r = await ac.put(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
-	# 		headers=self.installer.headers,
-	#		cookies=self.installer.cookies,
-	# 		json=dict(updating_params={"washing_agents": []})
-	# 	)
-	#
-	# 	assert non_existing_program_step_r.status_code == 404
-	#
-	# 	# ___________________________________________________________________________________________
-	#
-	# 	testing_json = dict(updating_params={"washing_agents": []})
-	#
-	# 	await auth.url_auth_test(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		"put", self.installer, ac, session, json=testing_json
-	# 	)
-	# 	await auth.url_auth_roles_test(
-	# 		f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
-	# 	)
-	# 	await auth.url_get_station_by_id_test(
-	# 		"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-	# 		"put", self.installer, self.station, session, ac, json=testing_json
-	# 	)
+	async def test_update_station_program(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Обновление программы станции.
+		- Как и в других методах, можно передать как кастомные стиральные средства, так и просто номера существующих
+	 	 у станции средств;
+	 	- Средства нужно передавать ЯВНЫМ списком (напр., если передать пустой список, то список средств программы
+	 	 станет пустым) - нельзя обновить произвольно выбранные средства программы;
+	 	- Если обновляется программа, по которой станция в данный момент работает, то в текущем состоянии программа
+	     тоже обновится;
+	    - Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать и
+		 даже изменить на новый - в этом случае выполнится проверка на занятость номера;
+		- Можно не передавать номер программы, а только номер шага - номер программы определится автоматически.
+		"""
+		rand_program = random.choice(self.station.station_programs)
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+
+		washing_agent_object_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+		)
+		assert washing_agent_object_r.status_code == 200
+		response_program = stations.StationProgram(**washing_agent_object_r.json())
+		await self.station.refresh(session)
+		program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == rand_program.program_step)
+		response_program.updated_at = program_in_db.updated_at
+		assert response_program.dict() == program_in_db.dict()
+
+		washing_agent = next(ag for ag in self.station.station_washing_agents
+														if ag.agent_number == rand_washing_agent.agent_number)
+
+		assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**washing_agent.dict())]
+
+		await logs_funcs.check_user_log_exists(self.installer, session)
+
+		# _____________________________________________________________________________________________
+
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+		rand_washing_agent.volume = 32
+
+		washing_agent_object_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+		)
+
+		assert washing_agent_object_r.status_code == 200
+		response_program = stations.StationProgram(**washing_agent_object_r.json())
+		assert response_program.updated_at is not None
+		assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**rand_washing_agent.dict())]
+		assert response_program.program_step == rand_program.program_step and response_program.program_number == \
+			   rand_program.program_number
+
+		# ___________________________________________________________________________________________
+
+		washing_agents_empty_list_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": []})
+		)
+
+		assert washing_agents_empty_list_r.status_code == 200
+		assert washing_agents_empty_list_r.json()["washing_agents"] == []
+
+		# ___________________________________________________________________________________________
+
+		await stations_funcs.generate_station_control(self.station, session)
+
+		await self.station.refresh(session)
+		ctrl = self.station.station_control
+
+		program_step_number = ctrl.program_step.program_step
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+		dict_comparing = rand_washing_agent.dict()
+		dict_comparing["rollback"] = None
+
+		response = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+		)
+		assert response.status_code == 200
+
+		await self.station.refresh(session)
+		assert self.station.station_control.program_step.washing_agents == \
+			   [washing.WashingAgentWithoutRollback(**dict_comparing)]
+
+		# ___________________________________________________________________________________________
+
+		rand_program = random.choice(self.station.station_programs)
+
+		change_program_number_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"program_step": 201,
+									   "washing_agents": [ag.dict() for ag in rand_program.washing_agents]})
+		)
+		assert change_program_number_r.status_code == 200
+
+		await self.station.refresh(session)
+
+		program_in_db = next(pg for pg in self.station.station_programs if pg.program_step == 201)
+
+		assert program_in_db.washing_agents == rand_program.washing_agents
+		assert program_in_db.program_number == 20
+
+		# ___________________________________________________________________________________________
+
+		await stations_funcs.generate_station_control(self.station, session)
+		await self.station.refresh(session)
+		ctrl = self.station.station_control
+		program_step = ctrl.program_step
+		washing_agents_numbers = self.station.station_washing_agents[0].agent_number, \
+			self.station.station_washing_agents[1].agent_number
+
+		change_program_agents_by_numbers_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": list(washing_agents_numbers)})
+		)
+
+		assert change_program_agents_by_numbers_r.status_code == 200
+		await self.station.refresh(session)
+
+		ctrl = self.station.station_control
+		assert all(
+			(ag_num in [ag.agent_number for ag in ctrl.program_step.washing_agents]
+			 for ag_num in washing_agents_numbers)
+		)
+
+	async def test_update_station_program_errors(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		- Номер шага программы в новых параметрах можно не передавать (и так указывается в пути). Но можно передать, указав
+	 	 новый нужный номер - в этом случае выполнится проверка на занятость номера;
+	 	 - Программа должна существовать;
+	 	 - Стиральное средство должно существовать;
+	 	- users auth auto test;
+	 	- get station by id auto test;
+	 	- roles auto test
+		"""
+		rand_program, rand_program_ = random.choice(self.station.station_programs), \
+			random.choice(self.station.station_programs)
+
+		existing_program_step_number_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"program_step": rand_program.program_step})
+		)
+
+		assert existing_program_step_number_r.status_code == 409
+
+		# ___________________________________________________________________________________________
+
+		rand_washing_agent = random.choice(self.station.station_washing_agents)
+		await stations_funcs.delete_washing_services(rand_washing_agent.agent_number, self.station,
+													 session, "agent")
+		await self.station.refresh(session)
+		non_existing_washing_agent_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
+		)
+		assert non_existing_washing_agent_r.status_code == 404
+
+		# ___________________________________________________________________________________________
+
+		non_existing_program_step_r = await ac.put(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
+			headers=self.installer.headers,
+			cookies=self.installer.cookies,
+			json=dict(updating_params={"washing_agents": []})
+		)
+
+		assert non_existing_program_step_r.status_code == 404
+
+		# ___________________________________________________________________________________________
+
+		testing_json = dict(updating_params={"washing_agents": []})
+
+		await auth.url_auth_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			"put", self.installer, ac, session, json=testing_json
+		)
+		await auth.url_auth_roles_test(
+			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+		)
+		await auth.url_get_station_by_id_test(
+			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			"put", self.sysadmin, self.station, session, ac, json=testing_json
+		)
 
 	async def test_delete_program(self, ac: AsyncClient, session: AsyncSession):
 		"""

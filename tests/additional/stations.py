@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import update, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
+from fastapi.encoders import jsonable_encoder
 
 import services
 from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum
@@ -223,10 +224,11 @@ async def generate_station_control(station: StationData, session: AsyncSession) 
 
 	program = random.choice(station.station_programs)
 	machine = random.choice(station.station_washing_machines)
-	query = update(StationControl).where(StationControl.station_id == station.id).values(
-			program_step=program.dict(), washing_machine=machine.dict(), status=StationStatusEnum.WORKING
-		)
-	await session.execute(query)
+	ctrl = (await session.execute(select(StationControl).where(StationControl.station_id == station.id))).scalar()
+	ctrl.program_step = jsonable_encoder(program.dict())
+	ctrl.washing_machine = jsonable_encoder(machine.dict())
+	ctrl.status = StationStatusEnum.WORKING
+	await session.merge(ctrl)
 	await session.commit()
 
 

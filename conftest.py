@@ -40,7 +40,7 @@ from tests.additional.users import create_authorized_user, generate_user_data, c
 from tests.additional.stations import generate_station
 
 engine_test = create_async_engine(DATABASE_URL_TEST, poolclass=NullPool)
-async_session_maker = sessionmaker(engine_test, class_=AsyncSession, expire_on_commit=False)
+async_session_maker = sessionmaker(engine_test, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 Base.metadata.bind = engine_test
 
 sync_engine_test = create_engine(DATABASE_URL_SYNC_TEST)

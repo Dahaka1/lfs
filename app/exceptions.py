@@ -2,9 +2,6 @@ from fastapi import HTTPException, status
 
 
 class CredentialsException(HTTPException):
-	"""
-	authorizing by Bearer token error
-	"""
 	def __init__(
 		self,
 		detail: str = "Could not validate credentials",
@@ -17,9 +14,6 @@ class CredentialsException(HTTPException):
 
 
 class PermissionsError(HTTPException):
-	"""
-	permissions error
-	"""
 	def __init__(
 		self,
 		detail: str = "Permissions error",

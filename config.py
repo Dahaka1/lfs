@@ -68,7 +68,10 @@ STATIC_FILES_DIR = "app/static"
 HTML_TEMPLATES_DIR = STATIC_FILES_DIR + "/templates"
 
 # FERNET SECRET KEY (WIFI DATA ENCRYPTING)
-FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")
+try:
+	FERNET_SECRET_KEY = bytes(os.getenv("FERNET_SECRET_KEY"), "utf-8")
+except TypeError:
+	pass
 
 # SMTP SERVER
 SMTP_SERVER_TIMEOUT = 10

@@ -221,6 +221,9 @@ class TestStations:
 
 		assert response.status_code == 200
 		for station in response.json():
+			assert not any(
+				("wifi" in key for key in station)
+			)
 			station = schemas_stations.StationGeneralParams(**station)  # если что, будет Validation error
 			station.id = str(station.id)
 			station.region = station.region.value
@@ -256,7 +259,7 @@ class TestStations:
 			headers=self.station.headers
 		)
 		assert general_params_r.status_code == 200
-		result = schemas_stations.StationGeneralParamsForStation(**general_params_r.json()["partial_data"])
+		result = schemas_stations.StationGeneralParamsForStation(**general_params_r.json())
 		for k, v in self.station.__dict__.items():
 			if k in result.dict():
 				assert getattr(result, k) == v
@@ -269,7 +272,7 @@ class TestStations:
 		)
 
 		assert settings_r.status_code == 200
-		settings_result = schemas_stations.StationSettings(**settings_r.json()["partial_data"])
+		settings_result = schemas_stations.StationSettings(**settings_r.json())
 		assert settings_result.station_power == params["station"]["settings"]["station_power"]
 		assert settings_result.teh_power == params["station"]["settings"]["teh_power"]
 
@@ -280,7 +283,7 @@ class TestStations:
 			headers=self.station.headers
 		)
 		assert control_r.status_code == 200
-		result = schemas_stations.StationControl(**control_r.json()["partial_data"])
+		result = schemas_stations.StationControl(**control_r.json())
 
 		assert settings_result.station_power is True and result.status == StationStatusEnum.AWAITING or \
 			   settings_result.station_power is False and result.status is None
@@ -292,7 +295,7 @@ class TestStations:
 			headers=self.station.headers
 		)
 		assert washing_agents_r.status_code == 200
-		washing_agents_result = washing_agents_r.json()["partial_data"]
+		washing_agents_result = washing_agents_r.json()
 
 		for washing_agent in washing_agents_result:
 			washing_agent = washing.WashingAgent(**washing_agent)  # Validation error
@@ -306,7 +309,7 @@ class TestStations:
 		)
 		assert programs_r.status_code == 200
 
-		result = programs_r.json()["partial_data"]
+		result = programs_r.json()
 		for program in result:
 			program = schemas_stations.StationProgram(**program)
 			assert program.program_number == program.program_step // 10
@@ -323,7 +326,7 @@ class TestStations:
 		)
 
 		assert washing_machines_r.status_code == 200
-		result = washing_machines_r.json()["partial_data"]
+		result = washing_machines_r.json()
 
 		for machine in result:
 			machine = washing.WashingMachine(**machine)

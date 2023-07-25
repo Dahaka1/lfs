@@ -5,8 +5,8 @@ from app.static.enums import RoleEnum, StationStatusEnum
 # SMTP ACCOUNT
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_USER = os.getenv("SMTP_USER")  # почта логин
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # почта пароль
 
 if SMTP_PASSWORD == "null" or SMTP_USER == "null":
 	raise RuntimeError("For testing app, write your SMTP data into .env-docker file")
@@ -23,29 +23,30 @@ CODE_LENGTH = 6
 CODE_EXPIRING_IN_MINUTES = 5
 
 # WASHING MACHINES PARAMS
-DEFAULT_WASHING_MACHINES_VOLUME = 10
-DEFAULT_WASHING_MACHINES_IS_ACTIVE = True
-DEFAULT_WASHING_MACHINES_TRACK_LENGTH = 5.0
-MIN_WASHING_MACHINE_VOLUME = 10
-MAX_WASHING_MACHINE_VOLUME = 100
-MIN_WASHING_MACHINE_TRACK_LENGTH = 1
-MAX_WASHING_MACHINE_TRACK_LENGTH = 20
+DEFAULT_WASHING_MACHINES_VOLUME = 10  # объем стиральных машин по умолчанию
+DEFAULT_WASHING_MACHINES_IS_ACTIVE = True  # активны или нет по умолчанию
+DEFAULT_WASHING_MACHINES_TRACK_LENGTH = 5.0  # длина трассы по умолчанию
+MIN_WASHING_MACHINE_VOLUME = 10  # минимальный объем
+MAX_WASHING_MACHINE_VOLUME = 100  # максимальный объем
+MIN_WASHING_MACHINE_TRACK_LENGTH = 1  # минимальная длина трассы
+MAX_WASHING_MACHINE_TRACK_LENGTH = 20  # максимальная длина трассы
 
 # WASHING AGENTS PARAMS
-DEFAULT_WASHING_AGENTS_VOLUME = 25
-DEFAULT_WASHING_AGENTS_ROLLBACK = False
-MIN_WASHING_AGENTS_VOLUME = 1
-MAX_WASHING_AGENTS_VOLUME = 50
+DEFAULT_WASHING_AGENTS_VOLUME = 25  # объем стиральных средств по умолчанию (если не указать при создании)
+DEFAULT_WASHING_AGENTS_ROLLBACK = False  # откат средств по умолчанию
+MIN_WASHING_AGENTS_VOLUME = 1  # минимальный объем средства
+MAX_WASHING_AGENTS_VOLUME = 50  # максимальный объем средства
 
 # STATIONS PARAMS
-DEFAULT_STATION_POWER = True
-DEFAULT_STATION_TEH_POWER = True
-DEFAULT_STATION_IS_ACTIVE = True
-DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 7  # <= MAX_WASHING_MACHINES_AMOUNT
-DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 8
-DEFAULT_STATION_IS_PROTECTED = False
-DEFAULT_STATION_STATUS = StationStatusEnum.AWAITING
-MIN_STATION_WASHING_AGENTS_AMOUNT = 1
-MIN_STATION_WASHING_MACHINES_AMOUNT = 1
-MAX_STATION_WASHING_MACHINES_AMOUNT = 7
-MAX_STATION_WASHING_AGENTS_AMOUNT = 8
+DEFAULT_STATION_POWER = True  # включена ли станция по умолчанию
+DEFAULT_STATION_TEH_POWER = True  # включен ли тен по умолчанию
+DEFAULT_STATION_IS_ACTIVE = True  # активна ли станция по умолчанию (если нет, то включение станции и тэна невозможно)
+DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 7  # количество стиральных машин у станции по умолчанию
+DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 8  # количество стиральных средств у станции по умолчанию
+DEFAULT_STATION_IS_PROTECTED = False  # включена ли защита станции по умолчанию
+DEFAULT_STATION_STATUS = StationStatusEnum.AWAITING  # статус станции по умолчанию
+# (если выключена - статус только нулевой)
+MIN_STATION_WASHING_AGENTS_AMOUNT = 1  # минимальное количество стиральных средств у станции
+MIN_STATION_WASHING_MACHINES_AMOUNT = 1  # минимальное количество стиральных машин у станции
+MAX_STATION_WASHING_MACHINES_AMOUNT = 7  # максимальное количество стиральных машин у станции
+MAX_STATION_WASHING_AGENTS_AMOUNT = 8  # максимальное количество стиральных средств у станции

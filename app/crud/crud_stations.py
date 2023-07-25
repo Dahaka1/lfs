@@ -18,6 +18,7 @@ from ..utils.general import sa_objects_dicts_list, encrypt_data
 import config
 from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
 from ..exceptions import UpdatingError, GettingDataError
+from ..static.typing import StationParamsSet
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
@@ -112,29 +113,24 @@ async def create_station(db: AsyncSession,
 async def read_station(
 	station: schemas_stations.StationGeneralParams,
 	params_set: StationParamsEnum,
-	db: AsyncSession,
-	query_from: QueryFromEnum
-) -> schemas_stations.StationPartial | schemas_stations.StationPartialForUser:
+	db: AsyncSession
+) -> StationParamsSet:
 	"""
 	Возвращает объект с запрошенными данными.
 	"""
 	match params_set:
 		case StationParamsEnum.SETTINGS:
-			data = await StationSettings.get_relation_data(station, db)
+			data: schemas_stations.StationSettings = await StationSettings.get_relation_data(station, db)
 		case StationParamsEnum.CONTROL:
-			data = await StationControl.get_relation_data(station, db)
+			data: schemas_stations.StationControl = await StationControl.get_relation_data(station, db)
 		case StationParamsEnum.PROGRAMS:
-			data = await StationProgram.get_relation_data(station, db)
+			data: list[schemas_stations.StationProgram] = await StationProgram.get_relation_data(station, db)
 		case StationParamsEnum.WASHING_MACHINES:
-			data = await WashingMachine.get_station_objects(station.id, db)
+			data: list[schemas_washing.WashingMachine] = await WashingMachine.get_station_objects(station.id, db)
 		case StationParamsEnum.WASHING_AGENTS:
-			data = await WashingAgent.get_station_objects(station.id, db)
+			data: list[schemas_washing.WashingAgent] = await WashingAgent.get_station_objects(station.id, db)
 
-	match query_from:
-		case QueryFromEnum.STATION:
-			return schemas_stations.StationPartial(partial_data=data)
-		case QueryFromEnum.USER:
-			return schemas_stations.StationPartialForUser(partial_data=data)
+	return data
 
 
 async def read_station_all(
@@ -147,8 +143,7 @@ async def read_station_all(
 
 	Надо обязательно сократить количество запросов... (отмечено в TODO).
 	"""
-	settings = await StationSettings.get_relation_data(station, db)
-	control = await StationControl.get_relation_data(station, db)
+	settings, control = await Station.relations(db, station)
 	programs = await StationProgram.get_relation_data(station, db)
 	washing_machines = await WashingMachine.get_station_objects(station.id, db)
 	washing_agents = await WashingAgent.get_station_objects(station.id, db)
@@ -283,8 +278,8 @@ async def update_station_control(
 						   f"but got agent №{agent.agent_number}")
 
 	if updated_params.program_step:
-		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db, QueryFromEnum.STATION)
-		if updated_params.program_step.dict() not in [program.dict() for program in station_programs.partial_data]:
+		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db)
+		if updated_params.program_step.dict() not in [program.dict() for program in station_programs]:
 			raise UpdatingError(f"Station program '{updated_params.program_step}' wasn't found in station programs")
 
 	if updated_params.washing_machine:
@@ -363,16 +358,16 @@ async def update_station_program(
 	Обновление программы станции.
 	"""
 	station_washing_agents = await WashingAgent.get_station_objects(station.id, db)
-	washing_agents_numbers = [
-		ag.agent_number if isinstance(ag, schemas_washing.WashingAgentWithoutRollback)
-		else ag for ag in updated_program.washing_agents
-	]
-
-	if any(
-		(agent_number not in map(lambda ag: ag.agent_number, station_washing_agents)
-		 for agent_number in washing_agents_numbers)
-	):
-		raise GettingDataError("Got an non-existing washing agent number")
+	if updated_program.washing_agents:
+		washing_agents_numbers = [
+			ag.agent_number if isinstance(ag, schemas_washing.WashingAgentWithoutRollback)
+			else ag for ag in updated_program.washing_agents
+		]
+		if any(
+			(agent_number not in map(lambda ag: ag.agent_number, station_washing_agents)
+			 for agent_number in washing_agents_numbers)
+		):
+			raise GettingDataError("Got an non-existing washing agent number")
 
 	if not updated_program.program_step:
 		updated_program.program_step = current_program.program_step
@@ -386,7 +381,8 @@ async def update_station_program(
 			pass
 
 	updated_program = await StationProgram.update_relation_data(
-		station, updated_program, db, washing_agents=station_washing_agents
+		station, updated_program, db, washing_agents=station_washing_agents,
+		current_program_number=current_program.program_step
 	)
 	updated_fields = [key for key, val in updated_program.dict().items() if getattr(current_program, key) != val]
 
@@ -399,7 +395,8 @@ async def update_station_program(
 	if station.is_active:
 		station_control = await StationControl.get_relation_data(station, db)
 		if station_control.program_step and station_control.program_step.program_step == updated_program.program_step:
-			updates = schemas_stations.StationControlUpdate(program_step=updated_program.dict())
+			updates = schemas_stations.StationControlUpdate(**station_control.dict())
+			updates.program_step = updated_program
 			await StationControl.update_relation_data(station, updates, db)
 
 	return updated_program

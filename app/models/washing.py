@@ -91,7 +91,6 @@ class WashingMixin:
 		)
 		result = await db.execute(query)
 		data = result.scalars().all()
-
 		if not any(data):
 			raise GettingDataError(f"Getting {cls.__name__} for station {station_id} error.\nDB data not found")
 

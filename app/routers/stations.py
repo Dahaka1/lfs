@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import pydantic.error_wrappers
 from fastapi import APIRouter, Depends, Body, status, HTTPException, Path
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,9 +94,9 @@ async def create_station(
 	return created_station
 
 
-@router.get("/me/{dataset}", response_model=schemas_stations.StationPartial, responses=openapi.read_stations_params_get)
+@router.get("/me/{dataset}", responses=openapi.read_stations_params_get)
 async def read_stations_params(
-	current_station: Annotated[schemas_stations.StationGeneralParams, Depends(get_current_station)],
+	current_station: Annotated[schemas_stations.StationGeneralParamsForStation, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	dataset: Annotated[StationParamsEnum, Path(title="Набор параметров станции")]
 ):
@@ -105,17 +106,17 @@ async def read_stations_params(
 	"""
 	match dataset:
 		case StationParamsEnum.GENERAL:
-			return schemas_stations.StationPartial(partial_data=current_station)
+			return current_station
 		case _:
 			try:
-				return await crud_stations.read_station(current_station, dataset, db, query_from=QueryFromEnum.STATION)
+				return await crud_stations.read_station(current_station, dataset, db)
 			except GettingDataError as e:
 				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/me", response_model=schemas_stations.StationForStation, responses=openapi.read_stations_me_get)
 async def read_stations_me(
-	current_station: Annotated[schemas_stations.StationGeneralParams, Depends(get_current_station)],
+	current_station: Annotated[schemas_stations.StationGeneralParamsForStation, Depends(get_current_station)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""

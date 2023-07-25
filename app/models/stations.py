@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 import datetime
 
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
-	UUID, JSON, func, insert, select, PrimaryKeyConstraint, update, TIMESTAMP
+	UUID, JSON, func, insert, select, PrimaryKeyConstraint, update, TIMESTAMP, Row
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.encoders import jsonable_encoder
 
 from ..database import Base
 import services
@@ -43,6 +46,28 @@ class Station(Base):
 	created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 	region = Column(Enum(RegionEnum))
+
+	@staticmethod
+	async def relations(db: AsyncSession, station: schemas_stations.StationGeneralParams) -> \
+		list[StationSettings, StationControl]:
+		"""
+		Объединил сбор данных по станции.
+		"""
+		relations = (await db.execute(
+			select(StationSettings, StationControl).join_from(
+				StationSettings, StationControl, StationSettings.station_id == StationControl.station_id
+			).where(StationSettings.station_id == station.id)
+		)).all()
+		objs = []
+		for entry in relations:
+			entry: Row
+			for j in entry:
+				objs.append(j)
+
+		if len(objs) != 2:
+			raise GettingDataError()
+
+		return objs
 
 	@staticmethod
 	async def get_station_by_id(db: AsyncSession,
@@ -192,26 +217,16 @@ class StationMixin:
 
 	@classmethod
 	async def update_relation_data(cls,
-		station: schemas_stations.StationGeneralParams | uuid.UUID,
-		updated_params: schemas_stations.StationSettingsUpdate | schemas_stations.StationControlUpdate | \
+		station: schemas_stations.StationGeneralParams,
+		updated_params: schemas_stations.StationSettingsUpdate | \
 								   schemas_stations.StationProgramUpdate,
 		db: AsyncSession, **kwargs
-	) -> StationParamsSet:
+	) -> schemas_stations.StationSettings | schemas_stations.StationProgram:
 		"""
 		Обновление данных по станции в побочных таблицах.
 		"""
 
-		station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
-
 		match cls.__name__:
-			case "StationControl":
-				if any(
-					(any(updated_params.washing_agents), updated_params.program_step,
-					 updated_params.washing_machine, updated_params.status)
-				):
-					station_settings = await StationSettings.get_relation_data(station, db)
-					if station_settings.station_power is False:
-						raise UpdatingError("Station power currently is False, but got non-nullable control params")
 			case "StationSettings":
 				if updated_params.station_power is True:
 					if not station.is_active:
@@ -219,7 +234,7 @@ class StationMixin:
 			case "StationProgram":
 				station_washing_agents: list[WashingAgent] = kwargs.get("washing_agents")
 				if not station_washing_agents:
-					raise AttributeError("Expected for station washing agents list")
+					raise ValueError("Expected for station washing agents list")
 
 				for washing_agent in updated_params.washing_agents:
 					idx = updated_params.washing_agents.index(washing_agent)
@@ -227,19 +242,24 @@ class StationMixin:
 						washing_agent = next(ag for ag in station_washing_agents if ag.agent_number == washing_agent)
 						updated_params.washing_agents[idx] = washing_agent
 
+				current_program_number: int = kwargs.get("current_program_number")
+				if not current_program_number:
+					raise ValueError("Expected for current program number")
+
 		updated_params_dict = dict(**updated_params.dict(), updated_at=datetime.datetime.now())
 		# updated_at почему-то автоматически не обновляется =(
 
 		match cls.__name__:
 			case "StationProgram":
 				query = update(cls).where(
-					(cls.station_id == station_id) &
-					(cls.program_step == updated_params.program_step)
+					(cls.station_id == station.id) &
+					(cls.program_step == current_program_number)
 					).values(**updated_params_dict)
-			case _:
+			case "StationSettings":
 				query = update(cls).where(
-					cls.station_id == station_id
+					cls.station_id == station.id
 				).values(**updated_params_dict)
+
 		await db.execute(query)
 		await db.commit()
 
@@ -384,3 +404,40 @@ class StationControl(Base, StationMixin):
 		return schemas_stations.StationControl(
 			status=kwargs["status"] if "status" in kwargs else services.DEFAULT_STATION_STATUS,
 		)
+
+	@classmethod
+	async def update_relation_data(cls,
+		station: schemas_stations.StationGeneralParams,
+		updated_params: schemas_stations.StationControlUpdate,
+		db: AsyncSession, **kwargs
+	) -> schemas_stations.StationControl:
+		"""
+		Переопределяю метод, ибо непонятная ошибка
+		"""
+		if any(
+			(any(updated_params.washing_agents), updated_params.program_step,
+			 updated_params.washing_machine, updated_params.status)
+		):
+			station_settings = await StationSettings.get_relation_data(station, db)
+			if station_settings.station_power is False:
+				raise UpdatingError("Station power currently is False, but got non-nullable control params")
+
+		ctrl: schemas_stations.StationControl = await cls.get_relation_data(station, db)
+
+		for k, v in updated_params.dict().items():
+			if getattr(ctrl, k) != v:
+				match k:
+					case "program_step" | "washing_machine":
+						setattr(ctrl, k, jsonable_encoder(v))
+					case "washing_agents":
+						setattr(ctrl, k, [jsonable_encoder(ag) for ag in v])
+					case _:
+						setattr(ctrl, k, v)
+
+		await db.execute(
+			update(StationControl).where(StationControl.station_id == station.id).
+			values(**ctrl.dict())
+		)
+		await db.commit()
+
+		return ctrl

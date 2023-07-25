@@ -96,6 +96,9 @@ class StationSettings(BaseModel):
 	teh_power: bool = Field(title="ТЭН включен/выключен")
 	updated_at: Optional[datetime.datetime] = Field(title="Дата и время последнего обновления (настроек станции)")
 
+	class Config:
+		orm_mode = True
+
 
 class StationSettingsCreate(BaseModel):
 	"""
@@ -191,6 +194,10 @@ class StationProgramUpdate(StationProgramCreate):
 	"""
 	program_step: Optional[int] = Field(ge=11, title="Новый шаг (этап) программы станции",
 										example="11-15, 21-25, 31-35, ...")
+	washing_agents: Optional[list[WashingAgentWithoutRollback | int]] = Field(
+		title="Стиральные средства станции и дозировки",
+		default_factory=list
+	)
 
 
 class StationControl(BaseModel):
@@ -250,6 +257,9 @@ class StationControl(BaseModel):
 									 "only one of params (program step, washing agents) could be chosen")
 
 		return values
+
+	class Config:
+		orm_mode = True
 
 
 class StationControlUpdate(StationControl):
@@ -351,32 +361,4 @@ class StationCreate(BaseModel):
 					raise ValueError("Got an program step number duplicate")
 
 		return values
-
-
-class StationPartial(BaseModel):
-	"""
-	   Схема для ответа по запросу определенных данных станцией (а не всех).
-	   """
-	partial_data: Union[
-		StationGeneralParamsForStation,
-		list[StationProgram],
-		StationSettings,
-		StationControl,
-		list[WashingMachine],
-		list[WashingAgent]
-	] = Field(title="Запрашиваемый набор параметров станции")
-
-
-class StationPartialForUser(BaseModel):
-	"""
-	Схема для ответа по запросу определенных данных станцией пользователем.
-	"""
-	partial_data: Union[
-		StationGeneralParams,
-		list[StationProgram],
-		StationSettings,
-		StationControl,
-		list[WashingMachine],
-		list[WashingAgent]
-	] = Field(title="Запрашиваемый набор параметров станции")
 

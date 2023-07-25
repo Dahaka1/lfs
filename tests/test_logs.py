@@ -1,19 +1,18 @@
 import random
 import uuid
 
-from httpx import AsyncClient
 import pytest
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import AsyncClient
 from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import schemas_logs
-from app.models.stations import StationControl
 from app.models.logs import StationMaintenanceLog
-from tests.additional import auth, users as users_funcs
-from tests.additional.stations import create_random_station_logs, change_station_params, StationData
+from app.models.stations import StationControl
+from app.schemas import schemas_logs
 from app.static.enums import CreateLogByStationEnum, LogTypeEnum, StationStatusEnum
 from app.utils.general import sa_object_to_dict
+from tests.additional import auth, users as users_funcs
+from tests.additional.stations import create_random_station_logs, change_station_params, StationData
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")

@@ -3,19 +3,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.stations import StationControl, StationSettings, StationProgram
-from ..models.washing import WashingAgent, WashingMachine
-from ..schemas import schemas_stations as stations, schemas_users as users, schemas_washing as washing
+from ..crud import crud_stations, crud_washing
 from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user, get_installer_user
 from ..dependencies.stations import get_station_by_id, get_station_program_by_number
 from ..dependencies.users import get_current_active_user
-from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingServicesEnum
-from ..crud import crud_stations, crud_washing
 from ..exceptions import GettingDataError, UpdatingError
 from ..exceptions import PermissionsError, CreatingError, DeletingError
+from ..models.stations import StationControl, StationSettings, StationProgram
+from ..models.washing import WashingAgent, WashingMachine
+from ..schemas import schemas_stations as stations, schemas_users as users, schemas_washing as washing
 from ..static import openapi
-
+from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingServicesEnum
 
 router = APIRouter(
 	prefix="/manage",

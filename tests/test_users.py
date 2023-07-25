@@ -1,13 +1,13 @@
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import schemas_users as users
 from app.models.users import User
-from tests.additional import auth, users as users_funcs
+from app.schemas import schemas_users as users
 from app.static.enums import RoleEnum, RegionEnum
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
+from tests.additional import auth, users as users_funcs
 
 
 @pytest.mark.usefixtures("generate_users")
@@ -19,7 +19,6 @@ class TestUsers:
 	"""
 	Тестирование функционала пользователей.
 	"""
-
 	async def test_read_users(self, ac: AsyncClient):
 		"""
 		Получение списка всех пользователей.

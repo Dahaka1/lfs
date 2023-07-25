@@ -2,10 +2,10 @@ from loguru import logger
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..schemas import schemas_users
 from ..models.users import User
-from ..utils.general import sa_objects_dicts_list, sa_object_to_dict, get_data_hash
+from ..schemas import schemas_users
 from ..static.enums import RoleEnum
+from ..utils.general import sa_objects_dicts_list, sa_object_to_dict, get_data_hash
 
 
 async def get_users(db: AsyncSession):

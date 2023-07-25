@@ -1,20 +1,24 @@
-import datetime
-
-from httpx import AsyncClient
 import pytest
-
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.schemas_token import Token
 from app.models.auth import RegistrationCode
+from app.schemas.schemas_token import Token
+from app.schemas.schemas_users import User
 from app.utils.general import decode_jwt
-from tests.additional.users import change_user_data, get_user_token
 from tests.additional import auth
 from tests.additional.auth import url_auth_test
+from tests.additional.users import change_user_data, get_user_token
 
 
 @pytest.mark.usefixtures("generate_user")
 class TestAuth:
+	id: int
+	email: str
+	password: str
+	headers: dict
+	cookies: dict
+	token: str | None
 	"""
 	Тестирование аутентификации пользователя.
 	"""
@@ -184,6 +188,13 @@ class TestAuth:
 
 @pytest.mark.usefixtures("generate_authorized_user")
 class TestRegistrationCode:
+	id: int
+	email: str
+	password: str
+	headers: dict
+	cookies: dict
+	token: str | None
+	user_schema: User
 	"""
 	Тестирование кодов подтверждения email.
 	Ограниченное - см. описание проблемы в conftest.

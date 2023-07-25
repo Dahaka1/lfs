@@ -1,5 +1,5 @@
-from ..models.logs import ErrorsLog, WashingAgentsUsingLog, StationProgramsLog, ChangesLog, StationMaintenanceLog
 from ..database import Base
+from ..models.logs import ErrorsLog, WashingAgentsUsingLog, StationProgramsLog, ChangesLog, StationMaintenanceLog
 from ..static.enums import CreateLogByStationEnum, LogTypeEnum
 
 

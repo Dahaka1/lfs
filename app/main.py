@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter, status
-from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from loguru import logger
 
 import config
@@ -9,7 +9,6 @@ from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
 from .static import app_description
 from .static.openapi import tags_metadata
-
 
 app = FastAPI(
 	title="LFS company server",

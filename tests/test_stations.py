@@ -1,17 +1,17 @@
 import copy
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete
 from httpx import AsyncClient
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
-from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
+from app.models import stations
 from app.schemas import schemas_stations
 from app.schemas import schemas_washing as washing
-from app.models import stations
-from tests.additional.stations import get_station_by_id, generate_station, StationData
+from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
 from tests.additional import auth, users as users_funcs
+from tests.additional.stations import get_station_by_id, generate_station, StationData
 from tests.fills import stations as station_fills
 
 

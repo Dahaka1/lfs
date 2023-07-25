@@ -1,7 +1,7 @@
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.logs import ChangesLog
 from app.utils.general import sa_object_to_dict

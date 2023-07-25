@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from .schemas_washing import WashingAgentWithoutRollback, WashingMachine
 from .schemas_stations import StationProgram
+from .schemas_washing import WashingAgentWithoutRollback, WashingMachine
 
 
 class ErrorLogBase(BaseModel):

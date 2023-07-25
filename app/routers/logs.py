@@ -2,27 +2,26 @@ import datetime
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Body, Path, HTTPException, status
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy.ext.asyncio import AsyncSession
 import pydantic
-from sqlalchemy import update
+from fastapi import APIRouter, Depends, Body, Path, HTTPException, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from loguru import logger
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.stations import get_current_station
-from ..models.stations import Station, StationControl
-from ..models.logs import StationMaintenanceLog
-from ..dependencies import get_async_session
-from ..dependencies.users import get_current_active_user
-from ..dependencies.roles import get_installer_user
-from ..schemas import schemas_logs as logs, schemas_stations as stations, schemas_users as users
-from ..static.enums import RoleEnum as roles, LogTypeEnum, StationStatusEnum, CreateLogByStationEnum
 from ..crud import crud_logs
+from ..dependencies import get_async_session
+from ..dependencies.roles import get_installer_user
+from ..dependencies.stations import get_current_station
+from ..dependencies.users import get_current_active_user
 from ..exceptions import PermissionsError
-from ..utils.logs import parse_log_class
+from ..models.logs import StationMaintenanceLog
+from ..models.stations import Station, StationControl
+from ..schemas import schemas_logs as logs, schemas_stations as stations, schemas_users as users
 from ..static import openapi
-
+from ..static.enums import RoleEnum as roles, LogTypeEnum, StationStatusEnum, CreateLogByStationEnum
+from ..utils.logs import parse_log_class
 
 router = APIRouter(
 	prefix="/logs",

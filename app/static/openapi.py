@@ -1,9 +1,10 @@
 from pydantic import BaseModel
+
+from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations, \
+	schemas_washing as washing, schemas_token as tokens
+from ..schemas.schemas_email_code import RegistrationCode
 from ..schemas.schemas_token import Token
 from ..schemas.schemas_users import User
-from ..schemas.schemas_email_code import RegistrationCode
-from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations,\
-	schemas_washing as washing, schemas_token as tokens
 
 tags_metadata = [
 	{

@@ -1,19 +1,19 @@
 import datetime
-from typing import Any
 import random
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update, select
-from sqlalchemy.orm import Session
 from httpx import AsyncClient
 from pydantic import BaseModel
+from sqlalchemy import update, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 import services
-from app.static.enums import RoleEnum, RegionEnum
 from app.models.users import User
 from app.schemas import schemas_users
-from app.utils.general import get_data_hash, sa_object_to_dict, sa_objects_dicts_list
 from app.schemas.schemas_token import Token
+from app.static.enums import RoleEnum, RegionEnum
+from app.utils.general import get_data_hash, sa_object_to_dict, sa_objects_dicts_list
 
 
 class UserData(BaseModel):

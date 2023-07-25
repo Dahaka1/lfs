@@ -1,13 +1,13 @@
 import datetime
-from typing import Optional, Any, Union
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field, UUID4, validator, root_validator
 
 import services
-from ..static.enums import StationStatusEnum, RegionEnum
 from . import validators
 from .schemas_washing import WashingAgent, WashingMachine, WashingMachineUpdate, WashingAgentUpdate, \
 	WashingAgentWithoutRollback, WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
+from ..static.enums import StationStatusEnum, RegionEnum
 
 
 class StationServicesUpdate(BaseModel):

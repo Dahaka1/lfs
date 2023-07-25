@@ -5,12 +5,12 @@
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..schemas import schemas_washing as washing, schemas_users
-from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
-from ..models.washing import WashingAgent, WashingMachine
-from ..models.stations import StationControl
 from ..exceptions import UpdatingError, DeletingError
 from ..models.logs import ChangesLog
+from ..models.stations import StationControl
+from ..models.washing import WashingAgent, WashingMachine
+from ..schemas import schemas_washing as washing, schemas_users
+from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
 
 
 async def update_washing_object(

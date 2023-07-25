@@ -4,21 +4,21 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
-from sqlalchemy.orm import Session
+from fastapi.encoders import jsonable_encoder
+from httpx import AsyncClient
 from sqlalchemy import update, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from httpx import AsyncClient
-from fastapi.encoders import jsonable_encoder
+from sqlalchemy.orm import Session
 
 import services
-from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum
-from app.schemas import schemas_stations, schemas_washing
-from .users import create_authorized_user, UserData
+from app.database import Base
+from app.models import logs
 from app.models.stations import StationControl, Station, StationSettings, StationProgram
 from app.models.washing import WashingAgent, WashingMachine
-from app.models import logs
+from app.schemas import schemas_stations, schemas_washing
+from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
-from app.database import Base
+from .users import create_authorized_user, UserData
 
 
 @dataclass

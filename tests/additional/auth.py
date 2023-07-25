@@ -3,14 +3,14 @@ import uuid
 from typing import Any, Literal, Optional
 
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, update, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import RegistrationCode, RefreshToken
-from .users import change_user_data, UserData
 from app.static.enums import StationStatusEnum, RoleEnum
-from .stations import StationData, change_station_params
 from app.utils.general import sa_object_to_dict
+from .stations import StationData, change_station_params
+from .users import change_user_data, UserData
 
 
 async def delete_user_code(user: Any, session: AsyncSession) -> None:

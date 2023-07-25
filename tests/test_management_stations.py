@@ -4,16 +4,16 @@ import random
 
 import pytest
 import pytz
-from sqlalchemy.ext.asyncio import AsyncSession
-from httpx import AsyncClient
-from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from geopy.geocoders import Nominatim
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
-from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs, strings, static
-from app.schemas import schemas_stations as stations, schemas_washing as washing
 from app.models import stations as stations_models
+from app.schemas import schemas_stations as stations, schemas_washing as washing
+from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
 from app.utils.general import decrypt_data
+from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs, strings, static
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")

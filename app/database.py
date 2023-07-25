@@ -1,7 +1,7 @@
 from psycopg2 import connect
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy import create_engine
 
 import config
 

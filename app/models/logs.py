@@ -1,10 +1,10 @@
+from loguru import logger
 from sqlalchemy import JSON, Column, String, Integer, ForeignKey, UUID, insert, func, TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
-from loguru import logger
 
 from ..database import Base
-from ..schemas.schemas_users import User
 from ..schemas.schemas_stations import StationGeneralParams
+from ..schemas.schemas_users import User
 
 
 class ErrorsLog(Base):

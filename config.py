@@ -1,8 +1,9 @@
 import os
 import sys
-from passlib.context import CryptContext
+
 from dotenv import load_dotenv
 from geopy.geocoders import Nominatim
+from passlib.context import CryptContext
 
 # GEOLOCATION
 GEO_APP = "LFS-company server"

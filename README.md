@@ -22,4 +22,6 @@ LFS company backed server. Developed right now.
 - Add refresh token to authenticate - **DONE**;
 - Refactor DB operations with queries to ORM operations, including update ORM defining to SQLAlchemy v2 (mapped columns) - **EXCLUDED**;
 - Add Celery tasks handling in case of low-speed background tasks handling by FastAPI - **EXCLUDED**;
-- Add advanced path operations responses description (openapi) - **DONE**.
+- Add advanced path operations responses description (openapi) - **DONE**;
+- nginx deploying;
+- ssl securing.

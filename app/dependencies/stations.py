@@ -2,17 +2,17 @@ import uuid
 from typing import Annotated
 
 from fastapi import Header, Depends, HTTPException, status, Path
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import get_async_session
-from ..models.stations import Station, StationProgram, StationControl
-from ..schemas.schemas_stations import StationGeneralParams, StationGeneralParamsForStation
-from ..schemas import schemas_stations
 from ..exceptions import PermissionsError, GettingDataError
+from ..models.stations import Station, StationProgram, StationControl
+from ..schemas import schemas_stations
+from ..schemas.schemas_stations import StationGeneralParams, StationGeneralParamsForStation
+from ..static.enums import StationStatusEnum
 from ..utils.general import decrypt_data
 from ..utils.general import sa_object_to_dict
-from ..static.enums import StationStatusEnum
 
 
 async def get_current_station(

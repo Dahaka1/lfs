@@ -2,23 +2,23 @@ import datetime
 import uuid
 
 import pydantic
-from geopy.location import Location
-from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from geopy.geocoders import Nominatim
+from geopy.location import Location
 from loguru import logger
 from pydantic import UUID4
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.stations import Station, StationSettings, StationControl, StationProgram
+import config
+from ..exceptions import UpdatingError, GettingDataError
 from ..models.logs import ChangesLog
+from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations, schemas_users, schemas_washing
-from ..utils.general import sa_objects_dicts_list, encrypt_data
-import config
 from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
-from ..exceptions import UpdatingError, GettingDataError
 from ..static.typing import StationParamsSet
+from ..utils.general import sa_objects_dicts_list, encrypt_data
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:

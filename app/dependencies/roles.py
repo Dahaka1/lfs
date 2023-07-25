@@ -2,10 +2,10 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from ..static.enums import RoleEnum
 from .users import get_current_active_user
-from ..schemas.schemas_users import User
 from ..exceptions import PermissionsError
+from ..schemas.schemas_users import User
+from ..static.enums import RoleEnum
 
 
 def get_sysadmin_user(

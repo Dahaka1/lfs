@@ -1,7 +1,8 @@
-import time
-import sys
-from config import STARTING_APP_FROM_CMD_DEBUG_ARG
 import platform
+import sys
+import time
+
+from config import STARTING_APP_FROM_CMD_DEBUG_ARG
 
 
 def main():

@@ -1,13 +1,13 @@
+import smtplib
 from email.message import EmailMessage
 
-import smtplib
 from loguru import logger
 from sqlalchemy.orm import Session
 
 import config
-from .schemas.schemas_users import User
-from .models.auth import RegistrationCode
 import services
+from .models.auth import RegistrationCode
+from .schemas.schemas_users import User
 
 
 def send_verifying_email_code(registering_user: User, db: Session):

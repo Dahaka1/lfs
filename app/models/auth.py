@@ -7,18 +7,19 @@ from email.message import EmailMessage
 from typing import Optional
 
 import pytz
+from loguru import logger
 from sqlalchemy import Column, Integer, String, ForeignKey, \
 	Boolean, PrimaryKeyConstraint, select, update, delete, TIMESTAMP, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from loguru import logger
 
-import services, config
-from ..database import Base
-from ..schemas.schemas_users import User
+import config
+import services
 from . import users as users_models
-from ..schemas.schemas_email_code import RegistrationCodeInDB
+from ..database import Base
 from ..schemas import schemas_token
+from ..schemas.schemas_email_code import RegistrationCodeInDB
+from ..schemas.schemas_users import User
 from ..utils.general import get_data_hash, sa_object_to_dict, verify_data_hash, create_jwt_token, generate_refresh_token
 
 

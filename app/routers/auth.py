@@ -8,14 +8,14 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from ..schemas import schemas_users, schemas_token, schemas_email_code
-from ..dependencies import get_async_session,get_sync_session
+from .. import tasks
+from ..dependencies import get_async_session, get_sync_session
 from ..dependencies.users import get_current_user
 from ..exceptions import CredentialsException
-from ..models.users import User
 from ..models.auth import RegistrationCode, RefreshToken
+from ..models.users import User
+from ..schemas import schemas_users, schemas_token, schemas_email_code
 from ..schemas.schemas_email_code import RegistrationCodeInDB
-from .. import tasks
 from ..static import openapi
 from ..utils.general import create_token_response
 

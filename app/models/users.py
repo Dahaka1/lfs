@@ -5,11 +5,11 @@ from sqlalchemy import Column, Integer, String, Boolean, select, Enum, update, T
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
-from ..schemas import schemas_users, schemas_email_code
-from ..database import Base
-from ..utils.general import sa_object_to_dict, verify_data_hash
-from ..static.enums import RoleEnum, RegionEnum
 from .auth import RegistrationCode
+from ..database import Base
+from ..schemas import schemas_users, schemas_email_code
+from ..static.enums import RoleEnum, RegionEnum
+from ..utils.general import sa_object_to_dict, verify_data_hash
 
 
 class User(Base):

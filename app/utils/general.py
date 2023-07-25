@@ -1,12 +1,12 @@
+import json
 import random
 from datetime import timedelta, datetime, timezone
-from typing import Any, Sequence
-import json
 from string import ascii_letters
+from typing import Any, Sequence
 
+from cryptography.fernet import Fernet
 from fastapi.responses import JSONResponse
 from jose import jwt
-from cryptography.fernet import Fernet
 
 import config
 from ..database import Base

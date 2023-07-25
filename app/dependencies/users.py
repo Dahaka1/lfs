@@ -5,10 +5,10 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..schemas import schemas_users, schemas_token
+from . import oauth2_scheme, get_async_session
 from ..exceptions import CredentialsException, PermissionsError
 from ..models.users import User
-from . import oauth2_scheme, get_async_session
+from ..schemas import schemas_users, schemas_token
 from ..utils.general import decode_jwt
 
 

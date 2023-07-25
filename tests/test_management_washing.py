@@ -2,13 +2,13 @@ import copy
 import random
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
+from app.schemas import schemas_washing as washing
 from app.static.enums import RoleEnum, WashingServicesEnum
 from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs
-from app.schemas import schemas_washing as washing
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")

@@ -6,17 +6,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from ..schemas import schemas_users
+from .config import CACHE_EXPIRING_DEFAULT
+from .. import tasks
 from ..crud import crud_users
 from ..dependencies import get_async_session, get_sync_session
-from ..dependencies.users import get_current_active_user, get_user_id
 from ..dependencies.roles import get_sysadmin_user
+from ..dependencies.users import get_current_active_user, get_user_id
 from ..exceptions import PermissionsError
 from ..models.users import User
-from .. import tasks
+from ..schemas import schemas_users
 from ..static import openapi
-from .config import CACHE_EXPIRING_DEFAULT
-
 
 router = APIRouter(
 	prefix="/users",

@@ -17,7 +17,7 @@ LFS company backed server. Developed right now.
 ## TODO
 - Check that fastapi cache is really working;
 - Optimize getting station info from all station relations (1-2 query instead of 5);
-- Use Yandex geopy instead of Nominatim;
+- Use Yandex geopy instead of Nominatim - **EXCLUDED** (need for commerce license);
 - Add loguru errors email notifications if needed;
 - Add refresh token to authenticate - **DONE**;
 - Refactor DB operations with queries to ORM operations, including update ORM defining to SQLAlchemy v2 (mapped columns) - **EXCLUDED**;

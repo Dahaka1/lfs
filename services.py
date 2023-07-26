@@ -25,25 +25,25 @@ CODE_EXPIRING_IN_MINUTES = 5
 # WASHING MACHINES PARAMS
 DEFAULT_WASHING_MACHINES_VOLUME = 10  # объем стиральных машин по умолчанию
 DEFAULT_WASHING_MACHINES_IS_ACTIVE = True  # активны или нет по умолчанию
-DEFAULT_WASHING_MACHINES_TRACK_LENGTH = 5.0  # длина трассы по умолчанию
+DEFAULT_WASHING_MACHINES_TRACK_LENGTH = 10.0  # длина трассы по умолчанию
 MIN_WASHING_MACHINE_VOLUME = 10  # минимальный объем
 MAX_WASHING_MACHINE_VOLUME = 100  # максимальный объем
 MIN_WASHING_MACHINE_TRACK_LENGTH = 1  # минимальная длина трассы
-MAX_WASHING_MACHINE_TRACK_LENGTH = 20  # максимальная длина трассы
+MAX_WASHING_MACHINE_TRACK_LENGTH = 10.0  # максимальная длина трассы
 
 # WASHING AGENTS PARAMS
-DEFAULT_WASHING_AGENTS_VOLUME = 25  # объем стиральных средств по умолчанию (если не указать при создании)
+DEFAULT_WASHING_AGENTS_VOLUME = 10  # объем стиральных средств по умолчанию (если не указать при создании)
 DEFAULT_WASHING_AGENTS_ROLLBACK = False  # откат средств по умолчанию
-MIN_WASHING_AGENTS_VOLUME = 1  # минимальный объем средства
-MAX_WASHING_AGENTS_VOLUME = 50  # максимальный объем средства
+MIN_WASHING_AGENTS_VOLUME = 10  # минимальный объем средства
+MAX_WASHING_AGENTS_VOLUME = 500  # максимальный объем средства
 
 # STATIONS PARAMS
 DEFAULT_STATION_POWER = True  # включена ли станция по умолчанию
-DEFAULT_STATION_TEH_POWER = True  # включен ли тен по умолчанию
+DEFAULT_STATION_TEH_POWER = False  # включен ли тен по умолчанию
 DEFAULT_STATION_IS_ACTIVE = True  # активна ли станция по умолчанию (если нет, то включение станции и тэна невозможно)
-DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 7  # количество стиральных машин у станции по умолчанию
-DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 8  # количество стиральных средств у станции по умолчанию
-DEFAULT_STATION_IS_PROTECTED = False  # включена ли защита станции по умолчанию
+DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 4  # количество стиральных машин у станции по умолчанию
+DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 5  # количество стиральных средств у станции по умолчанию
+DEFAULT_STATION_IS_PROTECTED = True  # включена ли защита станции по умолчанию
 DEFAULT_STATION_STATUS = StationStatusEnum.AWAITING  # статус станции по умолчанию
 # (если выключена - статус только нулевой)
 MIN_STATION_WASHING_AGENTS_AMOUNT = 1  # минимальное количество стиральных средств у станции

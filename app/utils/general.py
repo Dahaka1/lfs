@@ -1,9 +1,13 @@
+import asyncio
 import json
 import random
 from datetime import timedelta, datetime, timezone
 from string import ascii_letters
 from typing import Any, Sequence
 
+import geopy
+from geopy.geocoders import Nominatim
+from geopy.adapters import AioHTTPAdapter
 from cryptography.fernet import Fernet
 from fastapi.responses import JSONResponse
 from jose import jwt
@@ -118,4 +122,13 @@ def decrypt_data(data: str) -> str | dict:
 		pass
 	return decrypted_data
 
+
+async def read_location(address: str) -> geopy.Location:
+	"""
+	Чтение адреса.
+	"""
+	while True:
+		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter, timeout=10) as geolocator:
+			location = await geolocator.geocode(address)
+		return location
 

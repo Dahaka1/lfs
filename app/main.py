@@ -6,7 +6,7 @@ from loguru import logger
 import config
 from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
-from .routers import auth, users, stations, management, logs, main
+from .routers import auth, users, stations, management, logs
 from .static import app_description
 from .static.openapi import tags_metadata
 
@@ -27,7 +27,7 @@ app = FastAPI(
 )
 
 api_router = APIRouter(prefix="/v1")
-for r in (auth, users, stations, management, logs, main):
+for r in (auth, users, stations, management, logs):
 	api_router.include_router(r.router)
 
 app.include_router(api_router)
@@ -40,6 +40,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def main():
+	return {
+		"message": "Server is available."
+	}
 
 
 @app.on_event("startup")

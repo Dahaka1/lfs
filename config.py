@@ -1,12 +1,10 @@
 import os
 
 from dotenv import load_dotenv
-from geopy.geocoders import Nominatim
 from passlib.context import CryptContext
 
 # GEOLOCATION
 GEO_APP = "LFS-company server"
-geolocator_sync = Nominatim(user_agent=GEO_APP, timeout=10)
 
 STARTING_APP_FROM_CMD_DEBUG_ARG = "--debug"
 

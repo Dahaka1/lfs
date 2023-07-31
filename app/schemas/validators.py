@@ -1,4 +1,7 @@
-from config import geolocator_sync
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+
+import config
 
 
 def validate_program_step(program_step: int | None) -> None:
@@ -21,6 +24,8 @@ def validate_address(address: str) -> None:
 	"""
 	Проверка адреса на валидность.
 	"""
-	location = geolocator_sync.geocode(address)
+	geolocator = Nominatim(user_agent=config.GEO_APP, timeout=10)
+	geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+	location = geocode(address)
 	if location is None:
 		raise ValueError(f"Incorrect station address '{address}'")

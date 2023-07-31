@@ -2,9 +2,6 @@ import datetime
 import uuid
 
 import pydantic
-from geopy.adapters import AioHTTPAdapter
-from geopy.geocoders import Nominatim
-from geopy.location import Location
 from loguru import logger
 from pydantic import UUID4
 from sqlalchemy import select, delete, update
@@ -18,7 +15,7 @@ from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations, schemas_users, schemas_washing
 from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
 from ..static.typing import StationParamsSet
-from ..utils.general import sa_objects_dicts_list, encrypt_data
+from ..utils.general import sa_objects_dicts_list, encrypt_data, read_location
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
@@ -51,8 +48,7 @@ async def create_station(db: AsyncSession,
 	"""
 	wifi_data = {"login": station.wifi_name, "password": station.wifi_password}
 	hashed_wifi_data = encrypt_data(wifi_data)
-	async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter) as geolocator:
-		location: Location = await geolocator.geocode(station.address)
+	location = await read_location(station.address)
 
 	station_id = await Station.create(
 		db=db,
@@ -204,8 +200,7 @@ async def update_station_general(
 		# поиска станции по ИД, чтобы она не возвращала wifi
 
 	if updating_params.address:
-		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter) as geolocator:
-			location: Location = await geolocator.geocode(updating_params.address)
+		location = await read_location(updating_params.address)
 		location_dict = {"latitude": location.latitude, "longitude": location.longitude}
 		if station.location != location_dict:
 			current_data["location"] = {"latitude": location.latitude, "longitude": location.longitude}

@@ -30,7 +30,7 @@ class TestAuth:
 		"""
 		data = {"email": self.email, "password": self.password}
 		response = await ac.post(
-			"/api/v1/auth/login",
+			"/v1/auth/login",
 			data=data
 		)
 		assert response.status_code == 200
@@ -56,7 +56,7 @@ class TestAuth:
 		await change_user_data(self, session, email_confirmed=True)
 
 		response = await ac.get(
-			"/api/v1/users/me",
+			"/v1/users/me",
 			headers=self.headers
 		)
 		assert response.status_code == 200
@@ -70,7 +70,7 @@ class TestAuth:
 		invalid_data = {"email": self.email, "password": self.password + "qwerty"}
 
 		invalid_data_response = await ac.post(
-			"/api/v1/auth/login",
+			"/v1/auth/login",
 			data=invalid_data
 		)
 
@@ -78,7 +78,7 @@ class TestAuth:
 
 		await change_user_data(self, session, disabled=True)
 		disabled_user_response = await ac.post(
-			"/api/v1/auth/login",
+			"/v1/auth/login",
 			data=correct_data
 		)
 		assert disabled_user_response.status_code == 403
@@ -91,7 +91,7 @@ class TestAuth:
 		cookies = {"refreshToken": refresh}
 
 		response = await ac.get(
-			"/api/v1/auth/token",
+			"/v1/auth/token",
 			cookies=cookies
 		)
 
@@ -121,7 +121,7 @@ class TestAuth:
 		invalid_refresh = valid_refresh + "qwerty"
 
 		invalid_token_r = await ac.get(
-			"/api/v1/auth/token",
+			"/v1/auth/token",
 			cookies=cookies(invalid_refresh)
 		)
 		assert invalid_token_r.status_code == 401
@@ -131,7 +131,7 @@ class TestAuth:
 		await auth.delete_user_refresh_token_in_db(self.id, session)
 
 		non_existing_token_in_db_r = await ac.get(
-			"/api/v1/auth/token",
+			"/v1/auth/token",
 			cookies=cookies(valid_refresh)
 		)
 
@@ -146,7 +146,7 @@ class TestAuth:
 		headers = {"Authorization": f"Bearer {access.access_token}"}
 
 		response = await ac.get(
-			"/api/v1/auth/logout",
+			"/v1/auth/logout",
 			cookies=cookies,
 			headers=headers
 		)
@@ -165,7 +165,7 @@ class TestAuth:
 		await change_user_data(self.id, session, disabled=True)
 
 		disabled_user_r = await ac.get(
-			"/api/v1/auth/logout",
+			"/v1/auth/logout",
 			cookies=cookies,
 			headers=headers
 		)
@@ -178,7 +178,7 @@ class TestAuth:
 		cookies["refreshToken"] += "qwerty"
 
 		invalid_tokens_r = await ac.get(
-			"/api/v1/auth/logout",
+			"/v1/auth/logout",
 			headers=headers,
 			cookies=cookies
 		)
@@ -205,7 +205,7 @@ class TestRegistrationCode:
 		Мб, придется подождать в течение таймаута SMTP, пока письмо точно отправится.
 		"""
 		response = await ac.get(
-			"/api/v1/auth/confirm_email",
+			"/v1/auth/confirm_email",
 			headers=self.headers,
 			cookies=self.cookies
 		)
@@ -222,14 +222,14 @@ class TestRegistrationCode:
 		"""
 		for _ in range(2):
 			response = await ac.get(
-				"/api/v1/auth/confirm_email",
+				"/v1/auth/confirm_email",
 				headers=self.headers,
 				cookies=self.cookies
 			)
 		assert response.status_code == 425
 
 		await auth.delete_user_code(self, session)
-		await url_auth_test("/api/v1/auth/confirm_email",
+		await url_auth_test("/v1/auth/confirm_email",
 							"get", self,  ac, session)
 
 	async def test_confirm_email_post_errors(self, ac: AsyncClient, session: AsyncSession):
@@ -240,7 +240,7 @@ class TestRegistrationCode:
 		- users auth auto test.
 		"""
 		code_not_found_r = await ac.post(
-			"/api/v1/auth/confirm_email",
+			"/v1/auth/confirm_email",
 			headers=self.headers,
 			cookies=self.cookies,
 			json={"code": "123456"}
@@ -248,13 +248,13 @@ class TestRegistrationCode:
 		assert code_not_found_r.status_code == 404
 
 		await ac.get(
-			"/api/v1/auth/confirm_email",
+			"/v1/auth/confirm_email",
 			headers=self.headers,
 			cookies=self.cookies,
 		)
 
 		invalid_code_r = await ac.post(
-			"/api/v1/auth/confirm_email",
+			"/v1/auth/confirm_email",
 			headers=self.headers,
 			json={"code": "123456"},
 			cookies=self.cookies,
@@ -265,7 +265,7 @@ class TestRegistrationCode:
 		await auth.do_code_expired(self, session)
 
 		expired_code_r = await ac.post(
-			"/api/v1/auth/confirm_email",
+			"/v1/auth/confirm_email",
 			headers=self.headers,
 			json={"code": "123456"},
 			cookies=self.cookies,
@@ -273,4 +273,4 @@ class TestRegistrationCode:
 
 		assert expired_code_r.status_code == 408
 
-		await url_auth_test("/api/v1/auth/confirm_email", 'post', self, ac, session, json={"code": "123456"})
+		await url_auth_test("/v1/auth/confirm_email", 'post', self, ac, session, json={"code": "123456"})

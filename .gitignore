@@ -6,5 +6,3 @@ app/__pycache__
 app/routers/__pycache__
 logs
 alembic/__pycache__
-.env
-.env-render

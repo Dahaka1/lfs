@@ -88,7 +88,7 @@ async def generate_station(
 		station_data["station"]["programs"] = generate_station_programs()
 
 	response = await ac.post(
-		"/api/v1/stations/",
+		"/v1/stations/",
 		headers=user.headers,
 		cookies=user.cookies,
 		json=station_data

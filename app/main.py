@@ -26,7 +26,7 @@ app = FastAPI(
 	}
 )
 
-api_router = APIRouter(prefix="/api/v1")
+api_router = APIRouter(prefix="/v1")
 for r in (auth, users, stations, management, logs):
 	api_router.include_router(r.router)
 
@@ -69,3 +69,10 @@ async def docs():
 		status_code=status.HTTP_308_PERMANENT_REDIRECT
 	)
 
+
+@app.get("/redoc")
+async def redoc():
+	return RedirectResponse(
+		url=config.API_REDOC_URL,
+		status_code=status.HTTP_308_PERMANENT_REDIRECT
+	)

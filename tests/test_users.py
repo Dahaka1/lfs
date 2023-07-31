@@ -24,7 +24,7 @@ class TestUsers:
 		Получение списка всех пользователей.
 		"""
 		response = await ac.get(
-			"/api/v1/users/",
+			"/v1/users/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
@@ -40,12 +40,12 @@ class TestUsers:
 		- users auth auto test.
 		"""
 		await auth.url_auth_roles_test(
-			"/api/v1/users/",
+			"/v1/users/",
 			"get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
 		)
 
 		await auth.url_auth_test(
-			"/api/v1/users/",
+			"/v1/users/",
 			"get", self.sysadmin, ac, session
 		)
 
@@ -62,7 +62,7 @@ class TestUsers:
 		})
 
 		response = await ac.post(
-			"/api/v1/users/",
+			"/v1/users/",
 			json=user_data
 		)
 
@@ -91,7 +91,7 @@ class TestUsers:
 		})
 		for _ in range(2):
 			existing_email_r = await ac.post(
-				"/api/v1/users/",
+				"/v1/users/",
 				json=user_data
 			)
 		assert existing_email_r.status_code == 409
@@ -101,7 +101,7 @@ class TestUsers:
 		Получение пользователем своих данных
 		"""
 		response = await ac.get(
-			"/api/v1/users/me",
+			"/v1/users/me",
 			headers=self.laundry.headers,
 			cookies=self.laundry.cookies
 		)
@@ -115,7 +115,7 @@ class TestUsers:
 		- users auth auto test
 		"""
 		await auth.url_auth_test(
-			"/api/v1/users/me", "get",
+			"/v1/users/me", "get",
 			self.sysadmin, ac, session
 		)
 
@@ -124,7 +124,7 @@ class TestUsers:
 		Чтение данных пользователя
 		"""
 		r_1 = await ac.get(
-			f"/api/v1/users/{self.laundry.id}",
+			f"/v1/users/{self.laundry.id}",
 			headers=self.laundry.headers,
 			cookies=self.laundry.cookies
 		)
@@ -133,7 +133,7 @@ class TestUsers:
 		assert r_1.json().get("email") == self.laundry.email
 
 		r_2 = await ac.get(
-			f"/api/v1/users/{self.laundry.id}",
+			f"/v1/users/{self.laundry.id}",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
@@ -147,14 +147,14 @@ class TestUsers:
 		- users auth auto test
 		"""
 		permissions_error_r = await ac.get(
-			f"/api/v1/users/{self.laundry.id}",
+			f"/v1/users/{self.laundry.id}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
 		)
 		assert permissions_error_r.status_code == 403
 
 		await auth.url_auth_test(
-			f"/api/v1/users/{self.sysadmin.id}",
+			f"/v1/users/{self.sysadmin.id}",
 			"get", self.sysadmin, ac, session
 		)
 
@@ -178,7 +178,7 @@ class TestUsers:
 		current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
 
 		response = await ac.put(
-			f"/api/v1/users/{self.laundry.id}",
+			f"/v1/users/{self.laundry.id}",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=put_from_sysadmin_data
@@ -208,7 +208,7 @@ class TestUsers:
 			)
 		current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
 		response = await ac.put(
-			f"/api/v1/users/{self.installer.id}",
+			f"/v1/users/{self.installer.id}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=put_from_user_data
@@ -231,7 +231,7 @@ class TestUsers:
 		- users auth auto test.
 		"""
 		non_permissions_r = await ac.put(
-			f"/api/v1/users/{self.installer.id}",
+			f"/v1/users/{self.installer.id}",
 			headers=self.laundry.headers,
 			cookies=self.laundry.cookies,
 			json=dict(user={})
@@ -240,7 +240,7 @@ class TestUsers:
 		assert non_permissions_r.status_code == 403
 
 		non_existing_id_r = await ac.put(
-			f"/api/v1/users/12345",
+			f"/v1/users/12345",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=dict(user={})
@@ -248,7 +248,7 @@ class TestUsers:
 		assert non_existing_id_r.status_code == 404
 
 		await auth.url_auth_test(
-			f"/api/v1/users/{self.installer.id}", "put",
+			f"/v1/users/{self.installer.id}", "put",
 			self.installer, ac, session, json=dict(user={})
 		)
 
@@ -258,14 +258,14 @@ class TestUsers:
 		Удалить пользователя могут: сам пользователь / сисадмин.
 		"""
 		response_sysadmin = await ac.delete(
-			f"/api/v1/users/{self.laundry.id}",
+			f"/v1/users/{self.laundry.id}",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
 		assert response_sysadmin.status_code == 200
 
 		response_user = await ac.delete(
-			f"/api/v1/users/{self.installer.id}",
+			f"/v1/users/{self.installer.id}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
 		)
@@ -288,7 +288,7 @@ class TestUsers:
 		- users auth auto test
 		"""
 		non_permissions_r = await ac.delete(
-			f"/api/v1/users/{self.installer.id}",
+			f"/v1/users/{self.installer.id}",
 			headers=self.laundry.headers,
 			cookies=self.laundry.cookies
 		)
@@ -296,6 +296,6 @@ class TestUsers:
 		assert non_permissions_r.status_code == 403
 
 		await auth.url_auth_test(
-			f"/api/v1/users/{self.installer.id}", "delete",
+			f"/v1/users/{self.installer.id}", "delete",
 			self.installer, ac, session
 		)

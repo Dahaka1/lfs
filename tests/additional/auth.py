@@ -90,7 +90,7 @@ async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"
 
 	# _________________________________________________________________________________________________
 
-	if url == "/api/v1/auth/confirm_email":
+	if url == "/v1/auth/confirm_email":
 		await change_user_data(user, session, email_confirmed=True)
 		email_already_confirmed_r = await func(**request_params)
 		assert email_already_confirmed_r.status_code == 403, f"{email_already_confirmed_r} status code != 403"

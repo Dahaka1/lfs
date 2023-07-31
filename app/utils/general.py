@@ -48,7 +48,8 @@ def create_token_response(token: Token, refresh: RefreshToken) -> JSONResponse:
 	response = JSONResponse(content=token.dict())
 	exp_at = refresh.expires_at.timestamp()
 	refresh.expires_at = datetime.fromtimestamp(exp_at, tz=timezone.utc)
-	response.set_cookie(key="refreshToken", value=refresh.refresh_token, expires=refresh.expires_at, httponly=True)
+	response.set_cookie(key="refreshToken", value=refresh.refresh_token, expires=refresh.expires_at, httponly=True,
+						secure=True)
 
 	return response
 

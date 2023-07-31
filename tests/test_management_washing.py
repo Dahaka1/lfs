@@ -30,7 +30,7 @@ class TestManagementWashing:
 
 		await stations_funcs.delete_washing_services(washing_agent_number, self.station, session, "agent")
 		washing_agent_r = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(creating_params={"agent_number": washing_agent_number})
@@ -53,10 +53,10 @@ class TestManagementWashing:
 		await stations_funcs.delete_washing_services(washing_machine_number, self.station, session, "machine")
 
 		machine_params = {"machine_number": washing_machine_number, "is_active": False, "volume": 30,
-						  "track_length": 12.5}
+						  "track_length": 7.5}
 
 		washing_machine_r = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(creating_params=machine_params)
@@ -85,7 +85,7 @@ class TestManagementWashing:
 		testing_json = dict(creating_params={"agent_number": rand_washing_agent.agent_number})
 
 		existing_object_r = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=testing_json
@@ -95,15 +95,15 @@ class TestManagementWashing:
 		# ___________________________________________________________________________________________
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			"post", self.installer, ac, session, json=testing_json
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			"post", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value,
+			"/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			"post", self.sysadmin, self.station, session, ac, json=testing_json
 		)
 
@@ -114,7 +114,7 @@ class TestManagementWashing:
 		rand_washing_agent = random.choice(self.station.station_washing_agents)
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" +
+			f"/v1/manage/station/{self.station.id}/" +
 			WashingServicesEnum.WASHING_AGENTS.value + f"/{rand_washing_agent.agent_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -137,10 +137,10 @@ class TestManagementWashing:
 		# ___________________________________________________________________________________________
 
 		rand_washing_machine = random.choice(self.station.station_washing_machines)
-		testing_data = dict(updating_params={"volume": 11, "track_length": 15.5})
+		testing_data = dict(updating_params={"volume": 11, "track_length": 8.5})
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
+			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -154,7 +154,7 @@ class TestManagementWashing:
 		machine_in_db = next(m for m in self.station.station_washing_machines if m.machine_number ==
 							 rand_washing_machine.machine_number)
 
-		assert machine_in_db.track_length == 15.5
+		assert machine_in_db.track_length == 8.5
 		assert machine_in_db.volume == 11
 		assert machine_in_db.dict() == washing.WashingMachine(**response.json()).dict()
 
@@ -165,7 +165,7 @@ class TestManagementWashing:
 		machine = copy.deepcopy(self.station.station_control.washing_machine)
 
 		using_machine_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
+			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{machine.machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -191,7 +191,7 @@ class TestManagementWashing:
 		rand_washing_machine = random.choice(self.station.station_washing_machines)
 
 		change_obj_number_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -219,7 +219,7 @@ class TestManagementWashing:
 			self.station.station_washing_agents[1]
 
 		change_obj_number_to_existing_number_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{rand_washing_agent_.agent_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -235,7 +235,7 @@ class TestManagementWashing:
 		machine_number = self.station.station_control.washing_machine.machine_number
 
 		using_machine_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
@@ -249,7 +249,7 @@ class TestManagementWashing:
 		testing_json = dict(updating_params={"volume": 40})
 
 		non_existing_obj_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=testing_json
@@ -259,19 +259,19 @@ class TestManagementWashing:
 		# ___________________________________________________________________________________________
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			"put", self.sysadmin, ac, session, json=testing_json
 		)
 
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}", "put",
 			RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
 		)
 
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			"/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}", "put", self.sysadmin, self.station, session, ac, json=testing_json
 		)
 
@@ -282,7 +282,7 @@ class TestManagementWashing:
 		rand_machine = random.choice(self.station.station_washing_machines)
 
 		response = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_machine.machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
@@ -307,7 +307,7 @@ class TestManagementWashing:
 		machine_number = self.station.station_control.washing_machine.machine_number
 
 		using_machine_r = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
@@ -320,7 +320,7 @@ class TestManagementWashing:
 			self.station.station_control.program_step.washing_agents).agent_number
 
 		using_agent_r = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{using_washing_agent_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
@@ -335,7 +335,7 @@ class TestManagementWashing:
 			raise ValueError("Expected for object")
 
 		using_agent_r = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{agent_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
@@ -345,7 +345,7 @@ class TestManagementWashing:
 
 		# ___________________________________________________________________________________________
 
-		testing_url = f"/api/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + \
+		testing_url = f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + \
 					  f"/{agent_number}"
 
 		await auth.url_auth_test(
@@ -355,7 +355,7 @@ class TestManagementWashing:
 			testing_url, "delete", RoleEnum.INSTALLER, self.installer, session, ac
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value +
+			"/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{agent_number}", "delete", self.sysadmin,
 			self.station, session, ac
 		)

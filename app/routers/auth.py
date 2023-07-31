@@ -95,7 +95,7 @@ async def logout(
 	await RefreshToken.deactivate(current_user, db)
 
 	response = JSONResponse(content={"logout": current_user.email})
-	response.set_cookie("refreshToken", "", 0, httponly=True)
+	response.set_cookie("refreshToken", "", 0, httponly=True, secure=True)
 
 	return response
 

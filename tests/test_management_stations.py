@@ -32,7 +32,7 @@ class TestManagement:
 		- Тест по данным станции есть в test_stations (методы для станции и для юзеров работают аналогично);
 		- Разрешенные роли пользователей.
 		"""
-		url = f"/api/v1/manage/station/{self.station.id}/"
+		url = f"/v1/manage/station/{self.station.id}/"
 		roles_responses = [
 			(await ac.get(url + StationParamsEnum.GENERAL.value, headers=self.sysadmin.headers,
 						  cookies=self.sysadmin.cookies)),
@@ -62,7 +62,7 @@ class TestManagement:
 		- station get by id auto test;
 		- 404 есть в test_stations
 		"""
-		url = f"/api/v1/manage/station/{self.station.id}"
+		url = f"/v1/manage/station/{self.station.id}"
 		responses = []
 		for user in (self.installer, self.manager, self.laundry):
 			forbidden_r = await ac.get(url + StationParamsEnum.GENERAL.value, headers=user.headers,
@@ -83,7 +83,7 @@ class TestManagement:
 			url + StationParamsEnum.GENERAL.value, "get", self.sysadmin, ac, session
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value, "get", self.sysadmin,
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value, "get", self.sysadmin,
 			self.station,
 			session, ac
 		)
@@ -93,7 +93,7 @@ class TestManagement:
 		Чтение всех данных станции пользователем.
 		"""
 		response = await ac.get(
-			f"/api/v1/manage/station/{self.station.id}", headers=self.sysadmin.headers,
+			f"/v1/manage/station/{self.station.id}", headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
 		assert response.status_code == 200
@@ -110,7 +110,7 @@ class TestManagement:
 		- roles auto test,
 		- station get by id auto test.
 		"""
-		url = "/api/v1/manage/station/"
+		url = "/v1/manage/station/"
 
 		await auth.url_auth_test(
 			url + str(self.station.id), "get", self.sysadmin, ac, session
@@ -119,7 +119,7 @@ class TestManagement:
 			url + str(self.station.id), "get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}", "get", self.sysadmin, self.station,
+			"/v1/manage/station/{station_id}", "get", self.sysadmin, self.station,
 			session, ac
 		)
 
@@ -141,7 +141,7 @@ class TestManagement:
 			location = await geolocator.geocode(params.get("address"))
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=dict(updating_params=params)
@@ -169,7 +169,7 @@ class TestManagement:
 		await stations_funcs.generate_station_control(self.station, session)
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=dict(updating_params={"is_active": False})
@@ -203,7 +203,7 @@ class TestManagement:
 		})
 
 		invalid_data_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=updating_data
@@ -211,15 +211,15 @@ class TestManagement:
 		assert invalid_data_r.status_code == 422
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			"put", self.sysadmin, ac, session, json=updating_data
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value, "put",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value, "put",
 			RoleEnum.SYSADMIN, self.sysadmin, session, ac, json=updating_data
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value,
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value,
 			"put", self.sysadmin, self.station, session, ac, json=updating_data
 		)
 
@@ -239,7 +239,7 @@ class TestManagement:
 		await stations_funcs.generate_station_control(self.station, session)
 
 		status_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value})
@@ -269,7 +269,7 @@ class TestManagement:
 		random_program = random.choice(self.station.station_programs)
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": random_program.dict()})
@@ -292,7 +292,7 @@ class TestManagement:
 		agent.volume = 40
 
 		await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [agent.dict()]})
@@ -318,7 +318,7 @@ class TestManagement:
 		await stations_funcs.generate_station_control(self.station, session)
 		program_step = random.choice(self.station.station_programs)
 		status_invalid_data_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value,
@@ -335,13 +335,13 @@ class TestManagement:
 		program.washing_agents = [{"agent_number": washing_agent_number, "volume": 17}]
 
 		invalid_machine_data_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_machine": machine.dict()})
 		)
 		invalid_program_data_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": program.dict()})
@@ -358,7 +358,7 @@ class TestManagement:
 		program = random.choice(self.station.station_programs)
 
 		powered_off_station_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
@@ -376,7 +376,7 @@ class TestManagement:
 		machine.is_active = False
 
 		inactive_machine_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
@@ -395,15 +395,15 @@ class TestManagement:
 											 "washing_machine": machine.dict(), "program_step": program.dict()})
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			"put", self.sysadmin, ac, session, json=testing_data
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_data
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.CONTROL.value,
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.CONTROL.value,
 			"put", self.sysadmin, self.station, session, ac, json=testing_data
 		)
 
@@ -420,7 +420,7 @@ class TestManagement:
 		current_station_teh_power = self.station.station_settings.teh_power
 
 		turn_off_response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json={"updating_params": {"station_power": False}}
@@ -449,7 +449,7 @@ class TestManagement:
 		# ____________________________________________________________________________________
 
 		turn_on_response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json={"updating_params": {"station_power": True}}
@@ -475,7 +475,7 @@ class TestManagement:
 		test_json = dict(updating_params={"station_power": True})
 
 		non_active_station_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=test_json
@@ -485,15 +485,15 @@ class TestManagement:
 		# __________________________________________________________________________________
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			"put", self.installer, ac, session, json=test_json
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=test_json
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
 			"put", self.sysadmin, self.station, session, ac, json=test_json
 		)
 
@@ -509,7 +509,7 @@ class TestManagement:
 			{"program_step": num, "washing_agents": washing_agents} for num in range(31, 36)
 		]
 		response = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(programs=programs)
@@ -536,7 +536,7 @@ class TestManagement:
 		]
 
 		response = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(programs=programs)
@@ -565,7 +565,7 @@ class TestManagement:
 		testing_data = dict(programs=[{"program_step": 51, "washing_agents": [1, 2]}])
 		for _ in range(2):
 			existing_program_r = await ac.post(
-				f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+				f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 				headers=self.installer.headers,
 				cookies=self.installer.cookies,
 				json=testing_data
@@ -579,7 +579,7 @@ class TestManagement:
 		)
 
 		non_existing_agent_response = await ac.post(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(programs=[{"program_step": 52, "washing_agents": [1, 2]}])
@@ -589,15 +589,15 @@ class TestManagement:
 		# ____________________________________________________________________________________
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			"post", self.sysadmin, ac, session, json=testing_data
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			"post", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_data
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
 			"post", self.sysadmin, self.station, session, ac, json=testing_data
 		)
 
@@ -618,7 +618,7 @@ class TestManagement:
 		rand_washing_agent = random.choice(self.station.station_washing_agents)
 
 		washing_agent_object_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
@@ -643,7 +643,7 @@ class TestManagement:
 		rand_washing_agent.volume = 32
 
 		washing_agent_object_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
@@ -659,7 +659,7 @@ class TestManagement:
 		# ___________________________________________________________________________________________
 
 		washing_agents_empty_list_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": []})
@@ -681,7 +681,7 @@ class TestManagement:
 		dict_comparing["rollback"] = None
 
 		response = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
@@ -697,7 +697,7 @@ class TestManagement:
 		rand_program = random.choice(self.station.station_programs)
 
 		change_program_number_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": 201,
@@ -722,7 +722,7 @@ class TestManagement:
 			self.station.station_washing_agents[1].agent_number
 
 		change_program_agents_by_numbers_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": list(washing_agents_numbers)})
@@ -751,7 +751,7 @@ class TestManagement:
 			random.choice(self.station.station_programs)
 
 		existing_program_step_number_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": rand_program.program_step})
@@ -766,7 +766,7 @@ class TestManagement:
 													 session, "agent")
 		await self.station.refresh(session)
 		non_existing_washing_agent_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
@@ -776,7 +776,7 @@ class TestManagement:
 		# ___________________________________________________________________________________________
 
 		non_existing_program_step_r = await ac.put(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": []})
@@ -789,15 +789,15 @@ class TestManagement:
 		testing_json = dict(updating_params={"washing_agents": []})
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			"put", self.installer, ac, session, json=testing_json
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			"put", self.sysadmin, self.station, session, ac, json=testing_json
 		)
 
@@ -808,7 +808,7 @@ class TestManagement:
 		rand_program = random.choice(self.station.station_programs)
 
 		response = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
 		)
@@ -830,7 +830,7 @@ class TestManagement:
 		program_step = self.station.station_control.program_step
 
 		program_in_control_r = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
 		)
@@ -839,7 +839,7 @@ class TestManagement:
 		# ___________________________________________________________________________________________
 
 		non_existing_program_r = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
 			headers=self.installer.headers,
 			cookies=self.installer.cookies
 		)
@@ -848,15 +848,15 @@ class TestManagement:
 		# ___________________________________________________________________________________________
 
 		await auth.url_auth_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			"delete", self.installer, ac, session
 		)
 		await auth.url_auth_roles_test(
-			f"/api/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			"delete", RoleEnum.INSTALLER, self.installer, session, ac
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
+			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			"delete", self.sysadmin, self.station, session, ac
 		)
 
@@ -865,7 +865,7 @@ class TestManagement:
 		Удаление станции
 		"""
 		response = await ac.delete(
-			f"/api/v1/manage/station/{self.station.id}",
+			f"/v1/manage/station/{self.station.id}",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
@@ -880,7 +880,7 @@ class TestManagement:
 		- get station by id auto test;
 		- roles auto test
 		"""
-		url = f"/api/v1/manage/station/{self.station.id}"
+		url = f"/v1/manage/station/{self.station.id}"
 		await auth.url_auth_test(
 			url, "delete", self.sysadmin, ac, session
 		)
@@ -888,5 +888,5 @@ class TestManagement:
 			url, "delete", RoleEnum.SYSADMIN, self.sysadmin, session, ac
 		)
 		await auth.url_get_station_by_id_test(
-			"/api/v1/manage/station/{station_id}", "delete", self.sysadmin, self.station, session, ac
+			"/v1/manage/station/{station_id}", "delete", self.sysadmin, self.station, session, ac
 		)

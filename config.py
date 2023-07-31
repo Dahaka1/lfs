@@ -27,9 +27,9 @@ DATABASE_URL_SYNC = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS.values())  #
 DATABASE_URL_TEST = "postgresql+asyncpg://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
 DATABASE_URL_SYNC_TEST = "postgresql://%s:%s@%s:%s/%s" % tuple(DB_PARAMS_TEST.values())
 
-API_DOCS_URL = "/api/v1/docs"
-API_REDOC_URL = "/api/v1/redoc"
-OPENAPI_URL = "/api/v1/openapi.json"
+API_DOCS_URL = "/v1/docs"
+API_REDOC_URL = "/v1/redoc"
+OPENAPI_URL = "/v1/openapi.json"
 
 # loguru logger settings
 LOGGING_OUTPUT = "logs/logs.log"
@@ -81,5 +81,5 @@ SMTP_SERVER_TIMEOUT = 10
 ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
-	"https://lfs.onrenderer.com"
+	"https://lfs-spb.ru"
 ]

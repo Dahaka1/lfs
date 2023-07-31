@@ -45,7 +45,7 @@ async def get_user_token(email: str, password: str, ac: AsyncClient) -> tuple[To
 		"password": password
 	}
 	response = await ac.post(
-		"/api/v1/auth/login",
+		"/v1/auth/login",
 		data=data
 	)
 	return Token(**response.json()), response.cookies.get("refreshToken")

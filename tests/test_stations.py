@@ -38,7 +38,7 @@ class TestStations:
 			"region": RegionEnum.NORTHWEST.value
 		})
 		response = await ac.post(
-			"/api/v1/stations/",
+			"/v1/stations/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=station_data
@@ -78,7 +78,7 @@ class TestStations:
 		params = station_fills.test_create_station_with_advanced_params
 
 		response = await ac.post(
-			"/api/v1/stations/",
+			"/v1/stations/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=params
@@ -168,7 +168,7 @@ class TestStations:
 		)
 
 		non_existing_washing_agent_r = await ac.post(
-			"/api/v1/stations/",
+			"/v1/stations/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=params
@@ -184,7 +184,7 @@ class TestStations:
 		params["station"]["is_active"] = False
 
 		invalid_params_r = await ac.post(
-			"/api/v1/stations/",
+			"/v1/stations/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies,
 			json=params
@@ -195,12 +195,12 @@ class TestStations:
 		# ________________________________________________________
 
 		await auth.url_auth_roles_test(
-			"/api/v1/stations/", "post",
+			"/v1/stations/", "post",
 			RoleEnum.SYSADMIN, self.sysadmin,
 			session, ac, json=station_fills.test_create_station_with_advanced_params
 		)
 		await auth.url_auth_test(
-			"/api/v1/stations/", "post", self.sysadmin, ac, session,
+			"/v1/stations/", "post", self.sysadmin, ac, session,
 			json=station_fills.test_create_station_with_advanced_params
 		)
 
@@ -214,7 +214,7 @@ class TestStations:
 			stations_list.append(station)
 
 		response = await ac.get(
-			"/api/v1/stations/",
+			"/v1/stations/",
 			headers=self.sysadmin.headers,
 			cookies=self.sysadmin.cookies
 		)
@@ -241,11 +241,11 @@ class TestStations:
 		- roles auto test
 		"""
 		await auth.url_auth_roles_test(
-			"/api/v1/stations/", "get",
+			"/v1/stations/", "get",
 			RoleEnum.SYSADMIN, self.sysadmin, session, ac
 		)
 		await auth.url_auth_test(
-			"/api/v1/stations/", "get", self.sysadmin, ac, session
+			"/v1/stations/", "get", self.sysadmin, ac, session
 		)
 
 	async def test_read_stations_params(self, ac: AsyncClient, session: AsyncSession):
@@ -255,7 +255,7 @@ class TestStations:
 		params = station_fills.test_create_station_with_advanced_params
 
 		general_params_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.GENERAL.value,
+			"/v1/stations/me/" + StationParamsEnum.GENERAL.value,
 			headers=self.station.headers
 		)
 		assert general_params_r.status_code == 200
@@ -267,7 +267,7 @@ class TestStations:
 		# _____________________________________________________
 
 		settings_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.SETTINGS.value,
+			"/v1/stations/me/" + StationParamsEnum.SETTINGS.value,
 			headers=self.station.headers
 		)
 
@@ -279,7 +279,7 @@ class TestStations:
 		# _____________________________________________________
 
 		control_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
+			"/v1/stations/me/" + StationParamsEnum.CONTROL.value,
 			headers=self.station.headers
 		)
 		assert control_r.status_code == 200
@@ -291,7 +291,7 @@ class TestStations:
 		# _____________________________________________________
 
 		washing_agents_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.WASHING_AGENTS.value,
+			"/v1/stations/me/" + StationParamsEnum.WASHING_AGENTS.value,
 			headers=self.station.headers
 		)
 		assert washing_agents_r.status_code == 200
@@ -304,7 +304,7 @@ class TestStations:
 		# _____________________________________________________
 
 		programs_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.PROGRAMS.value,
+			"/v1/stations/me/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.station.headers
 		)
 		assert programs_r.status_code == 200
@@ -321,7 +321,7 @@ class TestStations:
 		# ____________________________________________________
 
 		washing_machines_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.WASHING_MACHINES.value,
+			"/v1/stations/me/" + StationParamsEnum.WASHING_MACHINES.value,
 			headers=self.station.headers
 		)
 
@@ -348,7 +348,7 @@ class TestStations:
 		await session.commit()
 
 		non_existing_data_r = await ac.get(
-			"/api/v1/stations/me/" + StationParamsEnum.CONTROL.value,
+			"/v1/stations/me/" + StationParamsEnum.CONTROL.value,
 			headers=self.station.headers
 		)
 
@@ -357,7 +357,7 @@ class TestStations:
 		station = await generate_station(ac, user=self.sysadmin)
 
 		await auth.url_auth_stations_test(
-			"/api/v1/stations/me/" + StationParamsEnum.GENERAL.value,
+			"/v1/stations/me/" + StationParamsEnum.GENERAL.value,
 			"get", station, session, ac
 		)
 
@@ -366,7 +366,7 @@ class TestStations:
 		Чтение всех данных по станции станцией.
 		"""
 		response = await ac.get(
-			"/api/v1/stations/me",
+			"/v1/stations/me",
 			headers=self.station.headers
 		)
 		assert response.status_code == 200
@@ -383,11 +383,11 @@ class TestStations:
 		await session.commit()
 
 		non_existing_data_r = await ac.get(
-			"/api/v1/stations/me",
+			"/v1/stations/me",
 			headers=self.station.headers
 		)
 		assert non_existing_data_r.status_code == 404
 
 		await auth.url_auth_stations_test(
-			"/api/v1/stations/me", "get", self.station, session, ac
+			"/v1/stations/me", "get", self.station, session, ac
 		)

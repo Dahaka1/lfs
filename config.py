@@ -27,6 +27,14 @@ API_DOCS_URL = "/v1/docs"
 API_REDOC_URL = "/v1/redoc"
 OPENAPI_URL = "/v1/openapi.json"
 
+# loguru logger settings
+LOGGING_OUTPUT = "logs/services.log"
+LOGGING_PARAMS = {
+	"sink": LOGGING_OUTPUT,
+	"rotation": "1 MB",
+	"compression": "zip"
+}
+
 # alembic: commands for initializing migrations
 ALEMBIC_MIGRATION_CMD = "alembic upgrade head"
 ALEMBIC_MAKE_MIGRATIONS_CMD = "alembic revision --autogenerate"

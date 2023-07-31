@@ -54,8 +54,8 @@ async def startup():
 	"""
 	Действия при старте сервера.
 	"""
-	logger.add(**LOGGING_PARAMS)
-	logger.info("Starting server...")
+	# logger.add(**LOGGING_PARAMS) - на сервере и так логируется все в файл
+ 	logger.info("Starting server...")
 	await check_connections()
 	await fastapi_cache_init()
 	logger.info("All connections are available. Server started successfully.")

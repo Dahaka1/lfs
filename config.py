@@ -1,5 +1,4 @@
 import os
-import sys
 
 from dotenv import load_dotenv
 from geopy.geocoders import Nominatim
@@ -11,9 +10,8 @@ geolocator_sync = Nominatim(user_agent=GEO_APP, timeout=10)
 
 STARTING_APP_FROM_CMD_DEBUG_ARG = "--debug"
 
-if STARTING_APP_FROM_CMD_DEBUG_ARG in sys.argv:  # если запуск сервера из докера, используется .env-docker;
-	# если запуск локальный - можно использовать только debug-mode
-	load_dotenv()
+if not os.getenv("docker"):
+	load_dotenv()  # если docker, то окружение будет из файла .env-docker
 
 DB_PARAMS = {"user": os.environ.get("DB_USER"), "password": os.environ.get("DB_PASSWORD"),
 			 "host": os.environ.get("DB_HOST"), "port": os.environ.get("DB_PORT"), "dbname": os.environ.get("DB_NAME")}

@@ -3,12 +3,12 @@ from fastapi.responses import HTMLResponse
 
 
 router = APIRouter(
-	prefix="/",
+	prefix="",
 	tags=["main_page"],
 	default_response_class=HTMLResponse
 )
 
 
-@router.get("")
+@router.get("/")
 async def main():
 	pass

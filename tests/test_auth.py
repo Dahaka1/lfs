@@ -52,12 +52,16 @@ class TestAuth:
 		self.headers = {
 			"Authorization": f"Bearer {self.token}"
 		}
+		self.cookies = {
+			"refreshToken": response.cookies.get("refreshToken")
+		}
 
 		await change_user_data(self, session, email_confirmed=True)
 
 		response = await ac.get(
 			"/v1/users/me",
-			headers=self.headers
+			headers=self.headers,
+			cookies=self.cookies
 		)
 		assert response.status_code == 200
 

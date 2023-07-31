@@ -8,4 +8,6 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+ENV docker=true
+
 CMD python main.py

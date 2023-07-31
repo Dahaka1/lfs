@@ -9,6 +9,7 @@ from geopy.geocoders import Nominatim
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import config
 from app.models import stations as stations_models
 from app.schemas import schemas_stations as stations, schemas_washing as washing
 from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
@@ -137,7 +138,7 @@ class TestManagement:
 			region=random_region.value, wifi_name=strings.generate_string(),
 			wifi_password=strings.generate_string()
 		)
-		async with Nominatim(user_agent="Test", adapter_factory=AioHTTPAdapter) as geolocator:
+		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter) as geolocator:
 			location = await geolocator.geocode(params.get("address"))
 
 		response = await ac.put(

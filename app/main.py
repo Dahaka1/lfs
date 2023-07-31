@@ -8,7 +8,7 @@ from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
 from .static import app_description
-from .static.openapi import tags_metadata
+from .static.openapi import tags_metadata, main_responses
 
 app = FastAPI(
 	title="LFS company server",
@@ -42,7 +42,7 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/", responses=main_responses)
 def main():
 	return {
 		"message": "Server is available."

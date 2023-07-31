@@ -45,6 +45,17 @@ tags_metadata = [
 	}
 ]
 
+main_responses = {
+	200: {
+		"description": "Приветственное сообщение (сервер доступен)",
+		"content": {
+			"application/json": {
+				"example": {"message": "Server is available"}
+			}
+		}
+	}
+}
+
 
 login_post = {
 	200: {

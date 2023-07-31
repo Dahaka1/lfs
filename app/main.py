@@ -4,7 +4,6 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 import config
-from config import LOGGING_PARAMS
 from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
 from .static import app_description
@@ -34,11 +33,11 @@ app.include_router(api_router)
 
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=config.ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+	CORSMiddleware,
+	allow_origins=config.ORIGINS,
+	allow_credentials=True,
+	allow_methods=["*"],
+	allow_headers=["*"],
 )
 
 
@@ -54,8 +53,7 @@ async def startup():
 	"""
 	Действия при старте сервера.
 	"""
-	# logger.add(**LOGGING_PARAMS) - на сервере и так логируется все в файл
- 	logger.info("Starting server...")
+	logger.info("Starting server...")
 	await check_connections()
 	await fastapi_cache_init()
 	logger.info("All connections are available. Server started successfully.")

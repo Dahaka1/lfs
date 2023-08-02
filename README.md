@@ -1,7 +1,19 @@
 # **LFS backend server**
 
 ## ABOUT
-LFS company backed server. 
+LFS company backed server. The project realizes administrative processes for company technologies (mechanic stations).
+See the docs of the project for advanced functionality information.
+
+## RUN IT
+Fill .env-docker file (its "null"-values).
+Start server by cmds:
+```
+docker-compose build
+docker-compose up
+```
+and open docs you need then: 
+[Localhost project docs](http://localhost:8080)
+[redoc](http://localhost:8080)
 
 ## BUILT-IN
 - Python 3.11 + asyncio;

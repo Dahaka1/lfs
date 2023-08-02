@@ -11,9 +11,9 @@ Start server by cmds:
 docker-compose build
 docker-compose up
 ```
-and open docs you need then: 
-[Localhost project docs](http://localhost:8080)
-[redoc](http://localhost:8080)
+... and open docs you need then: 
+- [Localhost project docs](http://localhost:8080)
+- [redoc](http://localhost:8080)
 
 ## BUILT-IN
 - Python 3.11 + asyncio;

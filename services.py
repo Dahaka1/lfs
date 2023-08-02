@@ -4,7 +4,9 @@ from app.static.enums import RoleEnum, StationStatusEnum
 
 # SMTP ACCOUNT
 SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT"))
+SMTP_PORT = os.getenv("SMTP_PORT")
+if SMTP_PORT:
+	SMTP_PORT = int(SMTP_PORT)
 SMTP_USER = os.getenv("SMTP_USER")  # почта логин
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # почта пароль
 

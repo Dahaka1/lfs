@@ -8,7 +8,7 @@ GEO_APP = "LFS-company server"
 
 STARTING_APP_FROM_CMD_DEBUG_ARG = "--debug"
 
-if not os.getenv("docker"):
+if not os.getenv("DOCKER"):
 	load_dotenv()  # если docker, то окружение будет из файла .env-docker
 
 DB_PARAMS = {"user": os.environ.get("DB_USER"), "password": os.environ.get("DB_PASSWORD"),

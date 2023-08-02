@@ -10,7 +10,9 @@ if SMTP_PORT:
 SMTP_USER = os.getenv("SMTP_USER")  # почта логин
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # почта пароль
 
-if SMTP_PASSWORD == "null" or SMTP_USER == "null":
+if any(
+	(var == "null" for var in (SMTP_HOST, SMTP_PORT, SMTP_PASSWORD, SMTP_USER))
+):
 	raise RuntimeError("For testing app, write your SMTP data into .env-docker file")
 
 # USERS PARAMS

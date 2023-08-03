@@ -281,7 +281,7 @@ class StationSettings(Base, StationMixin):
 	__tablename__ = "station_settings"
 
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), unique=True,
-						index=True)
+						index=True, primary_key=True)
 	station_power = Column(Boolean, default=services.DEFAULT_STATION_POWER)
 	teh_power = Column(Boolean, default=services.DEFAULT_STATION_TEH_POWER)
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
@@ -320,7 +320,7 @@ class StationProgram(Base, StationMixin):
 		PrimaryKeyConstraint("station_id", "program_step"),
 	)
 
-	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), unique=True,
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"),
 						index=True)
 	program_step = Column(Integer, nullable=False)
 	program_number = Column(Integer, nullable=False)
@@ -380,7 +380,7 @@ class StationControl(Base, StationMixin):
 	__tablename__ = "station_control"
 
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", onupdate="CASCADE",
-										 ondelete="CASCADE"), unique=True, index=True)
+										 ondelete="CASCADE"), unique=True, index=True, primary_key=True)
 	status = Column(Enum(StationStatusEnum), default=services.DEFAULT_STATION_STATUS)
 	program_step = Column(JSON)
 	washing_machine = Column(JSON)

@@ -160,7 +160,7 @@ class WashingMachine(Base, WashingMixin):
 		PrimaryKeyConstraint("station_id", "machine_number", name="station_id_machine_number_pkey"),
 	)
 
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	machine_number = Column(Integer, index=True)
 	volume = Column(Integer, default=services.DEFAULT_WASHING_MACHINES_VOLUME)
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
@@ -182,7 +182,7 @@ class WashingAgent(Base, WashingMixin):
 		PrimaryKeyConstraint("station_id", "agent_number", name="station_id_agent_number_pkey"),
 	)
 
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	agent_number = Column(Integer, index=True)
 	volume = Column(Integer, default=services.DEFAULT_WASHING_AGENTS_VOLUME)
 	rollback = Column(Boolean, default=services.DEFAULT_WASHING_AGENTS_ROLLBACK)

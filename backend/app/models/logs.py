@@ -17,7 +17,7 @@ class ErrorsLog(Base):
 	__tablename__ = "errors_log"
 
 	id = Column(Integer, primary_key=True)
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	code = Column(Integer)
 	content = Column(String)
@@ -35,7 +35,7 @@ class WashingAgentsUsingLog(Base):
 
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	washing_machine = Column(JSON)
 	washing_agent = Column(JSON)
 
@@ -52,7 +52,7 @@ class ChangesLog(Base):
 
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"))
 	content = Column(String, nullable=False)
 
@@ -82,7 +82,7 @@ class StationProgramsLog(Base):
 
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now())
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	program_step = Column(JSON)
 
 
@@ -96,7 +96,7 @@ class StationMaintenanceLog(Base):
 	__tablename__ = "station_maintenance_log"
 
 	id = Column(Integer, primary_key=True)
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
 	user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"))
 	started_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	ended_at = Column(TIMESTAMP(timezone=True))

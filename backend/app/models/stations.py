@@ -280,8 +280,7 @@ class StationSettings(Base, StationMixin):
 
 	__tablename__ = "station_settings"
 
-	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True,
-						index=True)
+	station_id = Column(UUID, ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
 	station_power = Column(Boolean, default=services.DEFAULT_STATION_POWER)
 	teh_power = Column(Boolean, default=services.DEFAULT_STATION_TEH_POWER)
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())

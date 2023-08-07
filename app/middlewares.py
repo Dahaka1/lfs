@@ -34,7 +34,7 @@ class ProcessTimeLogMiddleware(CustomMiddleware):
 		"""
 		start_time = time.time()
 		response: Response = await self.call_next(self.request)
-		if response.status_code not in [status.HTTP_307_TEMPORARY_REDIRECT, status.HTTP_308_PERMANENT_REDIRECT]:
+		if response.status_code in range(200, 299):
 			process_time = time.time() - start_time
 			log_request_handling_time(
 				request_from=request_from, time=str(datetime.datetime.now()), method=self.request.method,

@@ -27,6 +27,11 @@ API_DOCS_URL = "/v1/docs"
 API_REDOC_URL = "/v1/redoc"
 OPENAPI_URL = "/v1/openapi.json"
 
+# response time logging
+RESPONSE_TIME_LOGGING_PATH = "logs/processing_time.log"
+RESPONSE_TIME_LOGGING_FORMAT = "{time} - {method} \"{url}\": {request_from} ID {request_from_id}, " \
+							   "handling time result <{result} sec.>"
+
 # loguru logger settings
 LOGGING_OUTPUT = "logs/services.log"
 LOGGING_PARAMS = {

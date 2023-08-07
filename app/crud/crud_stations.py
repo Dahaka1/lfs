@@ -7,7 +7,6 @@ from pydantic import UUID4
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import config
 from ..exceptions import UpdatingError, GettingDataError
 from ..models.logs import ChangesLog
 from ..models.stations import Station, StationSettings, StationControl, StationProgram

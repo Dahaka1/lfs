@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, status
+from fastapi import FastAPI, APIRouter, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -9,6 +9,8 @@ from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
 from .static import app_description
 from .static.openapi import tags_metadata, main_responses
+from .static.typing import PathOperation
+from .middlewares import ProcessTimeLogMiddleware
 
 app = FastAPI(
 	title="LFS company server",
@@ -40,6 +42,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_stations_process_time(request: Request, call_next: PathOperation):
+	"""
+	Замер времени выполнения запроса от станции.
+	"""
+	station_id = request.headers.get("X-Station-Uuid")
+	if station_id:
+		async with ProcessTimeLogMiddleware(request, call_next, "Station", station_id) as result:
+			return result
+	return await call_next(request)
 
 
 @app.get("/", responses=main_responses)

@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 7b5c954c4ef6
+Revision ID: a75d2eda091c
 Revises: 
-Create Date: 2023-07-24 21:01:01.072054
+Create Date: 2023-08-03 16:36:13.055628
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '7b5c954c4ef6'
+revision = 'a75d2eda091c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -29,6 +29,7 @@ def upgrade() -> None:
     sa.Column('region', sa.Enum('CENTRAL', 'NORTHWEST', 'SOUTH', 'SIBERIA', name='regionenum'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_station_id'), 'station', ['id'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('email', sa.String(length=50), nullable=True),
@@ -44,7 +45,6 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
-    op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_table('changes_log',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('timestamp', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
@@ -98,7 +98,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id')
     )
-    op.create_index(op.f('ix_station_control_station_id'), 'station_control', ['station_id'], unique=False)
+    op.create_index(op.f('ix_station_control_station_id'), 'station_control', ['station_id'], unique=True)
     op.create_table('station_maintenance_log',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('station_id', sa.UUID(), nullable=True),
@@ -137,7 +137,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['station_id'], ['station.id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('station_id')
     )
-    op.create_index(op.f('ix_station_settings_station_id'), 'station_settings', ['station_id'], unique=False)
+    op.create_index(op.f('ix_station_settings_station_id'), 'station_settings', ['station_id'], unique=True)
     op.create_table('washing_agent',
     sa.Column('station_id', sa.UUID(), nullable=False),
     sa.Column('agent_number', sa.Integer(), nullable=False),
@@ -199,8 +199,8 @@ def downgrade() -> None:
     op.drop_table('errors_log')
     op.drop_index(op.f('ix_changes_log_station_id'), table_name='changes_log')
     op.drop_table('changes_log')
-    op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
+    op.drop_index(op.f('ix_station_id'), table_name='station')
     op.drop_table('station')
     # ### end Alembic commands ###

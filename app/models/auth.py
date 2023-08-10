@@ -195,7 +195,7 @@ class RefreshToken(Base):
 		return schemas_token.Token(access_token=access_token, token_type="bearer"), \
 			schemas_token.RefreshToken(
 				refresh_token=refresh_token,
-				expires_at=refresh_expiring
+				timestamp=refresh_expiring
 			)
 
 	@staticmethod

@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import RegistrationCode
-from app.schemas.schemas_token import Token
+from app.schemas.schemas_token import LoginTokens
 from app.schemas.schemas_users import User
 from app.utils.general import decode_jwt
 from tests.additional import auth
@@ -17,7 +17,6 @@ class TestAuth:
 	email: str
 	password: str
 	headers: dict
-	cookies: dict
 	token: str | None
 	"""
 	Тестирование аутентификации пользователя.
@@ -31,37 +30,33 @@ class TestAuth:
 		data = {"email": self.email, "password": self.password}
 		response = await ac.post(
 			"/v1/auth/login",
-			data=data
+			json=data
 		)
 		assert response.status_code == 200
 
-		token = Token(**response.json())
-		payload = decode_jwt(token.access_token)
+		tokens = LoginTokens(**response.json())
+		payload = decode_jwt(tokens.access_token)
 		email: str = payload.get("sub")
 
 		assert email == self.email
 
-		refresh = response.cookies.get("refreshToken")
-		assert refresh
-		assert refresh[-6:] == token.access_token[-6:]
+		assert tokens.refresh_token
+		assert tokens.refresh_token[-6:] == tokens.access_token[-6:]
 
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
-		assert refresh_token_in_db and refresh_token_in_db == refresh
+		assert refresh_token_in_db and refresh_token_in_db == tokens.refresh_token
 
-		self.token = token.access_token
+		self.token = tokens.access_token
 		self.headers = {
-			"Authorization": f"Bearer {self.token}"
-		}
-		self.cookies = {
-			"refreshToken": response.cookies.get("refreshToken")
+			"Authorization": f"Bearer {self.token}",
+			"refreshToken": tokens.refresh_token
 		}
 
 		await change_user_data(self, session, email_confirmed=True)
 
 		response = await ac.get(
 			"/v1/users/me",
-			headers=self.headers,
-			cookies=self.cookies
+			headers=self.headers
 		)
 		assert response.status_code == 200
 
@@ -75,7 +70,7 @@ class TestAuth:
 
 		invalid_data_response = await ac.post(
 			"/v1/auth/login",
-			data=invalid_data
+			json=invalid_data
 		)
 
 		assert invalid_data_response.status_code == 401
@@ -83,7 +78,7 @@ class TestAuth:
 		await change_user_data(self, session, disabled=True)
 		disabled_user_response = await ac.post(
 			"/v1/auth/login",
-			data=correct_data
+			json=correct_data
 		)
 		assert disabled_user_response.status_code == 403
 
@@ -91,17 +86,17 @@ class TestAuth:
 		"""
 		Обновление пары токенов пользователя.
 		"""
-		token, refresh = await get_user_token(self.email, self.password, ac)
-		cookies = {"refreshToken": refresh}
+		tokens = await get_user_token(self.email, self.password, ac)
+		headers = {"refreshToken": tokens.refresh_token}
 
 		response = await ac.get(
 			"/v1/auth/token",
-			cookies=cookies
+			headers=headers
 		)
 
 		assert response.status_code == 200
-		updated_refresh = response.cookies.get("refreshToken")
-		assert updated_refresh and updated_refresh != refresh
+		updated_refresh = response.json().get("refresh_token")
+		assert updated_refresh and updated_refresh != tokens.refresh_token
 
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
 		assert refresh_token_in_db == updated_refresh
@@ -116,17 +111,17 @@ class TestAuth:
 		- Токен должен быть валидным;
 		- Должен быть в БД.
 		"""
-		def cookies(data: str | None) -> dict:
+		def headers(data: str | None) -> dict:
 			return {"refreshToken": data}
 
 		# ___________________________________________________________________________________
 
-		valid_refresh = (await get_user_token(self.email, self.password, ac))[1]
+		valid_refresh = (await get_user_token(self.email, self.password, ac)).refresh_token
 		invalid_refresh = valid_refresh + "qwerty"
 
 		invalid_token_r = await ac.get(
 			"/v1/auth/token",
-			cookies=cookies(invalid_refresh)
+			headers=headers(invalid_refresh)
 		)
 		assert invalid_token_r.status_code == 401
 
@@ -136,7 +131,7 @@ class TestAuth:
 
 		non_existing_token_in_db_r = await ac.get(
 			"/v1/auth/token",
-			cookies=cookies(valid_refresh)
+			headers=headers(valid_refresh)
 		)
 
 		assert non_existing_token_in_db_r.status_code == 401
@@ -145,13 +140,12 @@ class TestAuth:
 		"""
 		Выход пользователя
 		"""
-		access, valid_refresh = await get_user_token(self.email, self.password, ac)
-		cookies = {"refreshToken": valid_refresh}
-		headers = {"Authorization": f"Bearer {access.access_token}"}
+		tokens = await get_user_token(self.email, self.password, ac)
+		headers = {"Authorization": f"Bearer {tokens.access_token}",
+				   "refreshToken": tokens.refresh_token}
 
 		response = await ac.get(
 			"/v1/auth/logout",
-			cookies=cookies,
 			headers=headers
 		)
 		assert response.status_code == 200
@@ -163,14 +157,13 @@ class TestAuth:
 		- Юзер не должен быть заблокированным;
 		- Токены должны быть валидными.
 		"""
-		access, refresh = await get_user_token(self.email, self.password, ac)
-		headers = {"Authorization": "Bearer " + access.access_token}
-		cookies = {"refreshToken": refresh}
+		tokens = await get_user_token(self.email, self.password, ac)
+		headers = {"Authorization": "Bearer " + tokens.access_token,
+				   "refreshToken": tokens.refresh_token}
 		await change_user_data(self.id, session, disabled=True)
 
 		disabled_user_r = await ac.get(
 			"/v1/auth/logout",
-			cookies=cookies,
 			headers=headers
 		)
 
@@ -179,12 +172,10 @@ class TestAuth:
 		await change_user_data(self.id, session, disabled=False)
 
 		headers["Authorization"] += "qwerty"
-		cookies["refreshToken"] += "qwerty"
 
 		invalid_tokens_r = await ac.get(
 			"/v1/auth/logout",
-			headers=headers,
-			cookies=cookies
+			headers=headers
 		)
 
 		assert invalid_tokens_r.status_code == 401
@@ -196,7 +187,6 @@ class TestRegistrationCode:
 	email: str
 	password: str
 	headers: dict
-	cookies: dict
 	token: str | None
 	user_schema: User
 	"""
@@ -210,8 +200,7 @@ class TestRegistrationCode:
 		"""
 		response = await ac.get(
 			"/v1/auth/confirm_email",
-			headers=self.headers,
-			cookies=self.cookies
+			headers=self.headers
 		)
 
 		assert response.status_code == 200
@@ -227,8 +216,7 @@ class TestRegistrationCode:
 		for _ in range(2):
 			response = await ac.get(
 				"/v1/auth/confirm_email",
-				headers=self.headers,
-				cookies=self.cookies
+				headers=self.headers
 			)
 		assert response.status_code == 425
 
@@ -246,22 +234,19 @@ class TestRegistrationCode:
 		code_not_found_r = await ac.post(
 			"/v1/auth/confirm_email",
 			headers=self.headers,
-			cookies=self.cookies,
 			json={"code": "123456"}
 		)
 		assert code_not_found_r.status_code == 404
 
 		await ac.get(
 			"/v1/auth/confirm_email",
-			headers=self.headers,
-			cookies=self.cookies,
+			headers=self.headers
 		)
 
 		invalid_code_r = await ac.post(
 			"/v1/auth/confirm_email",
 			headers=self.headers,
-			json={"code": "123456"},
-			cookies=self.cookies,
+			json={"code": "123456"}
 		)
 
 		assert invalid_code_r.status_code == 403
@@ -271,8 +256,7 @@ class TestRegistrationCode:
 		expired_code_r = await ac.post(
 			"/v1/auth/confirm_email",
 			headers=self.headers,
-			json={"code": "123456"},
-			cookies=self.cookies,
+			json={"code": "123456"}
 		)
 
 		assert expired_code_r.status_code == 408

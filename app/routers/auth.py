@@ -2,7 +2,7 @@ import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, HTTPException, status, Depends, Body, BackgroundTasks, Cookie
+from fastapi import APIRouter, HTTPException, status, Depends, Body, BackgroundTasks, Header
 from fastapi.responses import Response, JSONResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ router = APIRouter(
 
 
 @router.post("/login", responses=openapi.login_post,
-			 response_model=schemas_token.Token)
+			 response_model=schemas_token.LoginTokens)
 async def login(
 	email: Annotated[str, Body(title="Email пользователя")],
 	password: Annotated[str, Body(title="Пароль пользователя")],
@@ -35,7 +35,7 @@ async def login(
 	"""
 	Проверка логина и пароля (хэша) пользователя при авторизации.
 	Если они верны, то создаются access_token и refresh_token (JWT token) и возвращаются.
-	Refresh - в cookie, access - в body.
+	Refresh - в body, access - в body.
 	"""
 	user = await User.authenticate_user(
 		db=db, email=email, password=password
@@ -53,10 +53,10 @@ async def login(
 	return create_token_response(token, refresh)
 
 
-@router.get("/token", response_model=schemas_token.Token, responses=openapi.refresh_access_token_get)
+@router.get("/refresh", response_model=schemas_token.LoginTokens, responses=openapi.refresh_access_token_get)
 async def refresh_access_token(
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	refreshToken: str | None = Cookie(default=None, title="Refresh токен")
+	refreshToken: Annotated[str, Header(title="Refresh токен")]
 ):
 	"""
 	Обновление токенов пользователя при истечении срока действия Access токена.
@@ -95,7 +95,6 @@ async def logout(
 	await RefreshToken.deactivate(current_user, db)
 
 	response = JSONResponse(content={"logout": current_user.email})
-	response.set_cookie("refreshToken", "", 0, httponly=True, secure=True)
 
 	return response
 

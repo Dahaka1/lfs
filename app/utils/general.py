@@ -1,4 +1,3 @@
-import asyncio
 import json
 import random
 from datetime import timedelta, datetime, timezone
@@ -8,6 +7,7 @@ from typing import Any, Sequence
 import geopy
 from geopy.geocoders import Nominatim
 from geopy.adapters import AioHTTPAdapter
+from geopy.extra.rate_limiter import AsyncRateLimiter
 from cryptography.fernet import Fernet
 from fastapi.responses import JSONResponse
 from jose import jwt
@@ -47,14 +47,13 @@ def create_jwt_token(data: dict, expires_at: timedelta) -> str:
 
 def create_token_response(token: Token, refresh: RefreshToken) -> JSONResponse:
 	"""
-	Создать ответ сервера с токенами (refresh - cookie, access - body).
+	Создать ответ сервера с токенами (refresh - body, access - body).
 	"""
-	response = JSONResponse(content=token.dict())
-	exp_at = refresh.expires_at.timestamp()
-	refresh.expires_at = datetime.fromtimestamp(exp_at, tz=timezone.utc)
-	response.set_cookie(key="refreshToken", value=refresh.refresh_token, expires=refresh.expires_at, httponly=True,
-						secure=True)
-
+	exp_at = refresh.timestamp.timestamp()
+	refresh.timestamp = datetime.fromtimestamp(exp_at, tz=timezone.utc)
+	response = JSONResponse(content={"access_token": token.access_token,
+									 "refresh_token": refresh.refresh_token,
+									 "timestamp": refresh.timestamp.timestamp()})
 	return response
 
 
@@ -129,6 +128,7 @@ async def read_location(address: str) -> geopy.Location:
 	"""
 	while True:
 		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter, timeout=10) as geolocator:
-			location = await geolocator.geocode(address)
+			geocode = AsyncRateLimiter(geolocator.geocode, min_delay_seconds=1)
+			location = await geocode(address)
 		return location
 

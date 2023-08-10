@@ -35,12 +35,9 @@ class TestManagement:
 		"""
 		url = f"/v1/manage/station/{self.station.id}/"
 		roles_responses = [
-			(await ac.get(url + StationParamsEnum.GENERAL.value, headers=self.sysadmin.headers,
-						  cookies=self.sysadmin.cookies)),
-			(await ac.get(url + StationParamsEnum.SETTINGS.value, headers=self.manager.headers,
-						  cookies=self.manager.cookies)),
-			(await ac.get(url + StationParamsEnum.CONTROL.value, headers=self.installer.headers,
-						  cookies=self.installer.cookies))
+			(await ac.get(url + StationParamsEnum.GENERAL.value, headers=self.sysadmin.headers)),
+			(await ac.get(url + StationParamsEnum.SETTINGS.value, headers=self.manager.headers)),
+			(await ac.get(url + StationParamsEnum.CONTROL.value, headers=self.installer.headers))
 		]
 
 		assert all(
@@ -66,14 +63,12 @@ class TestManagement:
 		url = f"/v1/manage/station/{self.station.id}"
 		responses = []
 		for user in (self.installer, self.manager, self.laundry):
-			forbidden_r = await ac.get(url + StationParamsEnum.GENERAL.value, headers=user.headers,
-									   cookies=user.cookies)
+			forbidden_r = await ac.get(url + StationParamsEnum.GENERAL.value, headers=user.headers)
 			responses.append(forbidden_r)
 		for dataset in (StationParamsEnum.GENERAL, StationParamsEnum.CONTROL, StationParamsEnum.SETTINGS,
 						StationParamsEnum.WASHING_MACHINES, StationParamsEnum.WASHING_AGENTS):
 			url_ = url + dataset.value
-			laundry_forbidden_r = await ac.get(url_, headers=self.laundry.headers,
-											   cookies=self.laundry.cookies)
+			laundry_forbidden_r = await ac.get(url_, headers=self.laundry.headers)
 			responses.append(laundry_forbidden_r)
 
 		assert all(
@@ -94,8 +89,7 @@ class TestManagement:
 		Чтение всех данных станции пользователем.
 		"""
 		response = await ac.get(
-			f"/v1/manage/station/{self.station.id}", headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies
+			f"/v1/manage/station/{self.station.id}", headers=self.sysadmin.headers
 		)
 		assert response.status_code == 200
 		result = response.json()
@@ -143,7 +137,6 @@ class TestManagement:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=dict(updating_params=params)
 		)
 
@@ -171,7 +164,6 @@ class TestManagement:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=dict(updating_params={"is_active": False})
 		)
 
@@ -205,7 +197,6 @@ class TestManagement:
 		invalid_data_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=updating_data
 		)
 		assert invalid_data_r.status_code == 422
@@ -241,7 +232,6 @@ class TestManagement:
 		status_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value})
 		)
 		assert status_r.status_code == 200
@@ -271,7 +261,6 @@ class TestManagement:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": random_program.dict()})
 		)
 		assert response.status_code == 200
@@ -294,7 +283,6 @@ class TestManagement:
 		await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [agent.dict()]})
 		)
 		await self.station.refresh(session)
@@ -320,7 +308,6 @@ class TestManagement:
 		status_invalid_data_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.AWAITING.value,
 									   "program_step": program_step.dict()})
 		)
@@ -337,13 +324,11 @@ class TestManagement:
 		invalid_machine_data_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_machine": machine.dict()})
 		)
 		invalid_program_data_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": program.dict()})
 		)
 
@@ -360,7 +345,6 @@ class TestManagement:
 		powered_off_station_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
 									   "washing_machine": machine.dict(), "program_step": program.dict()})
 		)
@@ -378,7 +362,6 @@ class TestManagement:
 		inactive_machine_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"status": StationStatusEnum.WORKING.value,
 									   "washing_machine": machine.dict(), "program_step": program.dict()})
 		)
@@ -422,7 +405,6 @@ class TestManagement:
 		turn_off_response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json={"updating_params": {"station_power": False}}
 		)
 
@@ -451,7 +433,6 @@ class TestManagement:
 		turn_on_response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json={"updating_params": {"station_power": True}}
 		)
 		assert turn_on_response.status_code == 200
@@ -477,7 +458,6 @@ class TestManagement:
 		non_active_station_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=test_json
 		)
 		assert non_active_station_r.status_code == 409
@@ -511,7 +491,6 @@ class TestManagement:
 		response = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(programs=programs)
 		)
 
@@ -538,7 +517,6 @@ class TestManagement:
 		response = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(programs=programs)
 		)
 
@@ -567,7 +545,6 @@ class TestManagement:
 			existing_program_r = await ac.post(
 				f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 				headers=self.installer.headers,
-				cookies=self.installer.cookies,
 				json=testing_data
 			)
 		assert existing_program_r.status_code == 409
@@ -581,7 +558,6 @@ class TestManagement:
 		non_existing_agent_response = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(programs=[{"program_step": 52, "washing_agents": [1, 2]}])
 		)
 		assert non_existing_agent_response.status_code == 404
@@ -620,7 +596,6 @@ class TestManagement:
 		washing_agent_object_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
 		)
 		assert washing_agent_object_r.status_code == 200
@@ -645,7 +620,6 @@ class TestManagement:
 		washing_agent_object_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
 		)
 
@@ -661,7 +635,6 @@ class TestManagement:
 		washing_agents_empty_list_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": []})
 		)
 
@@ -683,7 +656,6 @@ class TestManagement:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
 		)
 		assert response.status_code == 200
@@ -699,7 +671,6 @@ class TestManagement:
 		change_program_number_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": 201,
 									   "washing_agents": [ag.dict() for ag in rand_program.washing_agents]})
 		)
@@ -724,7 +695,6 @@ class TestManagement:
 		change_program_agents_by_numbers_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": list(washing_agents_numbers)})
 		)
 
@@ -753,7 +723,6 @@ class TestManagement:
 		existing_program_step_number_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program_.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"program_step": rand_program.program_step})
 		)
 
@@ -768,7 +737,6 @@ class TestManagement:
 		non_existing_washing_agent_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": [rand_washing_agent.dict()]})
 		)
 		assert non_existing_washing_agent_r.status_code == 404
@@ -778,7 +746,6 @@ class TestManagement:
 		non_existing_program_step_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"washing_agents": []})
 		)
 
@@ -810,7 +777,7 @@ class TestManagement:
 		response = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 		assert response.status_code == 200
 		await self.station.refresh(session)
@@ -832,7 +799,7 @@ class TestManagement:
 		program_in_control_r = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 		assert program_in_control_r.status_code == 409
 
@@ -841,7 +808,7 @@ class TestManagement:
 		non_existing_program_r = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/2001",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 		assert non_existing_program_r.status_code == 404
 
@@ -866,8 +833,7 @@ class TestManagement:
 		"""
 		response = await ac.delete(
 			f"/v1/manage/station/{self.station.id}",
-			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies
+			headers=self.sysadmin.headers
 		)
 		assert response.status_code == 200
 

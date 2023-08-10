@@ -90,7 +90,6 @@ async def generate_station(
 	response = await ac.post(
 		"/v1/stations/",
 		headers=user.headers,
-		cookies=user.cookies,
 		json=station_data
 	)
 

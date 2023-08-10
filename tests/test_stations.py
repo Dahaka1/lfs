@@ -9,6 +9,7 @@ import services
 from app.models import stations
 from app.schemas import schemas_stations
 from app.schemas import schemas_washing as washing
+from app.utils.general import read_location
 from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
 from tests.additional import auth, users as users_funcs
 from tests.additional.stations import get_station_by_id, generate_station, StationData
@@ -40,9 +41,9 @@ class TestStations:
 		response = await ac.post(
 			"/v1/stations/",
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=station_data
 		)
+		real_location = await read_location("Санкт-Петербург")
 		station_response = schemas_stations.Station(
 			**response.json())  # Validation error может подняться, если что-то не так
 		station_in_db = await get_station_by_id(station_response.id, session)
@@ -51,7 +52,8 @@ class TestStations:
 		assert len(station_in_db.station_washing_agents) == services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT
 		assert len(station_in_db.station_washing_machines) == services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT
 		assert not station_in_db.station_programs
-		assert station_in_db.location["latitude"] == 59.938732 and station_in_db.location["longitude"] == 30.316229
+		assert station_in_db.location["latitude"] == real_location.latitude and \
+			   station_in_db.location["longitude"] == real_location.longitude
 		assert station_in_db.is_active == services.DEFAULT_STATION_IS_ACTIVE
 		assert station_in_db.is_protected == services.DEFAULT_STATION_IS_PROTECTED
 		assert station_in_db.station_control.status == services.DEFAULT_STATION_STATUS
@@ -80,7 +82,6 @@ class TestStations:
 		response = await ac.post(
 			"/v1/stations/",
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -170,7 +171,6 @@ class TestStations:
 		non_existing_washing_agent_r = await ac.post(
 			"/v1/stations/",
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -186,7 +186,6 @@ class TestStations:
 		invalid_params_r = await ac.post(
 			"/v1/stations/",
 			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies,
 			json=params
 		)
 
@@ -215,8 +214,7 @@ class TestStations:
 
 		response = await ac.get(
 			"/v1/stations/",
-			headers=self.sysadmin.headers,
-			cookies=self.sysadmin.cookies
+			headers=self.sysadmin.headers
 		)
 
 		assert response.status_code == 200

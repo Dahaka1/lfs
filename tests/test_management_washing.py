@@ -32,7 +32,6 @@ class TestManagementWashing:
 		washing_agent_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(creating_params={"agent_number": washing_agent_number})
 		)
 		assert washing_agent_r.status_code == 201
@@ -58,7 +57,6 @@ class TestManagementWashing:
 		washing_machine_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(creating_params=machine_params)
 		)
 
@@ -87,7 +85,6 @@ class TestManagementWashing:
 		existing_object_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=testing_json
 		)
 		assert existing_object_r.status_code == 409
@@ -117,7 +114,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" +
 			WashingServicesEnum.WASHING_AGENTS.value + f"/{rand_washing_agent.agent_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"rollback": False, "volume": 14})
 		)
 
@@ -143,7 +139,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=testing_data
 		)
 
@@ -168,7 +163,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{machine.machine_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=testing_data
 		)
 
@@ -194,7 +188,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_washing_machine.machine_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"machine_number": updated_machine.machine_number})
 		)
 
@@ -222,7 +215,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{rand_washing_agent_.agent_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"agent_number": rand_washing_agent.agent_number})
 		)
 
@@ -238,7 +230,6 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=dict(updating_params={"is_active": False})
 		)
 
@@ -251,7 +242,6 @@ class TestManagementWashing:
 		non_existing_obj_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies,
 			json=testing_json
 		)
 		assert non_existing_obj_r.status_code == 404
@@ -284,8 +274,7 @@ class TestManagementWashing:
 		response = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_machine.machine_number}",
-			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			headers=self.installer.headers
 		)
 
 		assert response.status_code == 200
@@ -310,7 +299,7 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 		assert using_machine_r.status_code == 409
 
@@ -323,7 +312,7 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{using_washing_agent_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 
 		assert using_agent_r.status_code == 409
@@ -338,7 +327,7 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{agent_number}",
 			headers=self.installer.headers,
-			cookies=self.installer.cookies
+			
 		)
 
 		assert using_agent_r.status_code == 409

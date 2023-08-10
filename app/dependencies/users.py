@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, status, HTTPException, Path, Cookie
+from fastapi import Depends, status, HTTPException, Path, Header
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ from ..utils.general import decode_jwt
 async def get_current_user(
 	token: Annotated[str, Depends(oauth2_scheme)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	refreshToken: str | None = Cookie(default=None, title="Refresh токен")
+	refreshToken: Annotated[str | None, Header(title="Refresh токен")] = None
 ) -> schemas_users.UserInDB:
 	"""
 	Функция для декодирования получаемого от пользователя токена (access и refresh).

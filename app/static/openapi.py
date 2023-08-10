@@ -59,8 +59,8 @@ main_responses = {
 
 login_post = {
 	200: {
-		"description": "Refresh (cookie) и Access (body) токены пользователя",
-		"model": Token
+		"description": "Refresh (body) и Access (body) токены пользователя",
+		"model": tokens.LoginTokens
 	},
 	401: {
 		"description": "Incorrect username or password"
@@ -73,7 +73,7 @@ login_post = {
 refresh_access_token_get = {
 	200: {
 		"description": "Обновленные токены пользователя",
-		"model": tokens.Token
+		"model": tokens.LoginTokens
 	},
 	403: {
 		"description": "Disabled user"

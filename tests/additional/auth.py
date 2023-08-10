@@ -76,7 +76,7 @@ async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"
 	}
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
+	request_params = {"url": url, "headers": user.headers}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}
@@ -124,7 +124,7 @@ async def url_auth_roles_test(url: str, method: Literal["get", "post", "put", "d
 	}
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
+	request_params = {"url": url, "headers": user.headers}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}
@@ -210,7 +210,7 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 	url = correct_url.format(station_id=uuid.uuid4())
 
 	func = requests.get(method)
-	request_params = {"url": url, "headers": user.headers, "cookies": user.cookies}
+	request_params = {"url": url, "headers": user.headers}
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}

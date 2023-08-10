@@ -2,7 +2,7 @@ import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, HTTPException, status, Form, Depends, Body, BackgroundTasks, Cookie
+from fastapi import APIRouter, HTTPException, status, Depends, Body, BackgroundTasks, Cookie
 from fastapi.responses import Response, JSONResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +28,8 @@ router = APIRouter(
 @router.post("/login", responses=openapi.login_post,
 			 response_model=schemas_token.Token)
 async def login(
-	email: Annotated[str, Form(title="Email пользователя")],
-	password: Annotated[str, Form(title="Пароль пользователя")],
+	email: Annotated[str, Body(title="Email пользователя")],
+	password: Annotated[str, Body(title="Пароль пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""

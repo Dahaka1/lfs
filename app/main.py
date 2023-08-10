@@ -32,6 +32,9 @@ api_router = APIRouter(prefix="/v1")
 for r in (auth, users, stations, management, logs):
 	api_router.include_router(r.router)
 
+for r in (users, ):
+	api_router.include_router(r.special_router)
+
 app.include_router(api_router)
 
 

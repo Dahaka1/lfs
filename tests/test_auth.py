@@ -55,9 +55,10 @@ class TestAuth:
 		await change_user_data(self, session, email_confirmed=True)
 
 		response = await ac.get(
-			"/v1/users/me",
+			"/v1/auth/user",
 			headers=self.headers
 		)
+
 		assert response.status_code == 200
 
 	async def test_login_errors(self, ac: AsyncClient, session: AsyncSession):
@@ -90,7 +91,7 @@ class TestAuth:
 		headers = {"refreshToken": tokens.refresh_token}
 
 		response = await ac.get(
-			"/v1/auth/token",
+			"/v1/auth/refresh",
 			headers=headers
 		)
 
@@ -120,7 +121,7 @@ class TestAuth:
 		invalid_refresh = valid_refresh + "qwerty"
 
 		invalid_token_r = await ac.get(
-			"/v1/auth/token",
+			"/v1/auth/refresh",
 			headers=headers(invalid_refresh)
 		)
 		assert invalid_token_r.status_code == 401
@@ -130,7 +131,7 @@ class TestAuth:
 		await auth.delete_user_refresh_token_in_db(self.id, session)
 
 		non_existing_token_in_db_r = await ac.get(
-			"/v1/auth/token",
+			"/v1/auth/refresh",
 			headers=headers(valid_refresh)
 		)
 

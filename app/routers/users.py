@@ -22,6 +22,11 @@ router = APIRouter(
 	tags=["users"]
 )
 
+special_router = APIRouter(
+	prefix="/auth",
+	tags=["users", "authentication"]
+)
+
 
 @router.get("/", responses=openapi.read_users_get, response_model=list[schemas_users.User])
 @cache(expire=CACHE_EXPIRING_DEFAULT)
@@ -63,7 +68,7 @@ async def create_user(
 	return created_user
 
 
-@router.get("/user", responses=openapi.read_users_me_get, response_model=schemas_users.User)
+@special_router.get("/user", responses=openapi.read_users_me_get, response_model=schemas_users.User)
 @cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_users_me(
 	current_user: Annotated[schemas_users.User, Depends(get_current_active_user)]

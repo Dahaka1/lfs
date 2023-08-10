@@ -35,6 +35,7 @@ def send_verifying_email_code(registering_user: User, db: Session):
 	with smtplib.SMTP(host=services.SMTP_HOST,
 					  port=services.SMTP_PORT,
 					  timeout=config.SMTP_SERVER_TIMEOUT) as smtp_server:
+		smtp_server.ehlo()
 		smtp_server.starttls()
 		smtp_server.login(user=services.SMTP_USER, password=services.SMTP_PASSWORD)
 		try:

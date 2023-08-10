@@ -100,7 +100,7 @@ class TestUsers:
 		Получение пользователем своих данных
 		"""
 		response = await ac.get(
-			"/v1/users/me",
+			"/v1/auth/user",
 			headers=self.laundry.headers
 		)
 
@@ -113,7 +113,7 @@ class TestUsers:
 		- users auth auto test
 		"""
 		await auth.url_auth_test(
-			"/v1/users/me", "get",
+			"/v1/auth/user", "get",
 			self.sysadmin, ac, session
 		)
 

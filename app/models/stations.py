@@ -38,7 +38,7 @@ class Station(Base):
 
 	__tablename__ = "station"
 
-	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 	location = Column(JSON, nullable=False, default={})
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected = Column(Boolean)
@@ -280,10 +280,8 @@ class StationSettings(Base, StationMixin):
 
 	__tablename__ = "station_settings"
 
-	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"),
-						unique=True, index=True, primary_key=True)
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), unique=True,
-						index=True, primary_key=True)
+						primary_key=True)
 	station_power = Column(Boolean, default=services.DEFAULT_STATION_POWER)
 	teh_power = Column(Boolean, default=services.DEFAULT_STATION_TEH_POWER)
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
@@ -322,7 +320,7 @@ class StationProgram(Base, StationMixin):
 		PrimaryKeyConstraint("station_id", "program_step"),
 	)
 
-	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"), index=True)
+	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"))
 	program_step = Column(Integer, nullable=False)
 	program_number = Column(Integer, nullable=False)
 	washing_agents = Column(JSON)
@@ -381,7 +379,7 @@ class StationControl(Base, StationMixin):
 	__tablename__ = "station_control"
 
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", onupdate="CASCADE",
-										 ondelete="CASCADE"), unique=True, index=True, primary_key=True)
+										 ondelete="CASCADE"), unique=True, primary_key=True)
 	status = Column(Enum(StationStatusEnum), default=services.DEFAULT_STATION_STATUS)
 	program_step = Column(JSON)
 	washing_machine = Column(JSON)

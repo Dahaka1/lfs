@@ -41,7 +41,7 @@ class RegistrationCode(Base):
 		PrimaryKeyConstraint("user_id", "sended_at"),
 	)
 
-	user_id = Column(Integer, ForeignKey("users.id", onupdate="CASCADE", ondelete="CASCADE"), index=True)
+	user_id = Column(Integer, ForeignKey("users.id", onupdate="CASCADE", ondelete="CASCADE"))
 	sended_to = Column(String)
 	sended_from = Column(String)
 	hashed_code = Column(String)

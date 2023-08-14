@@ -51,9 +51,9 @@ def create_token_response(token: Token, refresh: RefreshToken) -> JSONResponse:
 	"""
 	exp_at = refresh.timestamp.timestamp()
 	refresh.timestamp = datetime.fromtimestamp(exp_at, tz=timezone.utc)
-	response = JSONResponse(content={"access_token": token.access_token,
+	response = JSONResponse(content={"token": token.access_token,
 									 "refresh_token": refresh.refresh_token,
-									 "timestamp": refresh.timestamp.timestamp()})
+									 "expire_time": int(refresh.timestamp.timestamp())})
 	return response
 
 

@@ -21,7 +21,7 @@ class RefreshToken(BaseModel):
 
 
 class LoginTokens(BaseModel):
-	access_token: str
+	token: str
 	refresh_token: str
-	timestamp: datetime.datetime
+	expire_time: datetime.datetime
 

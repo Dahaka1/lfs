@@ -35,18 +35,18 @@ class TestAuth:
 		assert response.status_code == 200
 
 		tokens = LoginTokens(**response.json())
-		payload = decode_jwt(tokens.access_token)
+		payload = decode_jwt(tokens.token)
 		email: str = payload.get("sub")
 
 		assert email == self.email
 
 		assert tokens.refresh_token
-		assert tokens.refresh_token[-6:] == tokens.access_token[-6:]
+		assert tokens.refresh_token[-6:] == tokens.token[-6:]
 
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
 		assert refresh_token_in_db and refresh_token_in_db == tokens.refresh_token
 
-		self.token = tokens.access_token
+		self.token = tokens.token
 		self.headers = {
 			"Authorization": f"Bearer {self.token}",
 			"refreshToken": tokens.refresh_token
@@ -102,7 +102,7 @@ class TestAuth:
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
 		assert refresh_token_in_db == updated_refresh
 
-		access_token = response.json().get("access_token")
+		access_token = response.json().get("token")
 		assert access_token
 		access_payload = decode_jwt(access_token)
 		assert access_payload.get("sub") == self.email
@@ -142,7 +142,7 @@ class TestAuth:
 		Выход пользователя
 		"""
 		tokens = await get_user_token(self.email, self.password, ac)
-		headers = {"Authorization": f"Bearer {tokens.access_token}",
+		headers = {"Authorization": f"Bearer {tokens.token}",
 				   "refreshToken": tokens.refresh_token}
 
 		response = await ac.get(
@@ -159,7 +159,7 @@ class TestAuth:
 		- Токены должны быть валидными.
 		"""
 		tokens = await get_user_token(self.email, self.password, ac)
-		headers = {"Authorization": "Bearer " + tokens.access_token,
+		headers = {"Authorization": "Bearer " + tokens.token,
 				   "refreshToken": tokens.refresh_token}
 		await change_user_data(self.id, session, disabled=True)
 

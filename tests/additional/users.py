@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import services
 from app.models.users import User
 from app.schemas import schemas_users
-from app.schemas.schemas_token import Token, LoginTokens
+from app.schemas.schemas_token import LoginTokens
 from app.static.enums import RoleEnum, RegionEnum
 from app.utils.general import get_data_hash, sa_object_to_dict, sa_objects_dicts_list
 
@@ -108,9 +108,9 @@ async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: R
 	user = create_user(**params)
 	tokens = await get_user_token(user.get("email"), user.get("password"), ac)
 
-	user.setdefault("token", tokens.access_token)
+	user.setdefault("token", tokens.token)
 	user.pop("last_action_at")
-	user["headers"] = {"Authorization": f"Bearer {tokens.access_token}",
+	user["headers"] = {"Authorization": f"Bearer {tokens.token}",
 					   "refreshToken": tokens.refresh_token}
 
 	return UserData(**user), schemas_users.User(**user)

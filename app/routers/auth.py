@@ -50,7 +50,10 @@ async def login(
 
 	logger.info(f"User {email} (ID: {user.id}) was successfully authorized")
 
-	return create_token_response(token, refresh)
+	response = create_token_response(token, refresh)
+	response.headers["Authorization"] = f"{token.token_type} {token.access_token}"
+
+	return response
 
 
 @router.get("/refresh", response_model=schemas_token.LoginTokens, responses=openapi.refresh_access_token_get)

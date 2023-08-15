@@ -77,6 +77,8 @@ async def refresh_access_token(
 
 	response = create_token_response(token, refresh)
 
+	response.headers["Authorization"] = f"{token.token_type} {token.access_token}"
+
 	return response
 
 

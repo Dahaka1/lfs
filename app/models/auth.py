@@ -192,7 +192,7 @@ class RefreshToken(Base):
 		await session.merge(db_obj)
 		await session.commit()
 
-		return schemas_token.Token(access_token=access_token, token_type="bearer"), \
+		return schemas_token.Token(access_token=access_token, token_type="Bearer"), \
 			schemas_token.RefreshToken(
 				refresh_token=refresh_token,
 				timestamp=refresh_expiring

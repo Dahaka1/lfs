@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations, \
 	schemas_washing as washing, schemas_token as tokens
 from ..schemas.schemas_email_code import RegistrationCode
-from ..schemas.schemas_token import Token
 from ..schemas.schemas_users import User
 
 tags_metadata = [
@@ -18,10 +17,6 @@ tags_metadata = [
 	{
 		"name": "logs",
 		"description": "Создание и чтение логов разного типа."
-	},
-	{
-		"name": "maintenance_logs",
-		"description": "Обслуживание станции: добавление лога об обслуживании и изменение статуса станции."
 	},
 	{
 		"name": "users",
@@ -60,7 +55,7 @@ main_responses = {
 login_post = {
 	200: {
 		"description": "Refresh (body) и Access (body) токены пользователя",
-		"model": tokens.LoginTokens
+		"model": tokens.RefreshToken
 	},
 	401: {
 		"description": "Incorrect username or password"
@@ -73,7 +68,7 @@ login_post = {
 refresh_access_token_get = {
 	200: {
 		"description": "Обновленные токены пользователя",
-		"model": tokens.LoginTokens
+		"model": tokens.RefreshToken
 	},
 	403: {
 		"description": "Disabled user"
@@ -123,59 +118,35 @@ confirm_email_get_responses = {
 	}
 }
 
-add_station_log_post_responses = {
+create_log_post = {
 	201: {
-		"description": "Возвращается объект созданного лога выбранного типа.",
-		"model": logs.ErrorLog | logs.StationProgramsLog | logs.WashingAgentUsingLog
+		"description": "Созданный лог.",
+		"model": logs.Log
+	},
+	401: {
+		"description": "Incorrect station UUID"
 	},
 	403: {
 		"description": "Inactive station / Station servicing"
-	}
-}
-
-get_station_logs_get = {
-	200: {
-		"description": "Список логов выбранного типа.",
-		"model": list[logs.ErrorLog] | list[logs.StationMaintenanceLog] | list[logs.ChangesLog] |
-				list[logs.WashingAgentUsingLog] | list[logs.StationProgramsLog]
-	},
-	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
 	},
 	404: {
-		"description": "Station not found"
+		"description": "Getting station data error"
 	}
 }
 
-station_maintenance_log_post = {
+create_error_post = {
 	201: {
-		"description": "Созданный лог о начале обслуживания (смене статуса станции на \"обслуживание\").",
-		"model": logs.StationMaintenanceLog
+		"description": "Созданная ошибка.",
+		"model": logs.Error
+	},
+	401: {
+		"description": "Incorrect station UUID"
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Inactive station / Station servicing"
 	},
 	404: {
-		"description": "Station not found"
-	},
-	409: {
-		"description": "Station status must be awaiting / Not ended station maintenance exists"
-	}
-}
-
-station_maintenance_log_put = {
-	200: {
-		"description": "Завершенный лог об обслуживании (смене статуса станции на \"ожидание\").",
-		"model": logs.StationMaintenanceLog
-	},
-	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
-	},
-	404: {
-		"description": "Station not found"
-	},
-	409: {
-		"description": "Station maintenance not found"
+		"description": "Getting station data error"
 	}
 }
 
@@ -511,10 +482,6 @@ for _ in [
 	logout_get,
 	confirm_email_post_responses,
 	confirm_email_get_responses,
-	add_station_log_post_responses,
-	get_station_logs_get,
-	station_maintenance_log_post,
-	station_maintenance_log_put,
 	read_users_get,
 	read_users_me_get,
 	read_user_get,

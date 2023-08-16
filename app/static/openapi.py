@@ -117,38 +117,38 @@ confirm_email_get_responses = {
 		"description": "Active user confirmation code already exists"
 	}
 }
-
-create_log_post = {
-	201: {
-		"description": "Созданный лог.",
-		"model": logs.Log
-	},
-	401: {
-		"description": "Incorrect station UUID"
-	},
-	403: {
-		"description": "Inactive station / Station servicing"
-	},
-	404: {
-		"description": "Getting station data error"
-	}
-}
-
-create_error_post = {
-	201: {
-		"description": "Созданная ошибка.",
-		"model": logs.Error
-	},
-	401: {
-		"description": "Incorrect station UUID"
-	},
-	403: {
-		"description": "Inactive station / Station servicing"
-	},
-	404: {
-		"description": "Getting station data error"
-	}
-}
+#
+# create_log_post = {
+# 	201: {
+# 		"description": "Созданный лог.",
+# 		"model": logs.Log
+# 	},
+# 	401: {
+# 		"description": "Incorrect station UUID"
+# 	},
+# 	403: {
+# 		"description": "Inactive station / Station servicing"
+# 	},
+# 	404: {
+# 		"description": "Getting station data error"
+# 	}
+# }
+#
+# create_error_post = {
+# 	201: {
+# 		"description": "Созданная ошибка.",
+# 		"model": logs.Error
+# 	},
+# 	401: {
+# 		"description": "Incorrect station UUID"
+# 	},
+# 	403: {
+# 		"description": "Inactive station / Station servicing"
+# 	},
+# 	404: {
+# 		"description": "Getting station data error"
+# 	}
+# }
 
 read_users_get = {
 	200: {

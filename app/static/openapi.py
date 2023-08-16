@@ -149,7 +149,63 @@ confirm_email_get_responses = {
 # 		"description": "Getting station data error"
 # 	}
 # }
+# _____________________________________________________________________
+add_station_log_post_responses = {
+	201: {
+		"description": "Возвращается объект созданного лога выбранного типа.",
+		"model": logs.Log
+	},
+	403: {
+		"description": "Inactive station / Station servicing"
+	}
+}
 
+get_station_logs_get = {
+	200: {
+		"description": "Список логов выбранного типа.",
+		"model": logs.Log
+	},
+	403: {
+		"description": "Permissions error / Disabled user / User email not confirmed"
+	},
+	404: {
+		"description": "Station not found"
+	}
+}
+
+station_maintenance_log_post = {
+	201: {
+		"description": "Созданный лог о начале обслуживания (смене статуса станции на \"обслуживание\").",
+		"model": logs.Log
+	},
+	403: {
+		"description": "Permissions error / Disabled user / User email not confirmed"
+	},
+	404: {
+		"description": "Station not found"
+	},
+	409: {
+		"description": "Station status must be awaiting / Not ended station maintenance exists"
+	}
+}
+
+station_maintenance_log_put = {
+	200: {
+		"description": "Завершенный лог об обслуживании (смене статуса станции на \"ожидание\").",
+		"model": logs.Log
+	},
+	403: {
+		"description": "Permissions error / Disabled user / User email not confirmed"
+	},
+	404: {
+		"description": "Station not found"
+	},
+	409: {
+		"description": "Station maintenance not found"
+	}
+}
+# REMOVE IT !!!
+# _________________________________________________________________________
 read_users_get = {
 	200: {
 		"description": "Список всех пользователей.",

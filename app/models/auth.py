@@ -195,7 +195,7 @@ class RefreshToken(Base):
 		return schemas_token.Token(access_token=access_token, token_type="Bearer"), \
 			schemas_token.RefreshToken(
 				refresh_token=refresh_token,
-				timestamp=refresh_expiring
+				expire_time=refresh_expiring
 			)
 
 	@staticmethod
@@ -203,6 +203,8 @@ class RefreshToken(Base):
 		"""
 		Поиск пользователя по переданному рефреш-токену. Проверка срока жизни токена.
 		"""
+		token = token.split()[1]  # у фронта он в формате "Bearer TOKEN"
+
 		result = (await session.execute(
 			select(RefreshToken).where(RefreshToken.data == token)
 		)).scalar()

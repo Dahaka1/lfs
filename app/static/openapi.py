@@ -153,7 +153,7 @@ confirm_email_get_responses = {
 add_station_log_post_responses = {
 	201: {
 		"description": "Возвращается объект созданного лога выбранного типа.",
-		"model": logs.Log
+		"model": logs.ErrorLog | logs.StationProgramsLog | logs.WashingAgentUsingLog
 	},
 	403: {
 		"description": "Inactive station / Station servicing"
@@ -163,7 +163,8 @@ add_station_log_post_responses = {
 get_station_logs_get = {
 	200: {
 		"description": "Список логов выбранного типа.",
-		"model": logs.Log
+		"model": list[logs.ErrorLog] | list[logs.StationMaintenanceLog] | list[logs.ChangesLog] |
+				list[logs.WashingAgentUsingLog] | list[logs.StationProgramsLog]
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed"
@@ -176,7 +177,7 @@ get_station_logs_get = {
 station_maintenance_log_post = {
 	201: {
 		"description": "Созданный лог о начале обслуживания (смене статуса станции на \"обслуживание\").",
-		"model": logs.Log
+		"model": logs.StationMaintenanceLog
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed"
@@ -192,7 +193,7 @@ station_maintenance_log_post = {
 station_maintenance_log_put = {
 	200: {
 		"description": "Завершенный лог об обслуживании (смене статуса станции на \"ожидание\").",
-		"model": logs.Log
+		"model": logs.StationMaintenanceLog
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed"

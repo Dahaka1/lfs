@@ -17,11 +17,7 @@ class TokenData(BaseModel):
 
 class RefreshToken(BaseModel):
 	refresh_token: str
-	timestamp: datetime.datetime
-
-
-class LoginTokens(BaseModel):
-	token: str
-	refresh_token: str
 	expire_time: datetime.datetime
+
+
 

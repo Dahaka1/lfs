@@ -26,7 +26,7 @@ router = APIRouter(
 
 
 @router.post("/login", responses=openapi.login_post,
-			 response_model=schemas_token.LoginTokens)
+			 response_model=schemas_token.RefreshToken)
 async def login(
 	email: Annotated[str, Body(title="Email пользователя")],
 	password: Annotated[str, Body(title="Пароль пользователя")],
@@ -51,15 +51,14 @@ async def login(
 	logger.info(f"User {email} (ID: {user.id}) was successfully authorized")
 
 	response = create_token_response(token, refresh)
-	response.headers["Authorization"] = f"{token.token_type} {token.access_token}"
 
 	return response
 
 
-@router.get("/refresh", response_model=schemas_token.LoginTokens, responses=openapi.refresh_access_token_get)
+@router.get("/refresh", response_model=schemas_token.RefreshToken, responses=openapi.refresh_access_token_get)
 async def refresh_access_token(
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	refreshToken: Annotated[str, Header(title="Refresh токен")]
+	refreshToken: Annotated[str, Header(title="Refresh токен", alias="Authorization")]
 ):
 	"""
 	Обновление токенов пользователя при истечении срока действия Access токена.
@@ -79,8 +78,6 @@ async def refresh_access_token(
 	logger.info(f"User {user.email} (ID: {user.id}) authorization was successfully refreshed")
 
 	response = create_token_response(token, refresh)
-
-	response.headers["Authorization"] = f"{token.token_type} {token.access_token}"
 
 	return response
 

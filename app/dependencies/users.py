@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, status, HTTPException, Path, Header
+from fastapi import Depends, status, HTTPException, Path
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,19 +14,14 @@ from ..utils.general import decode_jwt
 
 async def get_current_user(
 	token: Annotated[str, Depends(oauth2_scheme)],
-	db: Annotated[AsyncSession, Depends(get_async_session)],
-	refreshToken: Annotated[str | None, Header(title="Refresh токен")] = None
+	db: Annotated[AsyncSession, Depends(get_async_session)]
 ) -> schemas_users.UserInDB:
 	"""
-	Функция для декодирования получаемого от пользователя токена (access и refresh).
+	Функция для декодирования получаемого от пользователя токена (access).
 	Если токен не содержит email или не поддается декодированию, поднимается ошибка авторизации.
 	Если токен корректный, но нет пользователя с указанным email - тоже.
 	Эта функция в dependency, потому что будет по дефолту срабатывать при каждом запросе от пользователей.
 	"""
-	if not refreshToken:
-		raise CredentialsException()
-	if refreshToken[-6:] != token[-6:]:
-		raise CredentialsException()
 	try:
 		access_payload = decode_jwt(token)
 		email: str = access_payload.get("sub")  # sub is std jwt token data param

@@ -47,13 +47,13 @@ def create_jwt_token(data: dict, expires_at: timedelta) -> str:
 
 def create_token_response(token: Token, refresh: RefreshToken) -> JSONResponse:
 	"""
-	Создать ответ сервера с токенами (refresh - body, access - body).
+	Создать ответ сервера с токенами (refresh - body, access - headers).
 	"""
-	exp_at = refresh.timestamp.timestamp()
-	refresh.timestamp = datetime.fromtimestamp(exp_at, tz=timezone.utc)
-	response = JSONResponse(content={"token": token.access_token,
-									 "refresh_token": refresh.refresh_token,
-									 "expire_time": int(refresh.timestamp.timestamp())})
+	exp_at = refresh.expire_time.timestamp()
+	refresh.expire_time = datetime.fromtimestamp(exp_at, tz=timezone.utc)
+	response = JSONResponse(content={"refresh_token": refresh.refresh_token,
+									 "expire_time": int(refresh.expire_time.timestamp())})
+	response.headers["Authorization"] = f"{token.token_type} {token.access_token}"
 	return response
 
 

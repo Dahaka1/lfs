@@ -6,11 +6,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..exceptions import UpdatingError, DeletingError
-from ..models.logs import ChangesLog
 from ..models.stations import StationControl
 from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_washing as washing, schemas_users
 from ..schemas.schemas_stations import StationGeneralParams, StationControlUpdate
+from ..crud import crud_logs as log
 
 
 async def update_washing_object(
@@ -78,11 +78,11 @@ async def update_washing_object(
 					  getattr(current_object, key) != val]
 
 	if any(updated_fields):
-		info_text = f"{model.__name__} №{getattr(current_object, numeric_field)} " \
-					f"for station {station.id} " \
-					f"was successfully updated by user {action_by.email}. " \
-					f"Updated fields: {', '.join(updated_fields)}"
-		await ChangesLog.log(db, action_by, station, info_text)
+		info_text = f"Объект {model.__name__} №{getattr(current_object, numeric_field)} " \
+					f"для станции {station.id} " \
+					f"был успешно изменен пользователем {action_by.email}. " \
+					f"Обновленные данные: {', '.join(updated_fields)}"
+		await log.CRUDLog.server(6.2, info_text, station, db)
 
 	return updated_object
 
@@ -131,4 +131,4 @@ async def delete_washing_object(
 	info_text = f"{model.__class__.__name__} №{getattr(current_object, numeric_field)} " \
 				f"for station {station.id} was successfully deleted by user {action_by.email}"
 
-	await ChangesLog.log(db, action_by, station, info_text)
+	# await ChangesLog.log(db, action_by, station, info_text)

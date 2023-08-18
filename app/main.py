@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 import config
-from config import LOGGING_PARAMS
+from config import LOGGING_PARAMS, CUSTOM_EXCEPTIONS_OUTPUT_PARAMS
 from . import fastapi_cache_init, check_connections
 from .routers import auth, users, stations, management, logs
 from .static import app_description
@@ -72,6 +72,7 @@ async def startup():
 	Действия при старте сервера.
 	"""
 	logger.add(**LOGGING_PARAMS)
+	# logger.add(**CUSTOM_EXCEPTIONS_OUTPUT_PARAMS)
 	logger.info("Starting server...")
 	await check_connections()
 	await fastapi_cache_init()

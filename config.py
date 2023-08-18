@@ -39,6 +39,14 @@ LOGGING_PARAMS = {
 	"rotation": "1 MB",
 	"compression": "zip"
 }
+CUSTOM_EXCEPTIONS_OUTPUT = "logs/services_errors.log"
+CUSTOM_EXCEPTIONS_OUTPUT_PARAMS = LOGGING_PARAMS
+CUSTOM_EXCEPTIONS_OUTPUT_PARAMS["sink"] = CUSTOM_EXCEPTIONS_OUTPUT
+CUSTOM_EXCEPTIONS_OUTPUT_PARAMS["level"] = "ERROR"
+
+# http logging params
+STD_LOGS_GETTING_AMOUNT = 50
+MAX_LOGS_GETTING_AMOUNT = 500
 
 # alembic: commands for initializing migrations
 ALEMBIC_MIGRATION_CMD = "alembic upgrade head"

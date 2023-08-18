@@ -158,7 +158,7 @@ async def url_auth_stations_test(url: str, method: Literal["get", "post", "put",
 	Проверяет УРЛ на ответ при аутентификации станции:
 	- Несуществующий УУИД станции;
 	- Неактивная станция;
-	- Статус станции "технические работы" (обслуживание).
+	- Статус станции "технические работы" (обслуживание) / "ошибка".
 	"""
 	requests = {
 		"get": ac.get, "post": ac.post, "put": ac.put, "delete": ac.delete
@@ -186,10 +186,14 @@ async def url_auth_stations_test(url: str, method: Literal["get", "post", "put",
 	# _________________________________________________________________________________________________
 
 	await change_station_params(station, session, is_active=True, status=StationStatusEnum.MAINTENANCE)
-
 	station_in_maintenance_r = await func(**request_params)
-
 	assert station_in_maintenance_r.status_code == 403, f"{station_in_maintenance_r} status code != 403"
+
+	# _________________________________________________________________________________________________
+	await station.turn_on(session)
+	await change_station_params(station, session, status=StationStatusEnum.ERROR)
+	station_in_error_r = await func(**request_params)
+	assert station_in_error_r.status_code == 403, f"{station_in_error_r} status code != 403"
 
 
 async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "put", "delete"],
@@ -231,3 +235,16 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 	station_in_maintenance_r = await func(**request_params)
 
 	assert station_in_maintenance_r.status_code == 403, f"{station_in_maintenance_r} status code != 403"
+
+	# _________________________________________________________________________________________________
+	await station.turn_on(session)
+	await change_station_params(
+		station, session, status=StationStatusEnum.ERROR
+	)
+
+	url = correct_url.format(station_id=station.id)
+	request_params["url"] = url
+	station_in_error_r = await func(**request_params)
+
+	assert station_in_error_r.status_code == 403, f"{station_in_error_r} status code != 403"
+

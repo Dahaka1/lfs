@@ -17,7 +17,9 @@ from ..utils.general import sa_object_to_dict
 
 async def get_current_station(
 	x_station_uuid: Annotated[uuid.UUID, Header()],
-	db: Annotated[AsyncSession, Depends(get_async_session)]
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	x_station_maintenance_end: Annotated[str | None, Header(title="Хедер для прекращения статуса обслуживания")] = None,
+	x_station_error_end: Annotated[str | None, Header(title="Хедер для прекращения статуса ошибки")] = None
 ) -> StationGeneralParamsForStation:
 	"""
 	Простая авторизация станции.
@@ -38,7 +40,13 @@ async def get_current_station(
 	except GettingDataError as e:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 	if station_control.status == StationStatusEnum.MAINTENANCE:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
+		if not x_station_maintenance_end:
+			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+								detail=f"Station status: {station_control.status.name}")
+	elif station_control.status == StationStatusEnum.ERROR:
+		if not x_station_error_end:
+			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+								detail=f"Station status: {station_control.status.name}")
 
 	wifi_data = decrypt_data(station.hashed_wifi_data)
 
@@ -65,8 +73,9 @@ async def get_station_by_id(
 		station_control = await StationControl.get_relation_data(station, db)
 	except GettingDataError as e:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-	if station_control.status == StationStatusEnum.MAINTENANCE:
-		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Station servicing")
+	if station_control.status in (StationStatusEnum.MAINTENANCE, StationStatusEnum.ERROR):
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+							detail=f"Station status: {station_control.status.name}")
 	return station
 
 

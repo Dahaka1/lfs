@@ -203,7 +203,10 @@ class RefreshToken(Base):
 		"""
 		Поиск пользователя по переданному рефреш-токену. Проверка срока жизни токена.
 		"""
-		token = token.split()[1]  # у фронта он в формате "Bearer TOKEN"
+		try:
+			token = token.split()[1]  # у фронта он в формате "Bearer TOKEN"
+		except IndexError:
+			return
 
 		result = (await session.execute(
 			select(RefreshToken).where(RefreshToken.data == token)

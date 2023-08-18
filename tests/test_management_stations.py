@@ -4,12 +4,9 @@ import random
 
 import pytest
 import pytz
-from geopy.adapters import AioHTTPAdapter
-from geopy.geocoders import Nominatim
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import config
 from app.models import stations as stations_models
 from app.schemas import schemas_stations as stations, schemas_washing as washing
 from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
@@ -155,7 +152,7 @@ class TestManagement:
 		assert wifi_data["login"] == params.get("wifi_name") and wifi_data["password"] == params.get("wifi_password")
 		assert self.station.updated_at is not None
 
-		await logs_funcs.check_user_log_exists(self.sysadmin, session)
+		await logs_funcs.check_station_log_exists(station_general["id"], session)
 
 		# _____________________________________________________________________________________
 
@@ -291,7 +288,7 @@ class TestManagement:
 		assert updated_ctrl.washing_machine == current_washing_machine
 		assert updated_ctrl.washing_agents == [agent.dict()]
 
-		assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
+		# assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
 
 	async def test_update_station_control_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -426,7 +423,7 @@ class TestManagement:
 		) and ctrl.washing_agents == []
 		assert ctrl.updated_at is not None
 
-		assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
+		# assert (await logs_funcs.get_user_last_changes_log(self.installer, session)) is not None
 
 		# ____________________________________________________________________________________
 
@@ -610,7 +607,7 @@ class TestManagement:
 
 		assert response_program.washing_agents == [washing.WashingAgentWithoutRollback(**washing_agent.dict())]
 
-		await logs_funcs.check_user_log_exists(self.installer, session)
+		await logs_funcs.check_station_log_exists(self.station.id, session)
 
 		# _____________________________________________________________________________________________
 

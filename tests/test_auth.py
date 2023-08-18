@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import RegistrationCode
-from app.schemas.schemas_token import LoginTokens
+from app.schemas.schemas_token import RefreshToken, Token
 from app.schemas.schemas_users import User
 from app.utils.general import decode_jwt
 from tests.additional import auth
@@ -34,22 +34,23 @@ class TestAuth:
 		)
 		assert response.status_code == 200
 
-		tokens = LoginTokens(**response.json())
-		payload = decode_jwt(tokens.token)
+		refresh = RefreshToken(**response.json())
+		token_type, access_token = response.headers.get("Authorization").split()
+		access_token = Token(token_type=token_type, access_token=access_token)
+		payload = decode_jwt(access_token.access_token)
 		email: str = payload.get("sub")
 
 		assert email == self.email
 
-		assert tokens.refresh_token
-		assert tokens.refresh_token[-6:] == tokens.token[-6:]
+		assert refresh.refresh_token
+		assert refresh.refresh_token[-6:] == access_token.access_token[-6:]
 
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
-		assert refresh_token_in_db and refresh_token_in_db == tokens.refresh_token
+		assert refresh_token_in_db and refresh_token_in_db == refresh.refresh_token
 
-		self.token = tokens.token
+		self.token = access_token.access_token
 		self.headers = {
-			"Authorization": f"Bearer {self.token}",
-			"refreshToken": tokens.refresh_token
+			"Authorization": f"Bearer {self.token}"
 		}
 
 		await change_user_data(self, session, email_confirmed=True)
@@ -87,8 +88,8 @@ class TestAuth:
 		"""
 		Обновление пары токенов пользователя.
 		"""
-		tokens = await get_user_token(self.email, self.password, ac)
-		headers = {"refreshToken": tokens.refresh_token}
+		access, refresh = await get_user_token(self.email, self.password, ac)
+		headers = {"Authorization": f"Bearer {refresh.refresh_token}"}
 
 		response = await ac.get(
 			"/v1/auth/refresh",
@@ -97,13 +98,14 @@ class TestAuth:
 
 		assert response.status_code == 200
 		updated_refresh = response.json().get("refresh_token")
-		assert updated_refresh and updated_refresh != tokens.refresh_token
+		assert updated_refresh and updated_refresh != refresh.refresh_token
 
 		refresh_token_in_db = await auth.user_refresh_token_in_db(self.id, session)
 		assert refresh_token_in_db == updated_refresh
 
-		access_token = response.json().get("token")
+		access_token = response.headers.get("Authorization")
 		assert access_token
+		token_type, access_token = access_token.split()
 		access_payload = decode_jwt(access_token)
 		assert access_payload.get("sub") == self.email
 
@@ -113,12 +115,12 @@ class TestAuth:
 		- Должен быть в БД.
 		"""
 		def headers(data: str | None) -> dict:
-			return {"refreshToken": data}
+			return {"Authorization": data}
 
 		# ___________________________________________________________________________________
 
-		valid_refresh = (await get_user_token(self.email, self.password, ac)).refresh_token
-		invalid_refresh = valid_refresh + "qwerty"
+		access, refresh = (await get_user_token(self.email, self.password, ac))
+		invalid_refresh = refresh.refresh_token + "qwerty"
 
 		invalid_token_r = await ac.get(
 			"/v1/auth/refresh",
@@ -132,7 +134,7 @@ class TestAuth:
 
 		non_existing_token_in_db_r = await ac.get(
 			"/v1/auth/refresh",
-			headers=headers(valid_refresh)
+			headers=headers(refresh.refresh_token)
 		)
 
 		assert non_existing_token_in_db_r.status_code == 401
@@ -141,9 +143,8 @@ class TestAuth:
 		"""
 		Выход пользователя
 		"""
-		tokens = await get_user_token(self.email, self.password, ac)
-		headers = {"Authorization": f"Bearer {tokens.token}",
-				   "refreshToken": tokens.refresh_token}
+		access, refresh = await get_user_token(self.email, self.password, ac)
+		headers = {"Authorization": f"Bearer {access.access_token}"}
 
 		response = await ac.get(
 			"/v1/auth/logout",
@@ -158,9 +159,8 @@ class TestAuth:
 		- Юзер не должен быть заблокированным;
 		- Токены должны быть валидными.
 		"""
-		tokens = await get_user_token(self.email, self.password, ac)
-		headers = {"Authorization": "Bearer " + tokens.token,
-				   "refreshToken": tokens.refresh_token}
+		access, refresh = await get_user_token(self.email, self.password, ac)
+		headers = {"Authorization": "Bearer " + access.access_token}
 		await change_user_data(self.id, session, disabled=True)
 
 		disabled_user_r = await ac.get(

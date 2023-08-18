@@ -1,4 +1,7 @@
 from fastapi import HTTPException, status
+from loguru import logger
+
+from config import CUSTOM_EXCEPTIONS_OUTPUT_PARAMS
 
 
 class CredentialsException(HTTPException):
@@ -29,6 +32,7 @@ class GettingDataError(Exception):
 	"""
 	def __init__(self, message="Station data not found"):
 		super().__init__(message)
+		logger.error(message)
 
 
 class UpdatingError(Exception):
@@ -37,6 +41,7 @@ class UpdatingError(Exception):
 	"""
 	def __init__(self, message="Station updating error"):
 		super().__init__(message)
+		logger.error(message)
 
 
 class CreatingError(Exception):
@@ -45,6 +50,7 @@ class CreatingError(Exception):
 	"""
 	def __init__(self, message="Station data creating error"):
 		super().__init__(message)
+		logger.error(message)
 
 
 class DeletingError(Exception):
@@ -53,4 +59,13 @@ class DeletingError(Exception):
 	"""
 	def __init__(self, message="Station data deleting error"):
 		super().__init__(message)
+		logger.error(message)
 
+
+class ValidationError(Exception):
+	"""
+	Ошибка при получении кастомных данных от клиента.
+	"""
+	def __init__(self, message="Incoming data validation error"):
+		super().__init__(message)
+		logger.error(message)

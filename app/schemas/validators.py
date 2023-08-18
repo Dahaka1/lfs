@@ -1,3 +1,6 @@
+import datetime
+from typing import Any
+
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
@@ -29,3 +32,17 @@ def validate_address(address: str) -> None:
 	location = geocode(address)
 	if location is None:
 		raise ValueError(f"Incorrect station address '{address}'")
+
+
+def update_updated_at_field(values: dict[str, Any]) -> dict[str, Any] | None:
+	"""
+	SA не обновляет updated_at... Поэтому вручную буду =)
+	"""
+	try:
+		updated_at = values["updated_at"]
+		if not updated_at:
+			values["updated_at"] = datetime.datetime.now()
+		return values
+	except KeyError:
+		pass
+

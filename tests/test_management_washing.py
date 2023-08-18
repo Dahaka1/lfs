@@ -128,7 +128,7 @@ class TestManagementWashing:
 		assert agent_in_db.volume == 14
 		assert agent_in_db.rollback is False
 
-		await logs_funcs.check_user_log_exists(self.installer, session)
+		await logs_funcs.check_station_log_exists(self.station.id, session)
 
 		# ___________________________________________________________________________________________
 

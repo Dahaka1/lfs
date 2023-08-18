@@ -12,7 +12,7 @@ from app.schemas import schemas_washing as washing
 from app.utils.general import read_location
 from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
 from tests.additional import auth, users as users_funcs
-from tests.additional.stations import get_station_by_id, generate_station, StationData
+from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params
 from tests.fills import stations as station_fills
 
 
@@ -375,6 +375,11 @@ class TestStations:
 		- Отсутствие данных по станции;
 		- stations auth auto test
 		"""
+		await auth.url_auth_stations_test(
+			"/v1/stations/me", "get", self.station, session, ac
+		)
+		await change_station_params(self.station, session, status=StationStatusEnum.AWAITING)
+
 		await session.execute(
 			delete(stations.StationSettings).where(stations.StationSettings.station_id == self.station.id)
 		)
@@ -384,8 +389,6 @@ class TestStations:
 			"/v1/stations/me",
 			headers=self.station.headers
 		)
+
 		assert non_existing_data_r.status_code == 404
 
-		await auth.url_auth_stations_test(
-			"/v1/stations/me", "get", self.station, session, ac
-		)

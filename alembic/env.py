@@ -22,9 +22,9 @@ if config.config_file_name is not None:
 from app.database import Base
 from app.models.users import User
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
-from app.models.logs import ErrorsLog, ChangesLog, StationProgramsLog, WashingAgentsUsingLog, StationMaintenanceLog
 from app.models.washing import WashingAgent, WashingMachine
 from app.models.auth import RegistrationCode, RefreshToken
+from app.models.logs import Log, Error
 
 target_metadata = Base.metadata
 

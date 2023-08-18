@@ -2,19 +2,19 @@ import datetime
 import uuid
 
 import pydantic
-from loguru import logger
 from pydantic import UUID4
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from ..exceptions import UpdatingError, GettingDataError
-from ..models.logs import ChangesLog
 from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations, schemas_users, schemas_washing
 from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
 from ..static.typing import StationParamsSet
 from ..utils.general import sa_objects_dicts_list, encrypt_data, read_location
+from ..crud import crud_logs as log
 
 
 async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
@@ -161,12 +161,13 @@ async def delete_station(
 	"""
 	station_id = station.id if isinstance(station, schemas_stations.StationGeneralParams) else station
 
+	if action_by:
+		info_text = f"Станция {station.id} была успешно удалена пользователем {action_by.email}"
+		logger.info(info_text)
+
 	query = delete(Station).where(Station.id == station_id)
 	await db.execute(query)
 	await db.commit()
-
-	if action_by:
-		logger.info(f"Station {station.id} was successfully deleted by user {action_by.email}")
 
 
 async def update_station_general(
@@ -215,9 +216,9 @@ async def update_station_general(
 		await db.execute(query)
 		await db.commit()
 
-		info_text = f"Station {station.id} GENERAL PARAMS was successfully changed by user {action_by.email}.\n" \
-					f"Updated data: {', '.join(list(updated_params_list))}"
-		await ChangesLog.log(db=db, user=action_by, station=station, content=info_text)
+		info_text = f"Основные параметры станции {station.id} были успешно изменены пользователем {action_by.email}.\n" \
+					f"Обновленные данные: {', '.join(list(updated_params_list))}"
+		await log.CRUDLog.server(6.3, info_text, station, db)
 
 	schema = schemas_stations.StationGeneralParams(
 		id=station.id, created_at=station.created_at, updated_at=station.updated_at or datetime.datetime.now(),
@@ -291,9 +292,9 @@ async def update_station_control(
 	result = await StationControl.update_relation_data(station, updated_params, db)
 
 	if any(updated_params_list):
-		info_text = f"Station {station.id} CONTROL was successfully changed by user {action_by.email}.\n" \
-						f"Updated data: {', '.join(list(updated_params_list))}"
-		await ChangesLog.log(db=db, user=action_by, station=station, content=info_text)
+		info_text = f"Состояние станции {station.id} было успешно изменено пользователем {action_by.email}.\n" \
+						f"Обновленные данные: {', '.join(list(updated_params_list))}"
+		await log.CRUDLog.server(6, info_text, station, db)
 
 	return result
 
@@ -325,9 +326,9 @@ async def update_station_settings(
 							   if getattr(current_station_settings, key) != val]
 
 		if any(updated_params_list):
-			info_text = f"Station {station.id} SETTINGS was successfully changed by user {action_by.email}.\n" \
-						f"Updated data: {', '.join(list(updated_params_list))}"
-			await ChangesLog.log(db=db, user=action_by, station=station, content=info_text)
+			info_text = f"Настройки станции {station.id} были успешно изменены пользователем {action_by.email}.\n" \
+						f"Обновленные данные: {', '.join(list(updated_params_list))}"
+			await log.CRUDLog.server(6, info_text, station, db)
 
 		if updated_params.station_power is True and current_station_settings.station_power is False:
 			await db.execute(
@@ -381,10 +382,10 @@ async def update_station_program(
 	updated_fields = [key for key, val in updated_program.dict().items() if getattr(current_program, key) != val]
 
 	if any(updated_fields):  # в целом, там по-любому должны быть поля, но на всякий проверю
-		info_text = f"Program step №{current_program.program_step} of station {station.id} " \
-					f"was successfully updated by user {action_by.email}. Updated fields: " + \
+		info_text = f"Шаг программы №{current_program.program_step} для станции {station.id} " \
+					f"был успешно изменен пользователем {action_by.email}. Обновленные данные: " + \
 					', '.join(updated_fields)
-		await ChangesLog.log(db, action_by, station, info_text)
+		await log.CRUDLog.server(6.1, info_text, station, db)
 
 	if station.is_active:
 		station_control = await StationControl.get_relation_data(station, db)
@@ -412,10 +413,10 @@ async def delete_station_program(
 	await db.execute(query)
 	await db.commit()
 
-	info_text = f"Program step №{station_program.program_step} of station {station.id} was successfully " \
-				f"deleted by user {action_by.email}"
+	info_text = f"Шаг программы №{station_program.program_step} станции {station.id} был успешно " \
+				f"удален пользователем {action_by.email}"
 
-	await ChangesLog.log(db, action_by, station, info_text)
+	await log.CRUDLog.server(6.1, info_text, station, db)
 
 	return {"deleted": {
 		"program_step": station_program.program_step,

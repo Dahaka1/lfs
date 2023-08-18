@@ -241,11 +241,15 @@ class StationControl(BaseModel):
 			values.get("program_step"), values.get("washing_machine"), \
 			values.get("washing_agents")
 		match status:
-			case StationStatusEnum.AWAITING:
+			case StationStatusEnum.AWAITING | StationStatusEnum.ERROR:
 				if any(
 					(program_step, washing_machine, any(washing_agents))
 				):
-					raise ValueError("While station status is AWAITING, all params must be null")
+					print(status)
+					print(program_step)
+					print(washing_machine)
+					print(washing_agents)
+					raise ValueError("While station status is AWAITING/ERROR, all params must be null")
 			case StationStatusEnum.WORKING:
 				if not washing_machine:
 					raise ValueError(f"While station status is WORKING, washing machine can't be null")
@@ -266,7 +270,9 @@ class StationControlUpdate(StationControl):
 	"""
 	Обновление станции (текущего состояния).
 	"""
-	updated_at: Any = Field(exclude=True)
+	@root_validator()
+	def update_updated_at_field(cls, values):
+		return validators.update_updated_at_field(values)
 
 
 class Station(StationGeneralParams):

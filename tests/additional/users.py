@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import services
 from app.models.users import User
 from app.schemas import schemas_users
-from app.schemas.schemas_token import LoginTokens
+from app.schemas.schemas_token import RefreshToken, Token
 from app.static.enums import RoleEnum, RegionEnum
 from app.utils.general import get_data_hash, sa_object_to_dict, sa_objects_dicts_list
 
@@ -34,7 +34,7 @@ class UserData(BaseModel):
 	registered_at: datetime.datetime
 
 
-async def get_user_token(email: str, password: str, ac: AsyncClient) -> LoginTokens:
+async def get_user_token(email: str, password: str, ac: AsyncClient) -> tuple[Token, RefreshToken]:
 	"""
 	Аутентификация пользователя.
 	Без проверки на ошибки (это не тест, а побочная функция).
@@ -47,7 +47,13 @@ async def get_user_token(email: str, password: str, ac: AsyncClient) -> LoginTok
 		"/v1/auth/login",
 		json=data
 	)
-	return LoginTokens(**response.json())
+	refresh_token = RefreshToken(**response.json())
+	access_type, access = response.headers.get("Authorization").split()
+	access_token = Token(
+		token_type=access_type, access_token=access
+	)
+
+	return access_token, refresh_token
 
 
 def generate_user_data() -> dict[str, str]:
@@ -106,12 +112,11 @@ async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: R
 	if confirm_email:
 		params["email_confirmed"] = True
 	user = create_user(**params)
-	tokens = await get_user_token(user.get("email"), user.get("password"), ac)
+	access, refresh = await get_user_token(user.get("email"), user.get("password"), ac)
 
-	user.setdefault("token", tokens.token)
+	user.setdefault("token", access.access_token)
 	user.pop("last_action_at")
-	user["headers"] = {"Authorization": f"Bearer {tokens.token}",
-					   "refreshToken": tokens.refresh_token}
+	user["headers"] = {"Authorization": f"Bearer {access.access_token}"}
 
 	return UserData(**user), schemas_users.User(**user)
 

@@ -1,108 +1,67 @@
 import datetime
-import uuid
-from typing import Any, Optional
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator, UUID4
 
-from .schemas_stations import StationProgram
-from .schemas_washing import WashingAgentWithoutRollback, WashingMachine
-
-
-class ErrorLogBase(BaseModel):
-	"""
-	Схема для ошибки в логах (основные параметры).
-	"""
-	station_id: uuid.UUID = Field(title="ИД станции, к которой относится ошибка")
-	code: int = Field(title="Код ошибки")
-	content: str = Field(title="Содержание (описание) ошибки")
-
-
-class ErrorLogCreate(ErrorLogBase):
-	"""
-	Создание ошибки.
-	"""
-	station_id: Any = Field(exclude=True)
-
-
-class ErrorLog(ErrorLogBase):
-	"""
-	Ошибка.
-	"""
-	id: int = Field(title="ИД ошибки")
-	timestamp: datetime.datetime = Field("Дата и время создания ошибки")
-
-
-class WashingAgentUsingLogBase(BaseModel):
-	"""
-	Логирование использования стиральных средств.
-	"""
-	station_id: uuid.UUID = Field(title="ИД станции, которая использовала средство")
-	washing_machine: WashingMachine = Field(title="Стиральная машина, в которую подавалось средство")
-	washing_agent: WashingAgentWithoutRollback = Field(title="Стиральное средство")
-
-
-class WashingAgentUsingLogCreate(WashingAgentUsingLogBase):
-	"""
-	Создание лога.
-	"""
-	station_id: Any = Field(exclude=True)
-
-
-class WashingAgentUsingLog(WashingAgentUsingLogBase):
-	"""
-	Схема для лога использования стиральных средств станцией.
-	"""
-	id: int = Field(title="ИД лога")
-	timestamp: datetime.datetime = Field("Дата и время создания лога")
-
-
-class StationProgramsLogBase(BaseModel):
-	"""
-	Логирование использования программ станцией.
-	"""
-	station_id: uuid.UUID = Field(title="ИД станции, которая использовала средство")
-	program_step: StationProgram = Field(title="Программа станции")
-
-
-class StationProgramsLogCreate(StationProgramsLogBase):
-	"""
-	Создание лога.
-	"""
-	station_id: Any = Field(exclude=True)
-
-
-class StationProgramsLog(StationProgramsLogBase):
-	"""
-	Схема для лога использования программ станцией.
-	"""
-	id: int = Field(title="ИД лога")
-	timestamp: datetime.datetime = Field("Дата и время создания лога")
-
-
-class ChangesLog(BaseModel):
-	"""
-	Схема для логов изменений.
-	"""
-	id: int = Field(title="ИД лога")
-	timestamp: datetime.datetime = Field("Дата и время создания лога")
-	station_id: uuid.UUID = Field(title="ИД станции, данные которой были изменены")
-	user_id: int = Field(title="ИД юзера, совершившего изменение")
-	content: str = Field(title="Содержание (описание) изменения")
-
-
-class StationMaintenanceLog(BaseModel):
-	"""
-	Схема для логов обслуживания станции.
-	"""
-	id: int = Field(title="ИД лога")
-	station_id: uuid.UUID = Field(title="ИД станции, которая обслуживалась")
-	user_id: int = Field(title="ИД юзера, совершившего обслуживание")
-	started_at: datetime.datetime = Field(title="Начало обслуживания")
-	ended_at: Optional[datetime.datetime] = Field(title="Конец обслуживания")
+import services
+from ..static.enums import LogCaseEnum, ErrorTypeEnum, LogFromEnum, LogActionEnum
 
 
 class LogCreate(BaseModel):
 	"""
-	Схема для создания лога.
+	Создание лога.
+	ИД станции опционально, ибо можно определить автоматически при авторизации станции
+	 в Path Operation и т.д.
 	"""
-	content: StationProgramsLogCreate | ErrorLogCreate | WashingAgentUsingLogCreate
+	station_id: Optional[UUID4] = Field(title="ИД станции")
+	code: float | int = Field(title="Код лога/ошибки")
+	event: str | None = Field(title="Определение (описание) события (раздела лога)")
+	content: str = Field(title="Содержание лога/ошибки")
+
+	@root_validator()
+	def get_log_event(cls, values):
+		event = values.get("event")
+		if not event:
+			code = values.get("code")
+			if code:
+				try:
+					values["event"] = str(LogCaseEnum(code))
+				except KeyError:
+					raise ValueError("Got an non-existing log/error code")
+		return values
+
+
+class ErrorCreate(LogCreate):
+	"""
+	Создание ошибки.
+	"""
+	scope: ErrorTypeEnum | None = Field(title="Видимость ошибки (публичная/служебная)")
+
+	@root_validator()
+	def get_error_scope(cls, values):
+		scope = values.get("scope")
+		if not scope:
+			values["scope"] = services.DEFAULT_ERROR_SCOPE
+		return values
+
+
+class Log(LogCreate):
+	"""
+	Вывод лога.
+	"""
+	id: int
+	station_id: UUID4 = Field(title="ИД станции")
+	sended_from: LogFromEnum = Field(title="От станции/сервера")
+	timestamp: datetime.datetime = Field(title="Время создания лога")
+	event: str = Field(title="Определение (описание) события (раздела лога)")
+	action: Optional[LogActionEnum] = Field(title="Совершенное действие после добавления лога")
+
+	class Config:
+		orm_mode = True
+
+
+class Error(Log):
+	"""
+	Вывод ошибки.
+	"""
+	scope: ErrorTypeEnum = Field(title="Видимость ошибки (публичная/служебная)")

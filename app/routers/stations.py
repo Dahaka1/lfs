@@ -4,12 +4,11 @@ from fastapi import APIRouter, Depends, Body, status, HTTPException, Path
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..crud import crud_stations
+from ..crud import crud_stations, crud_logs as log
 from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user
 from ..dependencies.stations import get_current_station
 from ..exceptions import GettingDataError, CreatingError
-from ..models.logs import ChangesLog
 from ..schemas import schemas_stations
 from ..schemas.schemas_users import User
 from ..static import openapi
@@ -83,12 +82,11 @@ async def create_station(
 	except CreatingError as e:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
-	log_text = f"Station with UUID {created_station.id} was successfully created by " \
-			   f"user {current_user.email} ({current_user.first_name} {current_user.last_name})"
+	log_text = f"Станция с UUID {created_station.id} была успешно создана пользователем" \
+			   f" {current_user.email} ({current_user.first_name} {current_user.last_name})"
 
-	await ChangesLog.log(
-		db=db, user=current_user, station=created_station, content=log_text
-	)
+	await log.CRUDLog.server(6.4, log_text, created_station, db)
+
 	await db.commit()
 	return created_station
 

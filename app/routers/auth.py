@@ -58,7 +58,7 @@ async def login(
 @router.get("/refresh", response_model=schemas_token.RefreshToken, responses=openapi.refresh_access_token_get)
 async def refresh_access_token(
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	refreshToken: Annotated[str, Header(title="Refresh токен", alias="Authorization")]
+	refreshToken: Annotated[str | None, Header(title="Refresh токен", alias="Authorization")] = None
 ):
 	"""
 	Обновление токенов пользователя при истечении срока действия Access токена.

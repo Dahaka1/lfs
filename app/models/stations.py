@@ -225,7 +225,6 @@ class StationMixin:
 		"""
 		Обновление данных по станции в побочных таблицах.
 		"""
-
 		match cls.__name__:
 			case "StationSettings":
 				if updated_params.station_power is True:
@@ -423,6 +422,9 @@ class StationControl(Base, StationMixin):
 				raise UpdatingError("Station power currently is False, but got non-nullable control params")
 
 		ctrl: schemas_stations.StationControl = await cls.get_relation_data(station, db)
+
+		if not updated_params.updated_at:
+			updated_params.updated_at = datetime.datetime.now()
 
 		for k, v in updated_params.dict().items():
 			if getattr(ctrl, k) != v:

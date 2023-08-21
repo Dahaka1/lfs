@@ -184,6 +184,16 @@ class Station(Base):
 		station = await Station.get_station_by_id(db=db, station_id=station_id)
 		return station
 
+	@classmethod
+	async def update(cls, db: AsyncSession, station_id: uuid.UUID,
+					 updated_params: schemas_stations.StationGeneralParamsUpdate) -> None:
+		query = update(cls).where(
+			cls.id == station_id
+		).values(**updated_params.dict(exclude_unset=True))
+
+		await db.execute(query)
+		await db.commit()
+
 
 class StationMixin:
 	station_id: uuid.UUID

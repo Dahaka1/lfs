@@ -198,6 +198,12 @@ class Log:
 				assert all((attr is None for attr in (ctrl.program_step, ctrl.washing_machine)))
 				assert ctrl.washing_agents == []
 				assert setts.station_power is True
+			case LogActionEnum.STATION_ACTIVATE:
+				assert station.is_active is True
+				assert station.is_protected is True
+				assert ctrl.status == StationStatusEnum.AWAITING
+				assert setts.station_power is True
+				assert setts.teh_power is True
 
 
 async def check_station_log_exists(station_id: uuid.UUID, session: AsyncSession) -> None:

@@ -128,3 +128,4 @@ class LogActionEnum(Enum):
 	STATION_WORKING_PROCESS = "Работа станции"
 	STATION_MAINTENANCE_START = "Начало обслуживания станции"
 	STATION_MAINTENANCE_END = "Окончание обслуживания станции"
+	STATION_ACTIVATE = "Активация станции"

@@ -106,6 +106,9 @@ class StationData:
 			case LogActionEnum.ERROR_STATION_CONTROL_STATUS_END:
 				await self.turn_on(session)
 				await change_station_params(self, session, status=StationStatusEnum.ERROR)
+			case LogActionEnum.STATION_ACTIVATE:
+				await self.turn_off(session)
+				await change_station_params(self, session, teh_power=False, is_protected=False)
 
 	async def turn_on(self, session: AsyncSession) -> None:
 		await change_station_params(self, session, station_power=True, status=StationStatusEnum.AWAITING,
@@ -182,8 +185,8 @@ async def change_station_params(station: StationData, session: AsyncSession, **k
 	"""
 	for k, v in kwargs.items():
 		match k:
-			case "is_active":
-				query = update(Station).where(Station.id == station.id).values(is_active=v)
+			case "is_active" | "is_protected":
+				query = update(Station).where(Station.id == station.id).values(**{k: v})
 			case "status" | "washing_machine" | "washing_agents" | "program_step":
 				query = update(StationControl).where(StationControl.station_id == station.id).values(
 					**{k: v}

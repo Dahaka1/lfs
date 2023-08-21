@@ -42,13 +42,13 @@ MIN_WASHING_AGENTS_VOLUME = 10  # минимальный объем средст
 MAX_WASHING_AGENTS_VOLUME = 500  # максимальный объем средства
 
 # STATIONS PARAMS
-DEFAULT_STATION_POWER = True  # включена ли станция по умолчанию
+DEFAULT_STATION_POWER = False  # включена ли станция по умолчанию
 DEFAULT_STATION_TEH_POWER = False  # включен ли тен по умолчанию
-DEFAULT_STATION_IS_ACTIVE = True  # активна ли станция по умолчанию (если нет, то включение станции и тэна невозможно)
+DEFAULT_STATION_IS_ACTIVE = False  # активна ли станция по умолчанию (если нет, то включение станции и тэна невозможно)
 DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 4  # количество стиральных машин у станции по умолчанию
 DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 5  # количество стиральных средств у станции по умолчанию
-DEFAULT_STATION_IS_PROTECTED = True  # включена ли защита станции по умолчанию
-DEFAULT_STATION_STATUS = StationStatusEnum.AWAITING  # статус станции по умолчанию
+DEFAULT_STATION_IS_PROTECTED = False  # включена ли защита станции по умолчанию
+DEFAULT_STATION_STATUS = None  # статус станции по умолчанию
 # (если выключена - статус только нулевой)
 MIN_STATION_WASHING_AGENTS_AMOUNT = 1  # минимальное количество стиральных средств у станции
 MIN_STATION_WASHING_MACHINES_AMOUNT = 1  # минимальное количество стиральных машин у станции
@@ -64,6 +64,7 @@ LOG_ACTIONS = {
 	9.4: LogActionEnum.WASHING_MACHINE_TURN_OFF,
 	9.9: LogActionEnum.WASHING_AGENTS_CHANGE_VOLUME,
 	9.10: LogActionEnum.STATION_SETTINGS_CHANGE,
+	9.11: LogActionEnum.STATION_ACTIVATE,
 	9.12: LogActionEnum.STATION_START_MANUAL_WORKING,
 	3.1: LogActionEnum.STATION_WORKING_PROCESS,
 	9.16: LogActionEnum.STATION_MAINTENANCE_START,

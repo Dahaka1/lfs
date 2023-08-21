@@ -186,5 +186,9 @@ class CRUDLog:
 				async with StationManager(station, db, StationParamsEnum.CONTROL) as sm:
 					await sm.end_maintenance()
 
+			case LogActionEnum.STATION_ACTIVATE:
+				async with StationManager(station, db, StationParamsEnum.SETTINGS) as sm:
+					await sm.activate()
+
 			case _:
 				raise ValueError("Invalid log action")

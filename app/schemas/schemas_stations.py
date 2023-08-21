@@ -246,10 +246,6 @@ class StationControl(BaseModel):
 				if any(
 					(program_step, washing_machine, any(washing_agents))
 				):
-					print(status)
-					print(program_step)
-					print(washing_machine)
-					print(washing_agents)
 					raise ValueError("While station status is AWAITING/ERROR, all params must be null")
 			case StationStatusEnum.WORKING:
 				if not washing_machine:

@@ -2,7 +2,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...exceptions import ValidationError, UpdatingError
-from ...models.stations import StationSettings, StationControl, StationProgram
+from ...models.stations import StationSettings, StationControl, StationProgram, Station
 from ...models.washing import WashingAgent, WashingMachine
 from ...schemas import schemas_stations, schemas_washing
 from ...static.enums import StationParamsEnum, StationStatusEnum
@@ -100,8 +100,19 @@ class StationManager(StationManagerBase):
 			case "on":
 				update_control_schema.status = StationStatusEnum.AWAITING
 				update_settings_schema.station_power = True
+			case "off":
+				update_settings_schema.station_power = False
 		await StationSettings.update_relation_data(self._general, update_settings_schema, self._db)
 		await StationControl.update_relation_data(self._general, update_control_schema, self._db)
+
+	async def _activate(self):
+		await self._change_station_power("on")
+		self._settings.station_power = True  # костылик. ORM в принципе не реализована. но надо бы =)
+		await self._change_teh_power("on")
+		update_general_schema = schemas_stations.StationGeneralParamsUpdate(
+			is_protected=True, is_active=True
+		)
+		await Station.update(self._db, self._general.id, update_general_schema)
 
 	async def _change_teh_power(self, do_power: Literal["on", "off"]) -> None:
 		if not self._settings:
@@ -200,6 +211,9 @@ class StationManager(StationManagerBase):
 
 	async def end_maintenance(self) -> None:
 		await self._end_maintenance()
+
+	async def activate(self) -> None:
+		await self._activate()
 
 
 class CRUDStation(StationManagerBase):

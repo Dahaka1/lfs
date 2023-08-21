@@ -210,12 +210,7 @@ async def update_station_general(
 	if any(updated_params_list):
 		current_data["updated_at"] = datetime.datetime.now()  # updated_at почему-то автоматически не обновляется =(
 
-		query = update(Station).where(
-			Station.id == station.id
-		).values(**current_data)
-
-		await db.execute(query)
-		await db.commit()
+		await Station.update(db, station.id, current_data)
 
 		info_text = f"Основные параметры станции {station.id} были успешно изменены пользователем {action_by.email}.\n" \
 					f"Обновленные данные: {', '.join(list(updated_params_list))}"

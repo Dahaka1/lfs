@@ -75,7 +75,6 @@ async def create_station(
 	Доступно только для SYSADMIN-пользователей.
 	"""
 	try:
-		print(station)
 		created_station = await crud_stations.create_station(
 			db=db, station=station, settings=station.settings, washing_agents=station.washing_agents,
 			washing_machines=station.washing_machines, programs=station.programs

@@ -226,7 +226,8 @@ async def update_station_general(
 		is_active=updating_params.is_active if not updating_params.is_active is None else station.is_active,
 		is_protected=updating_params.is_protected if not updating_params.is_protected is None else station.is_protected,
 		location=current_data.get("location") or station.location,
-		region=updating_params.region or station.region
+		region=updating_params.region or station.region,
+		serial=station.serial
 	)
 
 	if "hashed_wifi_data" in current_data:

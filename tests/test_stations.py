@@ -12,7 +12,7 @@ from app.schemas import schemas_washing as washing
 from app.utils.general import read_location
 from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
 from tests.additional import auth, users as users_funcs
-from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params
+from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params, rand_serial
 from tests.fills import stations as station_fills
 
 
@@ -36,7 +36,8 @@ class TestStations:
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
 			"address": "Санкт-Петербург",
-			"region": RegionEnum.NORTHWEST.value
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
 		})
 		response = await ac.post(
 			"/v1/stations/",

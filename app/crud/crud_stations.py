@@ -79,6 +79,8 @@ async def create_station(db: AsyncSession,
 	station_control_params = {"station_id": station_id}
 	if settings.station_power is False:
 		station_control_params["status"] = None
+	elif settings.station_power is True:
+		station_control_params["status"] = StationStatusEnum.AWAITING
 
 	station_control = await StationControl.create(db=db, **station_control_params)
 

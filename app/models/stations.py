@@ -186,10 +186,14 @@ class Station(Base):
 
 	@classmethod
 	async def update(cls, db: AsyncSession, station_id: uuid.UUID,
-					 updated_params: schemas_stations.StationGeneralParamsUpdate) -> None:
+					 updated_params: schemas_stations.StationGeneralParamsUpdate | dict) -> None:
+		try:
+			data = updated_params.dict(exclude_unset=True)
+		except AttributeError:
+			data = updated_params
 		query = update(cls).where(
 			cls.id == station_id
-		).values(**updated_params.dict(exclude_unset=True))
+		).values(**data)
 
 		await db.execute(query)
 		await db.commit()

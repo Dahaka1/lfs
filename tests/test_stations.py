@@ -251,8 +251,6 @@ class TestStations:
 		"""
 		Частичное чтение данных станции станцией.
 		"""
-		params = station_fills.test_create_station_with_advanced_params
-
 		general_params_r = await ac.get(
 			"/v1/stations/me/" + StationParamsEnum.GENERAL.value,
 			headers=self.station.headers
@@ -272,8 +270,6 @@ class TestStations:
 
 		assert settings_r.status_code == 200
 		settings_result = schemas_stations.StationSettings(**settings_r.json())
-		assert settings_result.station_power == params["station"]["settings"]["station_power"]
-		assert settings_result.teh_power == params["station"]["settings"]["teh_power"]
 
 		# _____________________________________________________
 

@@ -51,11 +51,12 @@ class WashingMixin:
 		kwargs.setdefault("station_id", station_id)
 
 		query = insert(cls).values(**kwargs)
-		model = getattr(schemas_washing, cls.__name__ + "Create")
+		schema = getattr(schemas_washing, cls.__name__ + "Create")
 
 		await db.execute(query)
 		await db.commit()
-		return model(**kwargs)
+
+		return schema(**kwargs)
 
 	@classmethod
 	async def get_obj_by_number(
@@ -163,7 +164,7 @@ class WashingMachine(Base, WashingMixin):
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"))
 	machine_number = Column(Integer)
 	volume = Column(Integer, default=services.DEFAULT_WASHING_MACHINES_VOLUME)
-	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
+	is_active = Column(Boolean, default=services.DEFAULT_WASHING_MACHINES_IS_ACTIVE)
 	track_length = Column(Float, default=services.DEFAULT_WASHING_MACHINES_TRACK_LENGTH)
 
 

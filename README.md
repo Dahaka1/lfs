@@ -37,4 +37,5 @@ docker-compose up
 - [x] Add advanced path operations responses description (openapi);
 - [x] Nginx deploying;
 - [x] SSL securing;
-- [ ] Think, refactor all stations methods to OOP-reasonable.
+- [ ] Think, refactor all stations methods to OOP-reasonable;
+- [ ] Optimize DB-queries amount in station methods.

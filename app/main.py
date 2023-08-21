@@ -72,7 +72,7 @@ async def startup():
 	Действия при старте сервера.
 	"""
 	logger.add(**LOGGING_PARAMS)
-	# logger.add(**CUSTOM_EXCEPTIONS_OUTPUT_PARAMS)
+	logger.add(**CUSTOM_EXCEPTIONS_OUTPUT_PARAMS)
 	logger.info("Starting server...")
 	await check_connections()
 	await fastapi_cache_init()

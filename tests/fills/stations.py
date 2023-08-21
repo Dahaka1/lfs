@@ -1,4 +1,8 @@
+from tests.additional.stations import rand_serial
+
+
 test_create_station_with_advanced_params = dict(station={
+	"serial": rand_serial(),
 	"wifi_name": "qwerty",
 	"wifi_password": "qwerty",
 	"address": "Санкт-Петербург",

@@ -34,11 +34,12 @@ class Station(Base):
 	Created_at - дата и время создания.
 	Updated_at - дата и время последнего обновления.
 	"""
-	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region"]
+	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region", "serial"]
 
 	__tablename__ = "station"
 
 	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+	serial = Column(String, unique=True)
 	location = Column(JSON, nullable=False, default={})
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected = Column(Boolean)
@@ -71,12 +72,16 @@ class Station(Base):
 
 	@staticmethod
 	async def get_station_by_id(db: AsyncSession,
-								station_id: uuid.UUID) -> schemas_stations.StationGeneralParamsInDB | None:
+								station_id: uuid.UUID | str) -> schemas_stations.StationGeneralParamsInDB | None:
 		"""
-		Возвращает объект станции с определенным ИД.
+		Возвращает объект станции с определенным ИД (или серийным номером).
 		Если его нет - None.
 		"""
-		query = select(Station).where(Station.id == station_id)
+		try:
+			uuid.UUID(str(station_id))
+			query = select(Station).where(Station.id == station_id)
+		except ValueError:
+			query = select(Station).where(Station.serial == station_id)
 		result = await db.execute(query)
 		station = result.scalar()
 		if station:

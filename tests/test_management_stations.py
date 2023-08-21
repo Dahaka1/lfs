@@ -50,6 +50,23 @@ class TestManagement:
 			(key not in gen_r for key in ("wifi_name", "wifi_password", "hashed_wifi_data"))
 		)
 
+	async def test_read_station_partial_by_user_by_serial_number(self, ac: AsyncClient, session: AsyncSession):
+		url = f"/v1/manage/station/{self.station.serial}/general"
+		r = await ac.get(
+			url,
+			headers=self.sysadmin.headers
+		)
+		assert r.status_code == 200
+		stations.StationGeneralParams(**r.json())  # Validation error
+
+	async def test_read_station_partial_by_user_by_invalid_serial_number(self, ac: AsyncClient, session: AsyncSession):
+		url = f"/v1/manage/station/{self.station.serial}+qwe/general"
+		r = await ac.get(
+			url,
+			headers=self.sysadmin.headers
+		)
+		assert r.status_code == 404
+
 	async def test_read_station_partial_by_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Запрещенные роли пользователей;

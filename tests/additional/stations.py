@@ -12,13 +12,12 @@ from sqlalchemy.orm import Session
 
 import services
 from app.database import Base
-from app.models import logs
 from app.models.stations import StationControl, Station, StationSettings, StationProgram
 from app.models.washing import WashingAgent, WashingMachine
-from app.schemas import schemas_stations, schemas_washing, schemas_logs
+from app.schemas import schemas_stations, schemas_washing
 from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum, LogActionEnum
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
-from .users import create_authorized_user, UserData
+from .users import create_authorized_user
 
 
 @dataclass
@@ -27,6 +26,7 @@ class StationData:
 	Класс станции с парамерами для тестов.
 	"""
 	id: uuid.UUID
+	serial: str
 	is_active: bool
 	is_protected: bool
 	location: dict
@@ -118,6 +118,12 @@ class StationData:
 		await self.refresh(session)
 
 
+def rand_serial() -> str:
+	return "".join(
+		(str(num) for num in (random.randrange(10) for _ in range(5)))
+	)
+
+
 async def generate_station(
 	ac: AsyncClient,
 	sync_session: Session = None,
@@ -137,6 +143,7 @@ async def generate_station(
 			raise Exception
 		user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN, confirm_email=True)
 	station_data = dict(station={
+		"serial": rand_serial(),
 		"is_active": kwargs.get("is_active") or True,
 		"is_protected": kwargs.get("is_protected") or False,
 		"wifi_name": "qwerty",

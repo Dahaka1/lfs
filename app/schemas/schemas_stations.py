@@ -23,7 +23,8 @@ class StationGeneralParams(BaseModel):
 	"""
 	Основные параметры станции (таблица station).
 	"""
-	id: UUID4 = Field(title="Уникальный номер станции")
+	id: UUID4 = Field(title="Уникальный ID станции")
+	serial: str = Field(title="Серийный номер станции")
 	created_at: datetime.datetime = Field(title="Дата/время создания станции")
 	updated_at: Optional[datetime.datetime] = Field(title="Дата/время последнего обновления (основных параметров станции)")
 	is_active: bool = Field(title="Активна/неактивна")
@@ -297,6 +298,7 @@ class StationCreate(BaseModel):
 	"""
 	Создание станции.
 	"""
+	serial: str = Field(title="Серийный номер станции", min_length=3, max_length=10)
 	is_active: Optional[bool] = Field(title="Активна/неактивна", default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
 	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
@@ -324,6 +326,15 @@ class StationCreate(BaseModel):
 	def validate_address(cls, address):
 		validators.validate_address(address)
 		return address
+
+	@validator("serial")
+	def validate_serial(cls, serial):
+		serial: str
+		if any(
+			(not ch.isdigit() for ch in serial)
+		):
+			raise ValueError("Expected for only digits at station serial number")
+		return serial
 
 	@root_validator()
 	def validate_params(cls, values):

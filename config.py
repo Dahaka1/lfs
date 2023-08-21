@@ -1,3 +1,4 @@
+import copy
 import os
 
 from dotenv import load_dotenv
@@ -40,7 +41,7 @@ LOGGING_PARAMS = {
 	"compression": "zip"
 }
 CUSTOM_EXCEPTIONS_OUTPUT = "logs/services_errors.log"
-CUSTOM_EXCEPTIONS_OUTPUT_PARAMS = LOGGING_PARAMS
+CUSTOM_EXCEPTIONS_OUTPUT_PARAMS = copy.deepcopy(LOGGING_PARAMS)
 CUSTOM_EXCEPTIONS_OUTPUT_PARAMS["sink"] = CUSTOM_EXCEPTIONS_OUTPUT
 CUSTOM_EXCEPTIONS_OUTPUT_PARAMS["level"] = "ERROR"
 

@@ -55,7 +55,8 @@ async def create_station(db: AsyncSession,
 		is_active=station.is_active,
 		is_protected=station.is_protected,
 		hashed_wifi_data=hashed_wifi_data,
-		region=station.region
+		region=station.region,
+		serial=station.serial
 	)
 
 	if settings is None:

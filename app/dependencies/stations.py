@@ -58,7 +58,7 @@ async def get_current_station(
 
 
 async def get_station_by_id(
-	station_id: Annotated[uuid.UUID, Path()],
+	station_id: Annotated[uuid.UUID | str, Path(description="Можно указать как ID станции, так и серийный номер.")],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ) -> StationGeneralParams:
 	"""

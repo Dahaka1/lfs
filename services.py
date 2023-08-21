@@ -84,7 +84,8 @@ LOG_EXPECTING_DATA = {
 	9.9: {"washing_agent_number": int, "volume": int},
 	9.10: {"teh_power": bool},
 	9.12: {"washing_machine_number": int, "washing_agent_number": int, "volume": int},
-	3.1: {"washing_machine_number": int, "program_step_number": int, "program_number": int}
+	3.1: {"washing_machine_number": int, "program_step_number": int,
+		  "program_number": int, "washing_machines_queue": list}
 }
 ERROR_EXPECTING_DATA = {
 	ErrorTypeEnum.PUBLIC: {},

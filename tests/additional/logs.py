@@ -1,3 +1,4 @@
+import copy
 import random
 import uuid
 from typing import Any
@@ -98,13 +99,16 @@ class Log:
 	def generate_additional_data(self, station: StationData) -> dict[str, Any]:
 		json = {}
 		rand_station_program = random.choice(station.station_programs)
+		machines_queue = copy.deepcopy([m.machine_number for m in station.station_washing_machines])
+		random.shuffle(machines_queue)
 		default_vals = {
 			"washing_machine_number": random.choice(range(1, len(station.station_washing_machines))),
 			"washing_agent_number": random.choice(range(1, len(station.station_washing_agents))),
 			"volume": random.choice(range(services.MIN_WASHING_AGENTS_VOLUME, services.MAX_WASHING_AGENTS_VOLUME)),
 			"program_number": rand_station_program.program_number,
 			"program_step_number": rand_station_program.program_step,
-			"teh_power": random.choice((True, False))
+			"teh_power": random.choice((True, False)),
+			"washing_machines_queue": machines_queue
 		}
 		if self.data_fields_and_types:
 			for field in self.data_fields_and_types:
@@ -186,6 +190,9 @@ class Log:
 				assert ctrl.washing_machine.machine_number == self.data["washing_machine_number"]
 				assert ctrl.program_step.program_step == self.data["program_step_number"]
 				assert ctrl.program_step.program_number == self.data["program_number"]
+				self.data["washing_machines_queue"].pop(ctrl.washing_machine.machine_number)  # при генерации списка очереди не
+				# не достать текущее состояние - сделаю костылик этот
+				assert ctrl.washing_machines_queue == self.data["washing_machines_queue"]
 				assert ctrl.washing_agents == []
 				assert ctrl.status == StationStatusEnum.WORKING
 			case LogActionEnum.STATION_MAINTENANCE_START:

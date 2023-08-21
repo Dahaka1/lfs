@@ -392,6 +392,7 @@ class StationControl(Base, StationMixin):
 	Program_step - объект этапа программы.
 	Washing_machine - объект стиральной машины.
 	Washing_agents - стиральные средства станции.
+	Washing_machines_queue - ни на что не влияющий параметр. Получается от станции.
 	Updated_at - дата и время последнего обновления.
 	"""
 	__tablename__ = "station_control"
@@ -402,6 +403,7 @@ class StationControl(Base, StationMixin):
 	program_step = Column(JSON)
 	washing_machine = Column(JSON)
 	washing_agents = Column(JSON, default=[])
+	washing_machines_queue = Column(JSON, default=[])
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
 	@staticmethod

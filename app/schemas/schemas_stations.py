@@ -221,6 +221,12 @@ class StationControl(BaseModel):
 		title="Стиральные средства станции, используемые в данный момент",
 		default_factory=list
 	)
+	washing_machines_queue: Optional[list[int]] = Field(
+		title="Очередь стиральных машин для работы",
+		description="Номера стиральных машин станции в текущем порядке очереди",
+		example="[1, 3, 5, 7, 6]",
+		default_factory=list
+	)
 	updated_at: Optional[datetime.datetime] = Field(title="Дата и время последнего обновления (состояния станции)")
 
 	@validator("program_step")

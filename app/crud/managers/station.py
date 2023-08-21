@@ -150,20 +150,28 @@ class StationManager(StationManagerBase):
 		await StationControl.update_relation_data(self._general, update_control_schema, self._db)
 
 	async def _update_working_process(self, washing_machine_number: int, program_step_number: int,
-									  program_number: int) -> None:
+									  program_number: int, washing_machines_queue: list[int]) -> None:
 		if any((not dataset for dataset in (self._programs, self._control, self._machines))):
 			raise AttributeError("Some dataset wasn't defined")
+		if any(
+			(m_number not in (m.machine_number for m in self._machines)
+			 for m_number in washing_machines_queue)
+		):
+			raise ValidationError(f"Got an non-existing machine number for machines queue. Station ID {self._general.id}")
 		try:
 			program = next(p for p in self._programs if p.program_number == program_number and
 						   p.program_step == program_step_number)
 			machine = next(m for m in self._machines if m.machine_number == washing_machine_number)
 		except StopIteration:
-			raise ValidationError(f"Got an on existing program step or washing machine number. Station ID {self._general.id}")
+			raise ValidationError(f"Got an non-existing program step or washing machine number. Station ID {self._general.id}")
 		ctrl = self._control
 		ctrl.washing_agents = []
 		ctrl.washing_machine = machine
 		ctrl.program_step = program
 		ctrl.status = StationStatusEnum.WORKING
+		ctrl.washing_machines_queue = washing_machines_queue
+		if machine.machine_number in ctrl.washing_machines_queue:
+			del ctrl.washing_machines_queue[machine.machine_number]
 		ctrl = schemas_stations.StationControlUpdate(**ctrl.dict())
 		await StationControl.update_relation_data(self._general, ctrl, self._db)
 

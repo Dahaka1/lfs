@@ -206,3 +206,5 @@ async def check_station_log_exists(station_id: uuid.UUID, session: AsyncSession)
 	"""
 	log = (await session.execute(select(model.Log).where(model.Log.station_id == station_id))).scalar()
 	assert log is not None
+	if log:
+		assert int(log.__dict__["code"]) == 6

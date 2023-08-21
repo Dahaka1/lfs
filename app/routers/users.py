@@ -113,9 +113,8 @@ async def update_user(
 	Изменить роль пользователя и его блокировку может только пользователь с ролью SYSADMIN.
 
 	Если изменился EMail - нужно заново его подтверждать.
-
-	Права проверяются методом check_user_permissions + в crud_users.
 	"""
+	# Права проверяются методом check_user_permissions + в crud_users.
 	if not User.check_user_permissions(action_by_user=current_user, user_id=user_id):
 		raise PermissionsError()
 	if any(user.dict().values()):

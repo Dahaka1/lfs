@@ -417,7 +417,15 @@ update_station_program_put = {
 
 delete_station_program_delete = {
 	200: {
-		"description": "ИД удаленной программы, ИД станции"
+		"description": "ИД удаленной программы, ИД станции",
+		"content": {
+			"application/json": {
+				"example": {"deleted": {
+					"program_step": "program step",
+					"station_id": "station id"
+				}}
+			}
+		}
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
@@ -432,7 +440,12 @@ delete_station_program_delete = {
 
 delete_station_delete = {
 	200: {
-		"description": "ИД удаленной станции"
+		"description": "ИД удаленной станции",
+		"content": {
+			"application/json": {
+				"example": {"deleted": "station id"}
+			}
+		}
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
@@ -494,7 +507,15 @@ update_station_washing_machine_put = {
 
 delete_station_washing_services_delete = {
 	200: {
-		"description": "ИД удаленной стиральной машины / удаленного стирального средства"
+		"description": "ИД удаленной стиральной машины / удаленного стирального средства",
+		"content": {
+			"application/json": {
+				"example": {"deleted": {
+					"OBJ_number": "number",
+					"station_id": "station id"
+				}}
+			}
+		}
 	},
 	403: {
 		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
@@ -533,7 +554,8 @@ for _ in [
 	update_station_washing_agent_put,
 	update_station_washing_machine_put,
 	delete_station_washing_services_delete,
-	get_station_logs_get
+	get_station_logs_get,
+	delete_station_delete
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})
 

@@ -1,19 +1,17 @@
-import os
-
-from app.static.enums import RoleEnum, StationStatusEnum, ErrorTypeEnum, LogActionEnum
+from app.static.enums import RoleEnum, ErrorTypeEnum, LogActionEnum
 
 # SMTP ACCOUNT
-SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = os.getenv("SMTP_PORT")
-if SMTP_PORT:
-	SMTP_PORT = int(SMTP_PORT)
-SMTP_USER = os.getenv("SMTP_USER")  # почта логин
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # почта пароль
-
-if any(
-	(var == "null" for var in (SMTP_HOST, SMTP_PORT, SMTP_PASSWORD, SMTP_USER))
-):
-	raise RuntimeError("For testing app, write your SMTP data into .env-docker file")
+# SMTP_HOST = os.getenv("SMTP_HOST")
+# SMTP_PORT = os.getenv("SMTP_PORT")
+# if SMTP_PORT:
+# 	SMTP_PORT = int(SMTP_PORT)
+# SMTP_USER = os.getenv("SMTP_USER")  # почта логин
+# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # почта пароль
+#
+# if any(
+# 	(var == "null" for var in (SMTP_HOST, SMTP_PORT, SMTP_PASSWORD, SMTP_USER))
+# ):
+# 	raise RuntimeError("For testing app, write your SMTP data into .env-docker file")
 
 # USERS PARAMS
 USER_DEFAULT_ROLE = RoleEnum.LAUNDRY

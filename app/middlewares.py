@@ -2,7 +2,7 @@ import time
 from typing import Callable, Literal, Awaitable, Any
 import datetime
 
-from fastapi import Request, Response, status
+from fastapi import Request, Response
 
 from .utils.logs import log_request_handling_time
 from .static.typing import PathOperation

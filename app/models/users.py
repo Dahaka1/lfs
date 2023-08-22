@@ -30,7 +30,7 @@ class User(Base):
 	hashed_password = Column(String)
 	registered_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 	last_action_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
-	email_confirmed = Column(Boolean, default=False)
+	# email_confirmed = Column(Boolean, default=True)  убрали подтверждение email - оставлю мб на потом
 	region = Column(Enum(RegionEnum))
 
 	@staticmethod
@@ -95,20 +95,20 @@ class User(Base):
 			return
 		return user
 
-	@staticmethod
-	async def confirm_user_email(db: AsyncSession, user: schemas_users.User) -> schemas_users.User:
-		"""
-		Подтвердить Email пользователя.
-		Изменяются:
-		- Пользователь в БД (email_confirmed);
-		- Запись об отправленном коде пользователю в БД.
-		"""
-		query = update(User).where(
-			User.id == user.id
-		).values(email_confirmed=True)
-
-		await db.execute(query)
-		await db.commit()
-
-		return await User.get_user_by_email(email=user.email, db=db)
-
+	# @staticmethod
+	# async def confirm_user_email(db: AsyncSession, user: schemas_users.User) -> schemas_users.User:
+	# 	"""
+	# 	Подтвердить Email пользователя.
+	# 	Изменяются:
+	# 	- Пользователь в БД (email_confirmed);
+	# 	- Запись об отправленном коде пользователю в БД.
+	# 	"""
+	# 	query = update(User).where(
+	# 		User.id == user.id
+	# 	).values(email_confirmed=True)
+	#
+	# 	await db.execute(query)
+	# 	await db.commit()
+	#
+	# 	return await User.get_user_by_email(email=user.email, db=db)
+	#

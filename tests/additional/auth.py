@@ -6,22 +6,22 @@ from httpx import AsyncClient
 from sqlalchemy import delete, update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.auth import RegistrationCode, RefreshToken
+from app.models.auth import RefreshToken
 from app.static.enums import StationStatusEnum, RoleEnum
 from app.utils.general import sa_object_to_dict
 from .stations import StationData, change_station_params
 from .users import change_user_data, UserData
 
 
-async def delete_user_code(user: Any, session: AsyncSession) -> None:
-	"""
-	Удаляет код подтверждения email пользователя.
-	"""
-	if isinstance(user.id, int):  # чтоб не ругался линтер
-		await session.execute(
-			delete(RegistrationCode).where(RegistrationCode.user_id == user.id)
-		)
-		await session.commit()
+# async def delete_user_code(user: Any, session: AsyncSession) -> None:
+# 	"""
+# 	Удаляет код подтверждения email пользователя.
+# 	"""
+# 	if isinstance(user.id, int):  # чтоб не ругался линтер
+# 		await session.execute(
+# 			delete(RegistrationCode).where(RegistrationCode.user_id == user.id)
+# 		)
+# 		await session.commit()
 
 
 async def user_refresh_token_in_db(user_id: int, session: AsyncSession) -> Optional[str]:
@@ -46,21 +46,21 @@ async def delete_user_refresh_token_in_db(user_id: int, session: AsyncSession) -
 	await session.commit()
 
 
-async def do_code_expired(user: Any, session: AsyncSession) -> None:
-	"""
-	Делает код истекшим.
-	"""
-	if isinstance(user.id, int):
-		await session.execute(
-			update(RegistrationCode).
-			where(
-				RegistrationCode.user_id == user.id
-			).
-			values(
-				expires_at=(datetime.datetime.now() - datetime.timedelta(hours=10))
-			)
-		)
-		await session.commit()
+# async def do_code_expired(user: Any, session: AsyncSession) -> None:
+# 	"""
+# 	Делает код истекшим.
+# 	"""
+# 	if isinstance(user.id, int):
+# 		await session.execute(
+# 			update(RegistrationCode).
+# 			where(
+# 				RegistrationCode.user_id == user.id
+# 			).
+# 			values(
+# 				expires_at=(datetime.datetime.now() - datetime.timedelta(hours=10))
+# 			)
+# 		)
+# 		await session.commit()
 
 
 async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"], user: Any,
@@ -90,14 +90,14 @@ async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"
 
 	# _________________________________________________________________________________________________
 
-	if url == "/v1/auth/confirm_email":
-		await change_user_data(user, session, email_confirmed=True)
-		email_already_confirmed_r = await func(**request_params)
-		assert email_already_confirmed_r.status_code == 403, f"{email_already_confirmed_r} status code != 403"
-	else:
-		await change_user_data(user, session, email_confirmed=False)
-		email_not_confirmed_r = await func(**request_params)
-		assert email_not_confirmed_r.status_code == 403, f"{email_not_confirmed_r} status code != 403"
+	# if url == "/v1/auth/confirm_email":
+	# 	await change_user_data(user, session, email_confirmed=True)
+	# 	email_already_confirmed_r = await func(**request_params)
+	# 	assert email_already_confirmed_r.status_code == 403, f"{email_already_confirmed_r} status code != 403"
+	# else:
+	# 	await change_user_data(user, session, email_confirmed=False)
+	# 	email_not_confirmed_r = await func(**request_params)
+	# 	assert email_not_confirmed_r.status_code == 403, f"{email_not_confirmed_r} status code != 403"
 
 	# _________________________________________________________________________________________________
 	user.headers["Authorization"] += "qwerty"
@@ -107,7 +107,7 @@ async def url_auth_test(url: str, method: Literal["get", "post", "put", "delete"
 
 	user.headers["Authorization"] = user.headers["Authorization"].replace("qwerty", str())
 
-	await change_user_data(user, session, email_confirmed=True)
+	# await change_user_data(user, session, email_confirmed=True)
 
 
 async def url_auth_roles_test(url: str, method: Literal["get", "post", "put", "delete"],

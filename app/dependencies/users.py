@@ -43,14 +43,13 @@ async def get_current_active_user(
 ) -> schemas_users.User:
 	"""
 	Функция проверяет, заблокирован ли пользователь, сделавший запрос.
-	+ Подтвержден ли Email.
 
 	И обновляет время последнего действия пользователя.
 	"""
 	if current_user.disabled:
 		raise PermissionsError("Disabled user")
-	if not current_user.email_confirmed:
-		raise PermissionsError("User email is not confirmed")
+	# if not current_user.email_confirmed:
+	# 	raise PermissionsError("User email is not confirmed")
 
 	await User.update_user_last_action(user=current_user, db=db)
 

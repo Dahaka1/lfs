@@ -48,9 +48,9 @@ class User(UserBase):
 		title="Время последнего действия",
 		example=datetime.datetime.now().isoformat()
 	)
-	email_confirmed: bool = Field(
-		title="Подтвержден ли email"
-	)
+	# email_confirmed: bool = Field(
+	# 	title="Подтвержден ли email"
+	# )
 
 	class Config:
 		orm_mode = True

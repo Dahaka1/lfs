@@ -28,7 +28,6 @@ class UserData(BaseModel):
 	password: str
 	role: RoleEnum
 	disabled: bool
-	email_confirmed: bool
 	token: str
 	headers: dict
 	registered_at: datetime.datetime
@@ -102,15 +101,13 @@ def create_user(sync_session: Session, role: RoleEnum | None = None, **kwargs) -
 	return result
 
 
-async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: RoleEnum = None,
-								 confirm_email: bool = False) -> tuple[UserData, schemas_users.User]:
+async def create_authorized_user(ac: AsyncClient, sync_session: Session, role: RoleEnum = None) ->\
+		tuple[UserData, schemas_users.User]:
 	"""
 	Создает авторизованного юзера.
 	Без проверки на ошибки (это не тест, а побочная функция).
 	"""
 	params = dict(sync_session=sync_session, role=role)
-	if confirm_email:
-		params["email_confirmed"] = True
 	user = create_user(**params)
 	access, refresh = await get_user_token(user.get("email"), user.get("password"), ac)
 
@@ -127,7 +124,7 @@ async def create_multiple_users(ac: AsyncClient, sync_session: Session) -> list[
 	"""
 	users = []
 	for role in (RoleEnum.SYSADMIN, RoleEnum.MANAGER, RoleEnum.INSTALLER, RoleEnum.LAUNDRY):
-		user, user_schema = await create_authorized_user(ac, sync_session, role, True)
+		user, user_schema = await create_authorized_user(ac, sync_session, role)
 		users.append(user)
 	return users
 

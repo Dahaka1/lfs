@@ -2,12 +2,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.auth import RegistrationCode
 from app.schemas.schemas_token import RefreshToken, Token
-from app.schemas.schemas_users import User
 from app.utils.general import decode_jwt
 from tests.additional import auth
-from tests.additional.auth import url_auth_test
 from tests.additional.users import change_user_data, get_user_token
 
 
@@ -52,8 +49,6 @@ class TestAuth:
 		self.headers = {
 			"Authorization": f"Bearer {self.token}"
 		}
-
-		await change_user_data(self, session, email_confirmed=True)
 
 		response = await ac.get(
 			"/v1/auth/user",
@@ -182,84 +177,84 @@ class TestAuth:
 		assert invalid_tokens_r.status_code == 401
 
 
-@pytest.mark.usefixtures("generate_authorized_user")
-class TestRegistrationCode:
-	id: int
-	email: str
-	password: str
-	headers: dict
-	token: str | None
-	user_schema: User
-	"""
-	Тестирование кодов подтверждения email.
-	Ограниченное - см. описание проблемы в conftest.
-	"""
-	async def test_request_confirmation_code(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		Создание в БД записи об отправленном коде подтверждения регистрации.
-		Мб, придется подождать в течение таймаута SMTP, пока письмо точно отправится.
-		"""
-		response = await ac.get(
-			"/v1/auth/confirm_email",
-			headers=self.headers
-		)
-
-		assert response.status_code == 200
-
-		code = await RegistrationCode.get_user_last_code(user=self.user_schema, db=session)
-
-		assert code is not None
-
-	async def test_request_confirmation_code_codes_duplicate_error(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- Нельзя получить код, если предыдущий еще не истек.
-		"""
-		for _ in range(2):
-			response = await ac.get(
-				"/v1/auth/confirm_email",
-				headers=self.headers
-			)
-		assert response.status_code == 425
-
-		await auth.delete_user_code(self, session)
-		await url_auth_test("/v1/auth/confirm_email",
-							"get", self,  ac, session)
-
-	async def test_confirm_email_post_errors(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- Код пользователя не найден;
-		- Неправильный введенный код;
-		- Срок действия кода истек;
-		- users auth auto test.
-		"""
-		code_not_found_r = await ac.post(
-			"/v1/auth/confirm_email",
-			headers=self.headers,
-			json={"code": "123456"}
-		)
-		assert code_not_found_r.status_code == 404
-
-		await ac.get(
-			"/v1/auth/confirm_email",
-			headers=self.headers
-		)
-
-		invalid_code_r = await ac.post(
-			"/v1/auth/confirm_email",
-			headers=self.headers,
-			json={"code": "123456"}
-		)
-
-		assert invalid_code_r.status_code == 403
-
-		await auth.do_code_expired(self, session)
-
-		expired_code_r = await ac.post(
-			"/v1/auth/confirm_email",
-			headers=self.headers,
-			json={"code": "123456"}
-		)
-
-		assert expired_code_r.status_code == 408
-
-		await url_auth_test("/v1/auth/confirm_email", 'post', self, ac, session, json={"code": "123456"})
+# @pytest.mark.usefixtures("generate_authorized_user")
+# class TestRegistrationCode:
+# 	id: int
+# 	email: str
+# 	password: str
+# 	headers: dict
+# 	token: str | None
+# 	user_schema: User
+# 	"""
+# 	Тестирование кодов подтверждения email.
+# 	Ограниченное - см. описание проблемы в conftest.
+# 	"""
+# 	async def test_request_confirmation_code(self, ac: AsyncClient, session: AsyncSession):
+# 		"""
+# 		Создание в БД записи об отправленном коде подтверждения регистрации.
+# 		Мб, придется подождать в течение таймаута SMTP, пока письмо точно отправится.
+# 		"""
+# 		response = await ac.get(
+# 			"/v1/auth/confirm_email",
+# 			headers=self.headers
+# 		)
+#
+# 		assert response.status_code == 200
+#
+# 		code = await RegistrationCode.get_user_last_code(user=self.user_schema, db=session)
+#
+# 		assert code is not None
+#
+# 	async def test_request_confirmation_code_codes_duplicate_error(self, ac: AsyncClient, session: AsyncSession):
+# 		"""
+# 		- Нельзя получить код, если предыдущий еще не истек.
+# 		"""
+# 		for _ in range(2):
+# 			response = await ac.get(
+# 				"/v1/auth/confirm_email",
+# 				headers=self.headers
+# 			)
+# 		assert response.status_code == 425
+#
+# 		await auth.delete_user_code(self, session)
+# 		await url_auth_test("/v1/auth/confirm_email",
+# 							"get", self,  ac, session)
+#
+# 	async def test_confirm_email_post_errors(self, ac: AsyncClient, session: AsyncSession):
+# 		"""
+# 		- Код пользователя не найден;
+# 		- Неправильный введенный код;
+# 		- Срок действия кода истек;
+# 		- users auth auto test.
+# 		"""
+# 		code_not_found_r = await ac.post(
+# 			"/v1/auth/confirm_email",
+# 			headers=self.headers,
+# 			json={"code": "123456"}
+# 		)
+# 		assert code_not_found_r.status_code == 404
+#
+# 		await ac.get(
+# 			"/v1/auth/confirm_email",
+# 			headers=self.headers
+# 		)
+#
+# 		invalid_code_r = await ac.post(
+# 			"/v1/auth/confirm_email",
+# 			headers=self.headers,
+# 			json={"code": "123456"}
+# 		)
+#
+# 		assert invalid_code_r.status_code == 403
+#
+# 		await auth.do_code_expired(self, session)
+#
+# 		expired_code_r = await ac.post(
+# 			"/v1/auth/confirm_email",
+# 			headers=self.headers,
+# 			json={"code": "123456"}
+# 		)
+#
+# 		assert expired_code_r.status_code == 408
+#
+# 		await url_auth_test("/v1/auth/confirm_email", 'post', self, ac, session, json={"code": "123456"})

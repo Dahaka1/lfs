@@ -78,7 +78,6 @@ async def update_user(user: schemas_users.UserUpdate, user_id: int, action_by: s
 						user_in_db[key] = val
 				case "email":
 					if action_by.id == user_id and user.email != action_by.email:
-						user_in_db["email_confirmed"] = False
 						user_in_db[key] = val
 					else:
 						pass  # изменить email может только сам пользователь

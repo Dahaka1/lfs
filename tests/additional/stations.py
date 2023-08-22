@@ -145,7 +145,7 @@ async def generate_station(
 	if not user:
 		if not sync_session:
 			raise Exception
-		user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN, confirm_email=True)
+		user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN)
 	station_data = dict(station={
 		"serial": rand_serial(),
 		"is_active": kwargs.get("is_active") or True,

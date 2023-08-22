@@ -1,13 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException, status, Depends, BackgroundTasks
+from fastapi import APIRouter, Body, HTTPException, status, Depends
 from fastapi_cache.decorator import cache
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from .config import CACHE_EXPIRING_DEFAULT
-from .. import tasks
 from ..crud import crud_users
 from ..dependencies import get_async_session, get_sync_session
 from ..dependencies.roles import get_sysadmin_user
@@ -47,7 +46,7 @@ async def create_user(
 	user: Annotated[schemas_users.UserCreate, Body(embed=True, title="Параметры пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	sync_db: Annotated[Session, Depends(get_sync_session)],
-	send_verification_email_code: BackgroundTasks
+	# send_verification_email_code: BackgroundTasks
 ):
 	"""
 	Регистрация пользователя по email.
@@ -63,7 +62,7 @@ async def create_user(
 
 	created_user = await crud_users.create_user(user, db=db)
 
-	send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user, sync_db)
+	# send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user, sync_db)
 
 	return created_user
 

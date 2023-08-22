@@ -2,7 +2,6 @@ from pydantic import BaseModel
 
 from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations, \
 	schemas_washing as washing, schemas_token as tokens
-from ..schemas.schemas_email_code import RegistrationCode
 from ..schemas.schemas_users import User
 
 tags_metadata = [
@@ -89,34 +88,34 @@ logout_get = {
 	}
 }
 
+#
+# confirm_email_post_responses = {
+# 	200: {
+# 		"description": "При успешном подтверждении кода возвращаются объекты пользователя и кода (с обновленными данными)",
+# 		"model": dict[str, User | RegistrationCode]
+# 	},
+# 	404: {
+# 		"description": "User code not found"
+# 	},
+# 	403: {
+# 		"description": "User email already confirmed / Disabled user / Invalid confirmation code"
+# 	},
+# 	408: {
+# 		"description": "Confirmation code expired"
+# 	}
+# }
 
-confirm_email_post_responses = {
-	200: {
-		"description": "При успешном подтверждении кода возвращаются объекты пользователя и кода (с обновленными данными)",
-		"model": dict[str, User | RegistrationCode]
-	},
-	404: {
-		"description": "User code not found"
-	},
-	403: {
-		"description": "User email already confirmed / Disabled user / Invalid confirmation code"
-	},
-	408: {
-		"description": "Confirmation code expired"
-	}
-}
-
-confirm_email_get_responses = {
-	200: {
-		"description": "Пустой положительный ответ в случае успешной отправки кода пользователю."
-	},
-	403: {
-		"description": "User email already confirmed / Disabled user"
-	},
-	425: {
-		"description": "Active user confirmation code already exists"
-	}
-}
+# confirm_email_get_responses = {
+# 	200: {
+# 		"description": "Пустой положительный ответ в случае успешной отправки кода пользователю."
+# 	},
+# 	403: {
+# 		"description": "User email already confirmed / Disabled user"
+# 	},
+# 	425: {
+# 		"description": "Active user confirmation code already exists"
+# 	}
+# }
 
 create_log_post = {
 	201: {
@@ -533,8 +532,8 @@ for _ in [
 	login_post,
 	refresh_access_token_get,
 	logout_get,
-	confirm_email_post_responses,
-	confirm_email_get_responses,
+	# confirm_email_post_responses,
+	# confirm_email_get_responses,
 	read_users_get,
 	read_users_me_get,
 	read_user_get,

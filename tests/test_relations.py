@@ -91,7 +91,7 @@ class TestLaundryStations:
 			url,
 			headers=self.sysadmin.headers
 		)
-		assert r.status_code == 409s
+		assert r.status_code == 409
 
 	async def test_add_laundry_station_with_invalid_user_role(self, session: AsyncSession, ac: AsyncClient):
 		url = f"/v1/rel/laundry_stations/{self.station.id}?user_id={self.installer.id}"

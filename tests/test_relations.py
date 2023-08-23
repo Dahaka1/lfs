@@ -82,6 +82,17 @@ class TestLaundryStations:
 			)
 		assert r.status_code == 409
 
+	async def test_add_laundry_station_with_related_station(self, session: AsyncSession, ac: AsyncClient,
+															sync_session: Session):
+		user, user_schema = await users_funcs.create_authorized_user(ac, sync_session, RoleEnum.LAUNDRY)
+		station_id = (await self.generate_relations(user, ac, amount=1))[0]
+		url = f"/v1/rel/laundry_stations/{station_id}?user_id={self.laundry.id}"
+		r = await ac.post(
+			url,
+			headers=self.sysadmin.headers
+		)
+		assert r.status_code == 409s
+
 	async def test_add_laundry_station_with_invalid_user_role(self, session: AsyncSession, ac: AsyncClient):
 		url = f"/v1/rel/laundry_stations/{self.station.id}?user_id={self.installer.id}"
 		r = await ac.post(

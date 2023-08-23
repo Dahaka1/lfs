@@ -4,6 +4,7 @@ from typing import Any, Sequence
 from sqlalchemy import select, insert, delete, Row, RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.exc import IntegrityError
 from loguru import logger
 
 from ...schemas.schemas_stations import StationGeneralParams
@@ -84,7 +85,10 @@ class CRUDLaundryStation(LaundryStationManagerBase):
 		if self._is_relation:
 			raise CreatingError(f"{self} already exists")
 		query = insert(self._model).values(user_id=self.user.id, station_id=self.station.id)
-		await self._db.execute(query)
+		try:
+			await self._db.execute(query)
+		except IntegrityError:
+			raise CreatingError(f"Station ID {self.station.id} already related")
 		await self._db.commit()
 		logger.info(f"{self} was successfully created")
 		return await self._all()

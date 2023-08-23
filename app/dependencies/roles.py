@@ -8,13 +8,21 @@ from ..schemas.schemas_users import User
 from ..static.enums import RoleEnum
 
 
+roles = {
+	RoleEnum.MANAGER: (RoleEnum.MANAGER, RoleEnum.SYSADMIN),
+	RoleEnum.REGION_MANAGER: (RoleEnum.REGION_MANAGER, RoleEnum.MANAGER, RoleEnum.SYSADMIN),
+	RoleEnum.INSTALLER: (RoleEnum.INSTALLER, RoleEnum.REGION_MANAGER,
+						 RoleEnum.MANAGER, RoleEnum.SYSADMIN)
+}
+
+
 def get_sysadmin_user(
 	current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> User:
 	"""
 	Проверка SYSADMIN-прав пользователя.
 	"""
-	if current_user.role.value != RoleEnum.SYSADMIN.value:
+	if current_user.role != RoleEnum.SYSADMIN:
 		raise PermissionsError()
 	return current_user
 
@@ -25,7 +33,18 @@ def get_manager_user(
 	"""
 	Проверка MANAGER-прав пользователя.
 	"""
-	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value):
+	if current_user.role not in roles[RoleEnum.MANAGER]:
+		raise PermissionsError()
+	return current_user
+
+
+def get_region_manager_user(
+	current_user: Annotated[User, Depends(get_current_active_user)]
+) -> User:
+	"""
+	Проверка REGION_MANAGER-прав пользователя.
+	"""
+	if current_user.role not in roles[RoleEnum.REGION_MANAGER]:
 		raise PermissionsError()
 	return current_user
 
@@ -36,19 +55,8 @@ def get_installer_user(
 	"""
 	Проверка INSTALLER-прав пользователя.
 	"""
-	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value, RoleEnum.INSTALLER.value):
+	if current_user.role not in roles[RoleEnum.INSTALLER]:
 		raise PermissionsError()
 	return current_user
 
-
-def get_laundry_user(
-	current_user: Annotated[User, Depends(get_current_active_user)]
-) -> User:
-	"""
-	Проверка LAUNDRY-прав пользователя.
-	"""
-	if current_user.role.value not in (RoleEnum.MANAGER.value, RoleEnum.SYSADMIN.value,
-								 RoleEnum.INSTALLER.value, RoleEnum.LAUNDRY.value):
-		raise PermissionsError()
-	return current_user
 

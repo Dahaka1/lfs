@@ -1,8 +1,7 @@
 from pydantic import BaseModel
 
 from ..schemas import schemas_logs as logs, schemas_users as users, schemas_stations as stations, \
-	schemas_washing as washing, schemas_token as tokens
-from ..schemas.schemas_users import User
+	schemas_washing as washing, schemas_token as tokens, schemas_relations as rels
 
 tags_metadata = [
 	{
@@ -36,6 +35,10 @@ tags_metadata = [
 	{
 		"name": "washing_services_management",
 		"description": "Управление данными стиральных средств, стиральных машин."
+	},
+	{
+		"name": "relations",
+		"description": "Побочные связи между основными сущностями"
 	}
 ]
 
@@ -44,12 +47,13 @@ main_responses = {
 		"description": "Приветственное сообщение (сервер доступен)",
 		"content": {
 			"application/json": {
-				"example": {"message": "Server is available"}
+				"example": {
+					"message": "Server is available"
+				}
 			}
 		}
 	}
 }
-
 
 login_post = {
 	200: {
@@ -79,7 +83,9 @@ logout_get = {
 		"description": "ИД пользователя в случае успешного выхода",
 		"content": {
 			"application/json": {
-				"example": {"logout": "user_id"}
+				"example": {
+					"logout": "user_id"
+				}
 			}
 		}
 	},
@@ -161,7 +167,7 @@ get_station_logs_get = {
 		"model": list[logs.Log]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -174,7 +180,7 @@ get_station_errors_get = {
 		"model": list[logs.Error]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -187,7 +193,7 @@ read_users_get = {
 		"model": list[users.User]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	}
 }
 
@@ -207,7 +213,7 @@ read_users_me_get = {
 		"model": users.User
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	}
 }
 
@@ -217,7 +223,7 @@ read_user_get = {
 		"model": users.User
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	}
 }
 
@@ -227,7 +233,7 @@ update_user_put = {
 		"model": users.User
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	},
 	404: {
 		"description": "User not found"
@@ -245,7 +251,7 @@ delete_user_delete = {
 		"model": DeletedUser
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	},
 	404: {
 		"description": "User not found"
@@ -258,7 +264,7 @@ read_all_stations_get = {
 		"model": list[stations.StationGeneralParams]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	},
 	422: {
 		"description": "Invalid station *UUID* data"
@@ -271,7 +277,7 @@ create_station_post = {
 		"model": stations.Station
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed"
+		"description": "Permissions error / Disabled user "
 	}
 }
 
@@ -279,7 +285,8 @@ read_stations_params_get = {
 	200: {
 		"description": "Запрошенные станцией данные",
 		"model": stations.StationGeneralParamsForStation | stations.StationControl | \
-				stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[washing.WashingMachine]
+				 stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[
+					 washing.WashingMachine]
 	},
 	401: {
 		"description": "Incorrect station UUID"
@@ -312,10 +319,11 @@ read_station_partial_by_user_get = {
 	200: {
 		"description": "Запрошенные данные станции",
 		"model": stations.StationGeneralParams | stations.StationControl | \
-				stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[washing.WashingMachine]
+				 stations.StationSettings | list[stations.StationProgram] | list[washing.WashingAgent] | list[
+					 washing.WashingMachine]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -328,7 +336,7 @@ read_station_all_by_user = {
 		"model": stations.Station
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -341,7 +349,7 @@ update_station_general_put = {
 		"model": stations.StationGeneralParams | stations.StationGeneralParamsForStation
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -354,7 +362,7 @@ update_station_control_put = {
 		"model": stations.StationControl
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -370,7 +378,7 @@ update_station_settings_put = {
 		"model": stations.StationSettings
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -386,7 +394,7 @@ create_station_program_post = {
 		"model": list[stations.StationProgram]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -403,7 +411,7 @@ update_station_program_put = {
 		"model": stations.StationProgram
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found /"
@@ -419,15 +427,17 @@ delete_station_program_delete = {
 		"description": "ИД удаленной программы, ИД станции",
 		"content": {
 			"application/json": {
-				"example": {"deleted": {
-					"program_step": "program step",
-					"station_id": "station id"
-				}}
+				"example": {"deleted":
+					{
+						"program_step": "program step",
+						"station_id": "station id"
+					}
+				}
 			}
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -442,12 +452,14 @@ delete_station_delete = {
 		"description": "ИД удаленной станции",
 		"content": {
 			"application/json": {
-				"example": {"deleted": "station id"}
+				"example": {
+					"deleted": "station id"
+				}
 			}
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -460,7 +472,7 @@ create_station_washing_services_post = {
 		"model": washing.WashingAgentCreate | washing.WashingMachineCreate
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -476,7 +488,7 @@ update_station_washing_agent_put = {
 		"model": washing.WashingAgent
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -493,7 +505,7 @@ update_station_washing_machine_put = {
 		"model": washing.WashingMachine
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -509,15 +521,18 @@ delete_station_washing_services_delete = {
 		"description": "ИД удаленной стиральной машины / удаленного стирального средства",
 		"content": {
 			"application/json": {
-				"example": {"deleted": {
-					"OBJ_number": "number",
-					"station_id": "station id"
-				}}
+				"example": {
+					"deleted":
+						{
+							"OBJ_number": "number",
+							"station_id": "station id"
+						}
+				}
 			}
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / User email not confirmed / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -525,6 +540,65 @@ delete_station_washing_services_delete = {
 	},
 	409: {
 		"description": "Deleting error (data conflict)"
+	}
+}
+
+add_laundry_station_post = {
+	201: {
+		"description": "Все станции пользователя, включая созданную",
+		"model": rels.LaundryStations
+	},
+	403: {
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+	},
+	409: {
+		"description": "Creating error (data conflict)"
+	},
+	404: {
+		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
+					   " / User not found"
+	}
+}
+
+get_laundry_stations_get = {
+	200: {
+		"description": "Все станции пользователя",
+		"model": rels.LaundryStations
+	},
+	403: {
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+	},
+	400: {
+		"description": "Getting data error (data conflict)"
+	},
+	404: {
+		"description": "User not found"
+	}
+}
+
+delete_laundry_station_delete = {
+	200: {
+		"description": "Удаленное отношение станции и пользователя",
+		"content": {
+			"application/json": {
+				"example": {
+					"deleted": {
+						"user_id": "user id",
+						"station_id": "station id"
+					}
+				}
+			}
+		}
+	},
+	403: {
+		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+	},
+	400: {
+		"description": "Deleting data error (data conflict)"
+	},
+	404: {
+		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
+					   " / User not found"
 	}
 }
 
@@ -554,7 +628,9 @@ for _ in [
 	update_station_washing_machine_put,
 	delete_station_washing_services_delete,
 	get_station_logs_get,
-	delete_station_delete
+	delete_station_delete,
+	add_laundry_station_post,
+	get_laundry_stations_get,
+	delete_laundry_station_delete
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})
-

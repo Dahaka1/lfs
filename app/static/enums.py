@@ -7,6 +7,7 @@ from ..static import strings as s
 class RoleEnum(Enum):
 	SYSADMIN = "sys"
 	MANAGER = "manager"
+	REGION_MANAGER = "region_manager"
 	INSTALLER = "installer"
 	LAUNDRY = "owner"
 

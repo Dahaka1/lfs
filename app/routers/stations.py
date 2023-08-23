@@ -33,10 +33,7 @@ async def read_all_stations(
 	Основные параметры станций будут меняться редко, поэтому здесь делаю кэширование
 	 ответа на час. Можно сократить время, если потребуется.
 	"""
-	try:
-		return await crud_stations.read_all_stations(db=db)
-	except GettingDataError as e:
-		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+	return await crud_stations.read_all_stations(db=db)
 
 
 @router.post("/", response_model=schemas_stations.Station, status_code=status.HTTP_201_CREATED,

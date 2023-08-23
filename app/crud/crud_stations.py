@@ -1,7 +1,6 @@
 import datetime
 import uuid
 
-import pydantic
 from pydantic import UUID4
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +16,7 @@ from ..utils.general import sa_objects_dicts_list, encrypt_data, read_location
 from ..crud import crud_logs as log
 
 
-async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
+async def read_all_stations(db: AsyncSession):
 	"""
 	Возвращает pydantic-модели станций (основные параметры).
 	"""
@@ -25,15 +24,7 @@ async def read_all_stations(db: AsyncSession) -> list[schemas_stations.StationGe
 	result = await db.execute(query)
 	stations = sa_objects_dicts_list(result.scalars().all())
 
-	result = []
-	for station in stations:
-		try:
-			station_obj = schemas_stations.StationGeneralParams(**station)
-		except pydantic.ValidationError:
-			raise GettingDataError(f"Invalid station {station['id']} data")
-		result.append(station_obj)
-
-	return result
+	return stations
 
 
 async def create_station(db: AsyncSession,

@@ -7,13 +7,14 @@ import config
 from ..static import openapi
 from ..dependencies.stations import get_current_station, get_station_by_id
 from ..dependencies import get_async_session
+from ..dependencies.users import get_current_active_user
 from ..schemas.schemas_stations import StationGeneralParams
 from ..schemas.schemas_logs import ErrorCreate, LogCreate, Log, Error
 from ..schemas.schemas_users import User
 from ..crud.crud_logs import CRUDLog
 from ..static.enums import LogTypeEnum, ErrorTypeEnum, RoleEnum
 from ..exceptions import ValidationError, UpdatingError, PermissionsError
-from ..dependencies.roles import get_laundry_user, get_manager_user
+from ..dependencies.roles import get_manager_user
 
 router = APIRouter(
 	prefix="/logs",
@@ -92,7 +93,7 @@ async def create_error(
 
 @router.get("/log/station/{station_id}", response_model=list[Log], responses=openapi.get_station_logs_get)
 async def get_station_logs(
-	current_user: Annotated[User, Depends(get_laundry_user)],
+	current_user: Annotated[User, Depends(get_current_active_user)],
 	station: Annotated[StationGeneralParams, Depends(get_station_by_id)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	limit: Annotated[int, Query(title="Количество записей", ge=1,
@@ -103,7 +104,7 @@ async def get_station_logs(
 	Получение логов станции пользователем.
 	По умолчанию возвращаются только 100 записей.
 
-	Доступно для LAUNDRY-пользователей и выше.
+	Доступно для пользователей с любой ролью.
 	"""
 	return await CRUDLog.get_station_logs(station, db, limit, code)
 

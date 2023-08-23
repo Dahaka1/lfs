@@ -6,7 +6,7 @@ from loguru import logger
 import config
 from config import LOGGING_PARAMS, CUSTOM_EXCEPTIONS_OUTPUT_PARAMS
 from . import fastapi_cache_init, check_connections
-from .routers import auth, users, stations, management, logs
+from .routers import auth, users, stations, management, logs, relations
 from .static import app_description
 from .static.openapi import tags_metadata, main_responses
 from .static.typing import PathOperation
@@ -29,7 +29,7 @@ app = FastAPI(
 )
 
 api_router = APIRouter(prefix="/v1")
-for r in (auth, users, stations, management, logs):
+for r in (auth, users, stations, management, logs, relations):
 	api_router.include_router(r.router)
 
 for r in (users, ):

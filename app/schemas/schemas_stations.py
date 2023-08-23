@@ -42,6 +42,9 @@ class StationGeneralParams(BaseModel):
 			raise ValueError(f"Invalid station location data")
 		return location
 
+	class Config:
+		orm_mode = True
+
 
 class StationGeneralParamsInDB(StationGeneralParams):
 	"""

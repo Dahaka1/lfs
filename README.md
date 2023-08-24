@@ -38,4 +38,5 @@ docker-compose up
 - [x] Nginx deploying;
 - [x] SSL securing;
 - [ ] Think, refactor all stations methods to OOP-reasonable;
-- [ ] Optimize DB-queries amount in station methods.
+- [ ] Optimize DB-queries amount in station methods;
+- [ ] Clear it all and rewrite =) (not-scalable arch).

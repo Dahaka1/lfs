@@ -180,12 +180,13 @@ async def generate_users(request):
 	with SyncSession() as session:
 		async with AsyncClient(app=app, base_url="http://test") as ac:
 			users = await create_multiple_users(ac, session)
-	sysadmin, manager, installer, laundry = users
+	sysadmin, manager, installer, laundry, region_manager = users
 
 	request.cls.sysadmin = sysadmin
 	request.cls.manager = manager
 	request.cls.installer = installer
 	request.cls.laundry = laundry
+	request.cls.region_manager = region_manager
 
 
 @pytest.fixture(scope="function")

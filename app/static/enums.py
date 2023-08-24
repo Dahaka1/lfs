@@ -33,6 +33,19 @@ class WashingServicesEnum(Enum):
 	WASHING_AGENTS = "agents"
 
 
+class UserSortingEnum(Enum):
+	NAME = "name"
+	ROLE = "role"
+	LAST_ACTION = "last_action"
+	REGION = "region"
+
+
+class LaundryStationSorting(Enum):
+	NAME = "name"
+	STATION_SERIAL = "station_serial"
+	REGION = "region"
+
+
 class RegionEnum(Enum):
 	CENTRAL = "Центральный"
 	NORTHWEST = "Северо-западный"

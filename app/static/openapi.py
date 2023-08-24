@@ -602,6 +602,26 @@ delete_laundry_station_delete = {
 	}
 }
 
+get_all_laundry_stations_get = {
+	200: {
+		"description": "Отношения <собственник: станции>",
+		"model": list[rels.LaundryStationRelation]
+	},
+	403: {
+		"description": "Permissions error / Disabled user"
+	}
+}
+
+get_all_not_related_stations_get = {
+	200: {
+		"description": "Все станции, не имеющие собственника",
+		"model": list[stations.StationGeneralParams]
+	},
+	403: {
+		"description": "Permissions error / Disabled user"
+	}
+}
+
 for _ in [
 	login_post,
 	refresh_access_token_get,
@@ -631,6 +651,8 @@ for _ in [
 	delete_station_delete,
 	add_laundry_station_post,
 	get_laundry_stations_get,
-	delete_laundry_station_delete
+	delete_laundry_station_delete,
+	get_all_laundry_stations_get,
+	get_all_not_related_stations_get
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})

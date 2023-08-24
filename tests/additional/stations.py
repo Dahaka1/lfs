@@ -186,7 +186,7 @@ async def change_station_params(station: StationData, session: AsyncSession, **k
 	"""
 	for k, v in kwargs.items():
 		match k:
-			case "is_active" | "is_protected":
+			case "is_active" | "is_protected" | "region":
 				query = update(Station).where(Station.id == station.id).values(**{k: v})
 			case "status" | "washing_machine" | "washing_agents" | "program_step":
 				query = update(StationControl).where(StationControl.station_id == station.id).values(

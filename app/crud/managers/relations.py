@@ -3,8 +3,8 @@ from typing import Any, Sequence
 
 from sqlalchemy import select, insert, delete, Row, RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import exists
 from loguru import logger
 
 from ...schemas.schemas_stations import StationGeneralParams
@@ -13,21 +13,23 @@ from ...schemas.schemas_users import User
 from ...models.relations import LaundryStation
 from ...static.typing import SAQueryInstance
 from ...exceptions import CreatingError, DeletingError, GettingDataError
-from ...static.enums import RoleEnum
+from ...static.enums import RoleEnum, LaundryStationSorting, RegionEnum
 from ...models.stations import Station
 from ...utils.general import sa_objects_dicts_list
+from ...models import users as user_model
 
 
 class LaundryStationManagerBase:
 	"""
 	Определение отношений между собственником и станцией.
 	"""
+	_model = LaundryStation
+
 	def __init__(self, user: User, db: AsyncSession, station: StationGeneralParams = None):
 		self.station: StationGeneralParams | None = station
 		self.user = user
 		self._is_relation: bool = False
 		self._db = db
-		self._model = LaundryStation
 
 	async def __aenter__(self):
 		if self.station:
@@ -66,7 +68,7 @@ class CRUDLaundryStation(LaundryStationManagerBase):
 	user: User
 	_is_relation: bool
 	_db: AsyncSession
-	_model: DeclarativeMeta
+	_model: LaundryStation
 
 	def _check(self, err: Any) -> None:
 		if self.user.role != RoleEnum.LAUNDRY:
@@ -109,3 +111,69 @@ class CRUDLaundryStation(LaundryStationManagerBase):
 		await self._db.commit()
 		logger.info(f"{self} was successfully deleted")
 		return {"deleted": {"user_id": self.user.id, "station_id": self.station.id}}
+
+	@staticmethod
+	async def _get_relation_user_and_station(data: list[dict[str, Any]], db: AsyncSession) -> \
+		list[schema.LaundryStationRelation]:
+		user_ids = (rel["user_id"] for rel in data)
+		users = sa_objects_dicts_list((await db.execute(
+			select(user_model.User).
+			where(user_model.User.id.in_(user_ids))
+		)).scalars().all())
+		station_ids = (rel["station_id"] for rel in data)
+		stations = sa_objects_dicts_list((await db.execute(
+			select(Station).where(Station.id.in_(station_ids))
+		)).scalars().all())
+		result = []
+		for rel in data:
+			user_id = rel["user_id"]
+			user = next(u for u in users if u["id"] == user_id)
+			station_id = rel["station_id"]
+			station = next(s for s in stations if s["id"] == station_id)
+			result.append(schema.LaundryStationRelation(**{"user": user, "station": station}))
+		return result
+
+	@classmethod
+	async def get_all_relations(cls, db: AsyncSession, user: User,
+								order_by: LaundryStationSorting, desc: bool) -> \
+		list[schema.LaundryStationRelation]:
+		"""
+		В методе _all - получение станций по пользователю.
+		В этом методе - получение вообще всех отношений по всем пользователям (список зависит от роли).
+
+		ПОКА собственников немного, сделаю сортировку и фильтрацию средствами языка.
+		Не разобрался, как избежать кучи запросов с SA.
+		"""
+		query = select(cls._model)
+		if user.role == RoleEnum.REGION_MANAGER:
+			query = query.join(user_model.User).where(
+				user_model.User.region == user.region
+			)
+		result = sa_objects_dicts_list((await db.execute(query)).scalars().all())
+		objs = await cls._get_relation_user_and_station(result, db)
+		ordering = {
+			LaundryStationSorting.STATION_SERIAL: {"key": lambda rel: int(rel.station.serial.lstrip("0"))},
+			LaundryStationSorting.NAME: {"key": lambda rel: rel.user.last_name},
+			LaundryStationSorting.REGION: {"key": lambda rel: rel.user.region.value}
+		}
+		ordering_params = ordering[order_by]
+		if desc:
+			ordering_params["reverse"] = True
+
+		return sorted(objs, **ordering_params)
+
+	@classmethod
+	async def get_all_not_related_stations(cls, db: AsyncSession, user: User,
+										   region: RegionEnum | None):
+		"""
+		:rtype: schemas_stations.StationGeneralParams
+		"""
+		stmt = exists().where(cls._model.station_id == Station.id)
+		query = select(Station).filter(~stmt)
+		if user.role == RoleEnum.REGION_MANAGER:
+			query = query.where(Station.region == user.region)
+		else:
+			if region:
+				query = query.where(Station.region == region)
+		result = await db.execute(query)
+		return result.scalars().all()

@@ -62,7 +62,7 @@ def generate_user_data() -> dict[str, str]:
 	data = {
 		"email": f"autotest_{random.randrange(10_000_000)}@gmail.com",
 		"password": str(random.randrange(10_000_000, 20_000_000)),
-		"first_name": random.choice(("Andrew", "Petr", "Ivan")),
+		"first_name": random.choice(("Andrew", "Petr", "Ivan", "Sidr")),
 		"last_name": random.choice(("Petrov", "Sidorov", "Ivanov"))
 	}
 	return data
@@ -123,7 +123,8 @@ async def create_multiple_users(ac: AsyncClient, sync_session: Session) -> list[
 	Создает авторизованных и подтвержденных пользователей по каждой роли.
 	"""
 	users = []
-	for role in (RoleEnum.SYSADMIN, RoleEnum.MANAGER, RoleEnum.INSTALLER, RoleEnum.LAUNDRY):
+	for role in (RoleEnum.SYSADMIN, RoleEnum.MANAGER, RoleEnum.INSTALLER, RoleEnum.LAUNDRY,
+				 RoleEnum.REGION_MANAGER):
 		user, user_schema = await create_authorized_user(ac, sync_session, role)
 		users.append(user)
 	return users

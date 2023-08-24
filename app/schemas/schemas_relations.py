@@ -10,3 +10,11 @@ class LaundryStations(BaseModel):
 
 	class Config:
 		orm_mode = True
+
+
+class LaundryStationRelation(BaseModel):
+	user: User
+	station: StationGeneralParams
+
+	class Config:
+		orm_mode = True

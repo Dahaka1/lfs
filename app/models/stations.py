@@ -48,6 +48,7 @@ class Station(Base):
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 	region = Column(Enum(RegionEnum))
 
+
 	@staticmethod
 	async def relations(db: AsyncSession, station: schemas_stations.StationGeneralParams) -> \
 		list[StationSettings, StationControl]:

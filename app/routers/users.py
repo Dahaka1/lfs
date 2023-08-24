@@ -4,11 +4,10 @@ from fastapi import APIRouter, Body, HTTPException, status, Depends
 from fastapi_cache.decorator import cache
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 from .config import CACHE_EXPIRING_DEFAULT
 from ..crud import crud_users
-from ..dependencies import get_async_session, get_sync_session
+from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user
 from ..dependencies.users import get_current_active_user, get_user_id
 from ..exceptions import PermissionsError
@@ -45,7 +44,7 @@ async def read_users(
 async def create_user(
 	user: Annotated[schemas_users.UserCreate, Body(embed=True, title="Параметры пользователя")],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
-	sync_db: Annotated[Session, Depends(get_sync_session)],
+	# sync_db: Annotated[Session, Depends(get_sync_session)],
 	# send_verification_email_code: BackgroundTasks
 ):
 	"""
@@ -53,10 +52,10 @@ async def create_user(
 	Отправка кода подтверждения email.
 
 	По умолчанию роль пользователя: LAUNDRY (прачечная).
+	Сделать SYSADMIN-пользователя можно только напрямую из БД.
+	Далее он может создавать пользователей с нужными ролями (по другому методу).
 	"""
-	query = select(User).where(User.email == user.email)
-	result = await db.execute(query)
-	existing_user = result.scalar()
+	existing_user = await User.get_user_by_email(db, user.email)
 	if existing_user:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
@@ -65,6 +64,24 @@ async def create_user(
 	# send_verification_email_code.add_task(tasks.send_verifying_email_code, created_user, sync_db)
 
 	return created_user
+
+
+@router.post("/user", response_model=schemas_users.User,
+			 responses=openapi.create_user_by_sysadmin_post, status_code=status.HTTP_201_CREATED)
+async def create_user_by_sysadmin(
+	current_user: Annotated[schemas_users.User, Depends(get_sysadmin_user)],
+	user: Annotated[schemas_users.UserCreateBySysadmin, Body(embed=True, title="Параметры пользователя")],
+	db: Annotated[AsyncSession, Depends(get_async_session)]
+):
+	"""
+	Создание пользователя SYSADMIN-пользователем.
+	Метод отличается от основного тем, что можно выбрать роль пользователя.
+	"""
+	existing_user = await User.get_user_by_email(db, user.email)
+	if existing_user:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+	return await crud_users.create_user(user, db, role=user.role)
 
 
 @special_router.get("/user", responses=openapi.read_users_me_get, response_model=schemas_users.User)
@@ -86,7 +103,7 @@ async def read_user(
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
-	Получение данных аккаунта пользователем.
+	Получение данных аккаунта пользователя.
 
 	Получить данные могут:
 	- Сам пользователь;

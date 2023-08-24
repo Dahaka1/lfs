@@ -638,6 +638,20 @@ release_station_patch = {
 	}
 }
 
+create_user_by_sysadmin_post = {
+	201: {
+		"description": "Созданный пользователь.",
+		"model": users.User
+	},
+	409: {
+		"description": "Email already registered"
+	},
+	403: {
+		"description": "Permissions error / Disabled user"
+	}
+}
+
+
 for _ in [
 	login_post,
 	refresh_access_token_get,
@@ -670,6 +684,7 @@ for _ in [
 	delete_laundry_station_delete,
 	get_all_laundry_stations_get,
 	get_all_not_related_stations_get,
-	release_station_patch
+	release_station_patch,
+	create_user_by_sysadmin_post
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})

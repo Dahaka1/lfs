@@ -77,6 +77,41 @@ class TestUsers:
 		)
 		assert user_in_db.scalar()
 
+	async def test_create_user_by_sysadmin(self, session: AsyncSession, ac: AsyncClient):
+		user_data = dict(user={
+			"first_name": "Test",
+			"last_name": "Test",
+			"region": RegionEnum.NORTHWEST.value,
+			"email": "asdasdasdceeegt@gmail.com",
+			"password": "qwerty123",
+			"role": RoleEnum.REGION_MANAGER.value
+		})
+		r = await ac.post(
+			"/v1/users/user",
+			headers=self.sysadmin.headers,
+			json=user_data
+		)
+		assert r.status_code == 201
+		r = users.User(**r.json())
+		assert r.role.value == user_data["user"]["role"]
+		user_in_db = await users_funcs.get_user_by_id(r.id, session)
+		assert user_in_db.role.value == user_data["user"]["role"]
+
+	async def test_create_user_by_sysadmin_autotests(self, session: AsyncSession, ac: AsyncClient):
+		url = "/v1/users/user"
+		json = dict(user={
+			"first_name": "Test",
+			"last_name": "Test",
+			"region": RegionEnum.NORTHWEST.value,
+			"email": "asdasdasdceeegt@gmail.com",
+			"password": "qwerty123",
+			"role": RoleEnum.REGION_MANAGER.value
+		})
+
+		await auth.url_auth_test(url, "post", self.sysadmin, ac, session, json=json)
+		await auth.url_auth_roles_test(url, "post", RoleEnum.SYSADMIN, self.sysadmin,
+									   session, ac, json=json)
+
 	async def test_create_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Нельзя создать пользователя с уже существующим email.

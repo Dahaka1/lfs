@@ -27,18 +27,23 @@ async def get_user(user_id: int, db: AsyncSession):
 	return sa_object_to_dict(result.scalar())
 
 
-async def create_user(user: schemas_users.UserCreate, db: AsyncSession):
+async def create_user(user: schemas_users.UserCreate, db: AsyncSession,
+					role: RoleEnum = None):
 	"""
 	:return: Возвращает словарь с данными созданного юзера.
 	"""
 	hashed_password = get_data_hash(user.password)
-	query = insert(User).values(
+	user_params = dict(
 		email=user.email,
 		first_name=user.first_name,
 		last_name=user.last_name,
 		hashed_password=hashed_password,
 		region=user.region
 	)
+	if role:
+		user_params["role"] = role
+
+	query = insert(User).values(**user_params)
 
 	await db.execute(query)
 	await db.commit()

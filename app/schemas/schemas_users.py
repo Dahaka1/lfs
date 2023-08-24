@@ -30,6 +30,13 @@ class UserCreate(UserBase):
 	password: str = Field(min_length=8)
 
 
+class UserCreateBySysadmin(UserCreate):
+	role: RoleEnum = Field(
+		title="Права пользователя",
+		example=RoleEnum.REGION_MANAGER.value
+	)
+
+
 class User(UserBase):
 	id: int = Field(ge=1)
 	role: RoleEnum = Field(

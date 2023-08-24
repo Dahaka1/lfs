@@ -47,6 +47,7 @@ DEFAULT_STATION_WASHING_MACHINES_AMOUNT = 4  # количество стирал
 DEFAULT_STATION_WASHING_AGENTS_AMOUNT = 5  # количество стиральных средств у станции по умолчанию
 DEFAULT_STATION_IS_PROTECTED = False  # включена ли защита станции по умолчанию
 DEFAULT_STATION_STATUS = None  # статус станции по умолчанию
+MAX_STATION_COMMENT_LENGTH = 200  # максимальный размер комментария по станции
 # (если выключена - статус только нулевой)
 MIN_STATION_WASHING_AGENTS_AMOUNT = 1  # минимальное количество стиральных средств у станции
 MIN_STATION_WASHING_MACHINES_AMOUNT = 1  # минимальное количество стиральных машин у станции

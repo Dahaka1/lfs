@@ -32,7 +32,8 @@ class StationGeneralParams(BaseModel):
 	is_protected: bool = Field(title='"Под охраной"/нет')
 	location: dict = Field(title="Координаты местоположения станции")
 	region: RegionEnum = Field(title="Регион станции")
-	comment: Optional[str] = Field(title="Комментарий (заметка) о станции")
+	comment: Optional[str] = Field(title="Комментарий (заметка) о станции",
+								   max_length=services.MAX_STATION_COMMENT_LENGTH)
 
 	@validator("location")
 	def validate_location(cls, location):
@@ -76,6 +77,8 @@ class StationGeneralParamsUpdate(BaseModel):
 	address: Optional[str] = Field(max_length=200, title="Физический адрес местоположения станции",
 						 example="Санкт-Петербург, ул. Дыбенко, 26")
 	region: Optional[RegionEnum] = Field(title="Регион станции")
+	comment: Optional[str] = Field(title="Комментарий (заметка) о станции",
+								   max_length=services.MAX_STATION_COMMENT_LENGTH)
 
 	@root_validator()
 	def validate_wifi_data(cls, values):
@@ -310,7 +313,8 @@ class StationCreate(BaseModel):
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
 	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
 	wifi_password: str = Field(min_length=1, title="Пароль для точки доступа WiFi")
-	comment: Optional[str] = Field(title="Комментарий (заметка) о станции", max_length=200)
+	comment: Optional[str] = Field(title="Комментарий (заметка) о станции",
+								   max_length=services.MAX_STATION_COMMENT_LENGTH)
 	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции",
 												   ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
 												   le=services.MAX_STATION_WASHING_MACHINES_AMOUNT,

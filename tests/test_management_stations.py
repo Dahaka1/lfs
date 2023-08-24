@@ -196,6 +196,22 @@ class TestManagement:
 		) and control.washing_agents == []
 		assert control.updated_at is not None
 
+		# _____________________________________________________________________________________
+
+		"""обновление комментария по станции"""
+		rand_comment = strings.generate_string()
+		r = await ac.put(
+			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
+			headers=self.sysadmin.headers,
+			json=dict(updating_params={"comment": rand_comment})
+		)
+
+		assert r.status_code == 200
+		r = stations.StationGeneralParams(**r.json())
+		assert r.comment == rand_comment
+		await self.station.refresh(session)
+		assert self.station.comment == rand_comment
+
 	async def test_update_station_general_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Невалидные данные;

@@ -25,12 +25,14 @@ class StationGeneralParams(BaseModel):
 	"""
 	id: UUID4 = Field(title="Уникальный ID станции")
 	serial: str = Field(title="Серийный номер станции")
-	created_at: datetime.datetime = Field(title="Дата/время создания станции")
+	created_at: Optional[datetime.datetime] = Field(title="Дата/время создания станции",
+													description="Может быть пустым, если станция еще не выпущена")
 	updated_at: Optional[datetime.datetime] = Field(title="Дата/время последнего обновления (основных параметров станции)")
 	is_active: bool = Field(title="Активна/неактивна")
 	is_protected: bool = Field(title='"Под охраной"/нет')
 	location: dict = Field(title="Координаты местоположения станции")
 	region: RegionEnum = Field(title="Регион станции")
+	comment: Optional[str] = Field(title="Комментарий (заметка) о станции")
 
 	@validator("location")
 	def validate_location(cls, location):
@@ -308,6 +310,7 @@ class StationCreate(BaseModel):
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
 	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
 	wifi_password: str = Field(min_length=1, title="Пароль для точки доступа WiFi")
+	comment: Optional[str] = Field(title="Комментарий (заметка) о станции", max_length=200)
 	washing_machines_amount: Optional[int] = Field(title="Количество стиральных машин у станции",
 												   ge=services.MIN_STATION_WASHING_MACHINES_AMOUNT,
 												   le=services.MAX_STATION_WASHING_MACHINES_AMOUNT,

@@ -1,4 +1,5 @@
 import copy
+import uuid
 
 import pytest
 from httpx import AsyncClient
@@ -145,6 +146,149 @@ class TestStations:
 					assert getattr(washing_machine, param) == default_param
 
 		params["region"] = "Северо-западный"  # меняю обратно для след тестов
+
+	async def test_create_station_with_comment(self, ac: AsyncClient, session: AsyncSession):
+		"""
+		Новый параметр, поэтому добавлю отдельный тест
+		"""
+		station_data = dict(station={
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			"address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial(),
+			"comment": "it is test!"
+		})
+		response = await ac.post(
+			"/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+		assert response.status_code == 201
+		r = schemas_stations.Station(**response.json())
+		assert r.comment == station_data["station"]["comment"]
+
+		# ______________
+
+		"""
+		пустой коммент
+		"""
+		del station_data["station"]["comment"]
+		station_data["station"]["serial"] = rand_serial()
+		response = await ac.post(
+			"/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+		assert response.status_code == 201
+		assert response.json()["comment"] is None
+
+	async def test_create_station_not_released(self, session: AsyncSession, ac: AsyncClient):
+		"""
+		Если станция не выпущена - установится пустая дата создания
+		"""
+		station_data = dict(station={
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			"address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
+		})
+		url = "/v1/stations/?released=false"
+
+		r = await ac.post(
+			url,
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+
+		assert r.status_code == 201
+		r = schemas_stations.Station(**r.json())
+		assert r.created_at is None
+
+	async def test_release_station(self, session: AsyncSession, ac: AsyncClient):
+		"""
+		Если станция не выпущена, можно ее выпустить.
+		"""
+		station_data = dict(station={
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			"address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
+		})
+		url = "/v1/stations/?released=false"
+		r = await ac.post(
+			url,
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+
+		station = schemas_stations.Station(**r.json())
+
+		release_r = await ac.patch(
+			f"/v1/stations/release/{station.id}",
+			headers=self.sysadmin.headers
+		)
+		assert release_r.status_code == 200
+		station = schemas_stations.StationGeneralParams(**release_r.json())
+		assert station.created_at
+
+	async def test_not_released_station(self, session: AsyncSession, ac: AsyncClient):
+		station_data = dict(station={
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			"address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
+		})
+		url = "/v1/stations/?released=false"
+		r = await ac.post(
+			url,
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+		station = schemas_stations.Station(**r.json())
+
+		request_to_station_r = await ac.get(
+			f"/v1/manage/station/{station.id}/{StationParamsEnum.GENERAL}",
+			headers=self.sysadmin.headers
+		)
+		assert request_to_station_r.status_code == 403
+
+		# ____
+		station_headers = {"X-Station-Uuid": str(station.id)}
+
+		request_from_station_r = await ac.get(
+			"/v1/stations/me",
+			headers=station_headers
+		)
+		assert request_from_station_r.status_code == 403
+
+	async def test_release_station_not_sysadmin_role(self, session: AsyncSession, ac: AsyncClient):
+		url = f"/v1/stations/release/{self.station.id}"
+		r = await ac.patch(
+			url,
+			headers=self.manager.headers
+		)
+		assert r.status_code == 403
+
+	async def test_release_station_not_existing_station_id(self, session: AsyncSession, ac: AsyncClient):
+		rand_uuid = uuid.uuid4()
+		url = f"/v1/stations/release/{rand_uuid}"
+		r = await ac.patch(
+			url,
+			headers=self.sysadmin.headers
+		)
+		assert r.status_code == 404
+
+	async def test_release_station_already_released(self, session: AsyncSession, ac: AsyncClient):
+		url = f"/v1/stations/release/{self.station.id}"
+		r = await ac.patch(
+			url,
+			headers=self.sysadmin.headers
+		)
+		assert r.status_code == 400
 
 	async def test_create_station_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""

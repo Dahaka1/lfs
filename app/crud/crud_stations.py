@@ -32,7 +32,8 @@ async def create_station(db: AsyncSession,
 						 settings: schemas_stations.StationSettingsCreate | None,
 						 washing_agents: list[schemas_washing.WashingAgentCreateMixedInfo] | None,
 						 washing_machines: list[schemas_washing.WashingMachineCreateMixedInfo] | None,
-						 programs: list[schemas_stations.StationProgramCreate] | None) -> schemas_stations.Station:
+						 programs: list[schemas_stations.StationProgramCreate] | None,
+						 released: bool) -> schemas_stations.Station:
 	"""
 	Создает станцию в БД с определенными или дефолтными параметрами.
 	"""
@@ -40,15 +41,21 @@ async def create_station(db: AsyncSession,
 	hashed_wifi_data = encrypt_data(wifi_data)
 	location = await read_location(station.address)
 
-	station_id = await Station.create(
+	station_params = dict(
 		db=db,
 		location={"latitude": location.latitude, "longitude": location.longitude},
 		is_active=station.is_active,
 		is_protected=station.is_protected,
 		hashed_wifi_data=hashed_wifi_data,
 		region=station.region,
-		serial=station.serial
+		serial=station.serial,
+		comment=station.comment
 	)
+
+	if released:
+		station_params["created_at"] = datetime.datetime.now()
+
+	station_id = await Station.create(**station_params)
 
 	if settings is None:
 		settings = schemas_stations.StationSettingsCreate()

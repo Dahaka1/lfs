@@ -34,7 +34,8 @@ class Station(Base):
 	Created_at - дата и время создания.
 	Updated_at - дата и время последнего обновления.
 	"""
-	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region", "serial"]
+	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region", "serial", "comment",
+			  "created_at"]
 
 	__tablename__ = "station"
 
@@ -44,10 +45,10 @@ class Station(Base):
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected = Column(Boolean)
 	hashed_wifi_data = Column(String)
-	created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+	created_at = Column(TIMESTAMP(timezone=True))
 	updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 	region = Column(Enum(RegionEnum))
-
+	comment = Column(String)
 
 	@staticmethod
 	async def relations(db: AsyncSession, station: schemas_stations.StationGeneralParams) -> \

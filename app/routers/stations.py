@@ -1,10 +1,13 @@
+import datetime
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Body, status, HTTPException, Path
+from fastapi import APIRouter, Depends, Body, status, HTTPException, Path, Query
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud import crud_stations, crud_logs as log
+from ..models.stations import Station
 from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user
 from ..dependencies.stations import get_current_station
@@ -42,9 +45,15 @@ async def create_station(
 	current_user: Annotated[User, Depends(get_sysadmin_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	station: Annotated[schemas_stations.StationCreate, Body(embed=True, title="Параметры станции и зависимостей")],
+	released: Annotated[bool, Query(title="Выпущена станция или нет",
+										description="Если нет, установится пустая дата создания станции")] = True
 ):
 	"""
 	Создание станции.
+
+	Создать станцию можно без ее выпуска (?released=false). В таком случае
+	 все запросы к станции и от нее будут блокироваться. "Выпустить" можно
+	 методом patch (з.ы. доку).
 	
 	Настройки станции можно не определять - установятся дефолтные.
 	
@@ -74,12 +83,13 @@ async def create_station(
 	try:
 		created_station = await crud_stations.create_station(
 			db=db, station=station, settings=station.settings, washing_agents=station.washing_agents,
-			washing_machines=station.washing_machines, programs=station.programs
+			washing_machines=station.washing_machines, programs=station.programs,
+			released=released
 		)
 	except CreatingError as e:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
-	log_text = f"Станция с UUID {created_station.id} была успешно создана пользователем" \
+	log_text = f"Станция успешно создана пользователем" \
 			   f" {current_user.email} ({current_user.first_name} {current_user.last_name})"
 
 	await log.CRUDLog.server(6.4, log_text, created_station, db)
@@ -120,3 +130,29 @@ async def read_stations_me(
 		return await crud_stations.read_station_all(current_station, db, query_from=QueryFromEnum.STATION)
 	except GettingDataError as e:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.patch("/release/{station_id}", responses=openapi.release_station_patch,
+			  response_model=schemas_stations.StationGeneralParams)
+async def release_station(
+	current_user: Annotated[User, Depends(get_sysadmin_user)],
+	db: Annotated[AsyncSession, Depends(get_async_session)],
+	station_id: Annotated[uuid.UUID, Path(title="ИД станции")]
+):
+	"""
+	"Выпуск" станции (установка даты создания).
+	Станция должна быть не выпущена =)
+
+	Доступно только для SYSADMIN.
+	"""
+	station = await Station.get_station_by_id(db, station_id)
+	if not station:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
+	if station.created_at:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Station already released")
+	release_datetime = datetime.datetime.now()
+	await Station.update(db, station.id, {"created_at": release_datetime})
+	station.created_at = release_datetime
+	info_text = f"Станция успешно выпущена пользователем {current_user.email}"
+	await log.CRUDLog.server(9, info_text, station, db)
+	return station

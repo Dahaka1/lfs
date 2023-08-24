@@ -37,9 +37,10 @@ class StationData:
 	station_washing_agents: list[schemas_washing.WashingAgent]
 	station_control: schemas_stations.StationControl
 	station_settings: schemas_stations.StationSettings
-	created_at: datetime.datetime
+	created_at: Optional[datetime.datetime]
 	updated_at: Optional[datetime.datetime]
 	headers: dict[str, str]
+	comment: Optional[str]
 
 	# пришлось сделать дикты вторым вариантом атрибутов, иначе везде ошибка линтера =(
 	# а pydantic модели почему-то вообще не работают внутри этого класса

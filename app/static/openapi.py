@@ -132,7 +132,7 @@ create_log_post = {
 		"description": "Incorrect station UUID"
 	},
 	403: {
-		"description": "Inactive station / Station status: ERROR / MAINTENANCE"
+		"description": "Inactive station / Not released station / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Getting station data error"
@@ -151,7 +151,7 @@ create_error_post = {
 		"description": "Incorrect station UUID"
 	},
 	403: {
-		"description": "Inactive station / Station status: ERROR / MAINTENANCE"
+		"description": "Inactive station / Not released station / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Getting station data error"
@@ -167,7 +167,7 @@ get_station_logs_get = {
 		"model": list[logs.Log]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -180,7 +180,7 @@ get_station_errors_get = {
 		"model": list[logs.Error]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -292,7 +292,7 @@ read_stations_params_get = {
 		"description": "Incorrect station UUID"
 	},
 	403: {
-		"description": "Inactive station / Station status: ERROR / MAINTENANCE"
+		"description": "Inactive station / Not released station / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Getting *DATATYPE* for station *UUID* error. DB data not found"
@@ -308,7 +308,7 @@ read_stations_me_get = {
 		"description": "Incorrect station UUID"
 	},
 	403: {
-		"description": "Inactive station / Station status: ERROR / MAINTENANCE"
+		"description": "Inactive station / Not released station / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Getting *DATATYPE* for station *UUID* error. DB data not found"
@@ -323,7 +323,7 @@ read_station_partial_by_user_get = {
 					 washing.WashingMachine]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -336,7 +336,7 @@ read_station_all_by_user = {
 		"model": stations.Station
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -349,7 +349,7 @@ update_station_general_put = {
 		"model": stations.StationGeneralParams | stations.StationGeneralParamsForStation
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -362,7 +362,7 @@ update_station_control_put = {
 		"model": stations.StationControl
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -378,7 +378,7 @@ update_station_settings_put = {
 		"model": stations.StationSettings
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -394,7 +394,7 @@ create_station_program_post = {
 		"model": list[stations.StationProgram]
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -411,7 +411,7 @@ update_station_program_put = {
 		"model": stations.StationProgram
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found /"
@@ -437,7 +437,7 @@ delete_station_program_delete = {
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -459,7 +459,7 @@ delete_station_delete = {
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -472,7 +472,7 @@ create_station_washing_services_post = {
 		"model": washing.WashingAgentCreate | washing.WashingMachineCreate
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found"
@@ -488,7 +488,7 @@ update_station_washing_agent_put = {
 		"model": washing.WashingAgent
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -505,7 +505,7 @@ update_station_washing_machine_put = {
 		"model": washing.WashingMachine
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -532,7 +532,7 @@ delete_station_washing_services_delete = {
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	404: {
 		"description": "Station not found / Getting *DATASET* for station *UUID* error. DB data not found / "
@@ -549,7 +549,7 @@ add_laundry_station_post = {
 		"model": rels.LaundryStations
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	409: {
 		"description": "Creating error (data conflict)"
@@ -566,7 +566,7 @@ get_laundry_stations_get = {
 		"model": rels.LaundryStations
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	400: {
 		"description": "Getting data error (data conflict)"
@@ -591,7 +591,7 @@ delete_laundry_station_delete = {
 		}
 	},
 	403: {
-		"description": "Permissions error / Disabled user / Station status: ERROR / MAINTENANCE"
+		"description": "Permissions error / Disabled user / Not released station / Station status: ERROR / MAINTENANCE"
 	},
 	400: {
 		"description": "Deleting data error (data conflict)"
@@ -619,6 +619,22 @@ get_all_not_related_stations_get = {
 	},
 	403: {
 		"description": "Permissions error / Disabled user"
+	}
+}
+
+release_station_patch = {
+	200: {
+		"description": "Выпущенная станция",
+		"model": stations.StationGeneralParams
+	},
+	403: {
+		"description": "Permissions error / Disabled user"
+	},
+	404: {
+		"description": "Station not found"
+	},
+	400: {
+		"description": "Station already released"
 	}
 }
 
@@ -653,6 +669,7 @@ for _ in [
 	get_laundry_stations_get,
 	delete_laundry_station_delete,
 	get_all_laundry_stations_get,
-	get_all_not_related_stations_get
+	get_all_not_related_stations_get,
+	release_station_patch
 ]:
 	_.setdefault(401, {"description": "Could not validate credentials"})

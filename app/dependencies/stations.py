@@ -1,7 +1,8 @@
+import datetime
 import uuid
 from typing import Annotated
 
-from fastapi import Header, Depends, HTTPException, status, Path
+from fastapi import Header, Depends, HTTPException, status, Path, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +34,8 @@ async def get_current_station(
 	station = await Station.authenticate_station(db=db, station_id=x_station_uuid)
 	if not station:
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect station UUID")
+	if station.created_at is None:
+		raise PermissionsError("Not released station")
 	if not station.is_active:
 		raise PermissionsError("Inactive station")
 	try:
@@ -69,6 +72,8 @@ async def get_station_by_id(
 	station = await Station.get_station_by_id(db=db, station_id=station_id)
 	if not station:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Station not found")
+	if not station.created_at:
+		raise PermissionsError("Not released station")
 	try:
 		station_control = await StationControl.get_relation_data(station, db)
 	except GettingDataError as e:

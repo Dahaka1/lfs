@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..crud import crud_stations, crud_logs as log
 from ..models.stations import Station
 from ..dependencies import get_async_session
-from ..dependencies.roles import get_sysadmin_user
+from ..dependencies.roles import get_sysadmin_user, get_region_manager_user
 from ..dependencies.stations import get_current_station
 from ..exceptions import GettingDataError, CreatingError
 from ..schemas import schemas_stations
@@ -26,7 +26,7 @@ router = APIRouter(
 @router.get("/", responses=openapi.read_all_stations_get, response_model=list[schemas_stations.StationGeneralParams])
 @cache(expire=3600)
 async def read_all_stations(
-	current_user: Annotated[User, Depends(get_sysadmin_user)],
+	current_user: Annotated[User, Depends(get_region_manager_user)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""

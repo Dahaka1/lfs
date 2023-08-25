@@ -242,7 +242,7 @@ update_user_put = {
 
 
 class DeletedUser(BaseModel):
-	deleted_user: int
+	deleted_user_id: int
 
 
 delete_user_delete = {

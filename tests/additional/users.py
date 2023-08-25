@@ -24,7 +24,7 @@ class UserData(BaseModel):
 	email: str
 	first_name: str
 	last_name: str
-	region: RegionEnum
+	region: RegionEnum | None
 	password: str
 	role: RoleEnum
 	disabled: bool
@@ -76,6 +76,7 @@ def create_user(sync_session: Session, role: RoleEnum | None = None, **kwargs) -
 	"""
 	if role is None:
 		role = services.USER_DEFAULT_ROLE
+	region = kwargs.pop("region", RegionEnum.NORTHWEST)
 
 	user_data = generate_user_data()
 
@@ -84,7 +85,7 @@ def create_user(sync_session: Session, role: RoleEnum | None = None, **kwargs) -
 		first_name=user_data.get("first_name"),
 		last_name=user_data.get("last_name"),
 		hashed_password=get_data_hash(user_data.get("password")),
-		region=RegionEnum.NORTHWEST,
+		region=region,
 		role=role,
 		**kwargs
 	)
@@ -148,15 +149,24 @@ async def change_user_data(user: Any | int, session: AsyncSession, **kwargs) -> 
 	await session.commit()
 
 
-async def get_user_by_id(id: int, session: AsyncSession) -> schemas_users.User:
+async def get_user_by_id(id: int, session: AsyncSession,
+						 in_db=False) -> schemas_users.User | schemas_users.UserInDB | None:
 	"""
 	Поиск пользователя в БД.
 	"""
 	user = await session.execute(
 		select(User).where(User.id == id)
 	)
-	return schemas_users.User(
-		**sa_object_to_dict(user.scalar())
+	result = user.scalar()
+	if not result:
+		return
+	result = sa_object_to_dict(result)
+	if not in_db:
+		return schemas_users.User(
+			**result
+		)
+	return schemas_users.UserInDB(
+		**result
 	)
 
 

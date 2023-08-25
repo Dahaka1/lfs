@@ -55,10 +55,10 @@ async def get_current_active_user(
 	return current_user
 
 
-async def get_user_id(
+async def get_user_by_id(
 	user_id: Annotated[int, Path(ge=1)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
-) -> int:
+) -> schemas_users.User:
 	"""
 	Функция проверяет, существует ли пользователь с переданным ИД в URL'е (пути запроса).
 	Возвращает ИД.
@@ -66,7 +66,7 @@ async def get_user_id(
 	user_db = await User.get_user_by_id(db, user_id)
 	if user_db is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-	return user_id
+	return user_db
 
 
 async def get_user_by_query_id(

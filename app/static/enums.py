@@ -11,6 +11,18 @@ class RoleEnum(Enum):
 	INSTALLER = "installer"
 	LAUNDRY = "owner"
 
+	def __lt__(self, other):
+		if type(other) != type(self):
+			raise ValueError
+		vals = list(reversed(self.__class__))
+		return vals.index(self) < vals.index(other)
+
+	def __gt__(self, other):
+		if type(other) != type(self):
+			raise ValueError
+		vals = list(reversed(self.__class__))
+		return vals.index(self) > vals.index(other)
+
 
 class StationStatusEnum(Enum):
 	AWAITING = "awaiting"

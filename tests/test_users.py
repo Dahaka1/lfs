@@ -2,12 +2,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.models.users import User
 from app.schemas import schemas_users as users
-from app.static.enums import RoleEnum, RegionEnum
-from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
-from tests.additional import auth, users as users_funcs
+from app.static.enums import RoleEnum, RegionEnum, UserSortingEnum
+from app.utils.general import sa_objects_dicts_list, verify_data_hash
+from tests.additional import auth, users as users_funcs, strings, other
 
 
 @pytest.mark.usefixtures("generate_users")
@@ -16,6 +17,7 @@ class TestUsers:
 	manager: users_funcs.UserData
 	sysadmin: users_funcs.UserData
 	laundry: users_funcs.UserData
+	region_manager: users_funcs.UserData
 	"""
 	Тестирование функционала пользователей.
 	"""
@@ -33,6 +35,65 @@ class TestUsers:
 		assert len(users_list) > 0
 		map(lambda u: users.User(**u), users_list)  # здесь поднимется ValidationError, если что-то не так
 
+		# ___
+
+		response_general_manager = await ac.get(
+			"/v1/users/",
+			headers=self.manager.headers
+		)
+		assert len(response_general_manager.json()) == len(users_list)
+
+		# ___
+
+		assert not any(
+			(u for u in users_list if u["id"] == self.sysadmin.id)
+		)
+
+	async def test_read_users_by_region_manager(self, session: AsyncSession, ac: AsyncClient,
+												sync_session: Session):
+		users_ = await users_funcs.get_all_users(session)
+		for user in users_:
+			await users_funcs.change_user_data(user["id"], session, region=RegionEnum.NORTHWEST)
+
+		users_funcs.create_user(sync_session, region=RegionEnum.SOUTH)
+		await users_funcs.change_user_data(self.region_manager, session,
+										   region=RegionEnum.SOUTH)
+		self.region_manager.region = RegionEnum.SOUTH
+		r = await ac.get(
+			"/v1/users/",
+			headers=self.region_manager.headers
+		)
+		assert r.status_code == 200
+		r = [users.User(**u) for u in r.json()]
+		assert all(
+			(u.region == self.region_manager.region for u in r)
+		)
+		assert len(r) == 1
+
+	async def test_read_users_with_ordering(self, session: AsyncSession, ac: AsyncClient):
+		users_ = await users_funcs.get_all_users(session)
+		for u in users_:
+			u_id = u["id"]
+			await users_funcs.change_user_data(u_id, session,
+											   last_action_at=other.generate_datetime())
+			# иначе ошибка при сравнении None для сортировки
+		for param in list(UserSortingEnum):
+			for desc in (True, False):
+				r = await ac.get("/v1/users/" + f"?order_by={param.value}&desc={desc}",
+								 headers=self.manager.headers)
+				users_ = [users.User(**u) for u in r.json()]
+				sorting_params = {"key": None, "reverse": desc}
+				match param:
+					case UserSortingEnum.NAME:
+						sorting_params["key"] = lambda u: u.last_name
+					case UserSortingEnum.REGION:
+						sorting_params["key"] = lambda u: u.region.value
+					case UserSortingEnum.LAST_ACTION:
+						sorting_params["key"] = lambda u: u.last_action_at
+					case UserSortingEnum.ROLE:
+						sorting_params["key"] = lambda u: u.role.value
+				assert users_ == sorted(users_, **sorting_params)
+
 	async def test_read_users_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- user roles auto test;
@@ -40,7 +101,7 @@ class TestUsers:
 		"""
 		await auth.url_auth_roles_test(
 			"/v1/users/",
-			"get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
+			"get", RoleEnum.REGION_MANAGER, self.region_manager, session, ac
 		)
 
 		await auth.url_auth_test(
@@ -55,7 +116,6 @@ class TestUsers:
 		user_data = dict(user={
 			"first_name": "Test",
 			"last_name": "Test",
-			"region": RegionEnum.NORTHWEST.value,
 			"email": "awdafggdgsefdwed@gmail.com",
 			"password": "qwerty123"
 		})
@@ -111,6 +171,44 @@ class TestUsers:
 		await auth.url_auth_test(url, "post", self.sysadmin, ac, session, json=json)
 		await auth.url_auth_roles_test(url, "post", RoleEnum.SYSADMIN, self.sysadmin,
 									   session, ac, json=json)
+
+	async def test_create_user_with_region(self, session: AsyncSession, ac: AsyncClient):
+		"""
+		если регион не нужен для роли - установится как None
+		"""
+		url = "/v1/users/user"
+		for role in (RoleEnum.MANAGER, RoleEnum.SYSADMIN, RoleEnum.LAUNDRY):
+			json = dict(user={
+				"first_name": "Test",
+				"last_name": "Test",
+				"region": RegionEnum.NORTHWEST.value,
+				"email": f"{strings.generate_string()}@gmail.com",
+				"password": "qwerty123",
+				"role": role.value
+			})
+			r = await ac.post(
+				url,
+				headers=self.sysadmin.headers,
+				json=json
+			)
+			user = users.User(**r.json())
+			assert user.region is None
+		for role in (RoleEnum.INSTALLER, RoleEnum.REGION_MANAGER):
+			json = dict(user={
+				"first_name": "Test",
+				"last_name": "Test",
+				"region": RegionEnum.NORTHWEST.value,
+				"email": f"{strings.generate_string()}@gmail.com",
+				"password": "qwerty123",
+				"role": role.value
+			})
+			r = await ac.post(
+				url,
+				headers=self.sysadmin.headers,
+				json=json
+			)
+			user = users.User(**r.json())
+			assert user.region == RegionEnum.NORTHWEST
 
 	async def test_create_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -172,6 +270,24 @@ class TestUsers:
 		assert r_2.status_code == 200
 		assert r_2.json().get("email") == self.laundry.email
 
+		# ___
+
+		await users_funcs.change_user_data(self.region_manager, session,
+										   region=self.laundry.region)
+		region_manager_r = await ac.get(
+			f"/v1/users/{self.laundry.id}",
+			headers=self.region_manager.headers
+		)
+		assert region_manager_r.status_code == 200
+
+		# ___
+
+		manager_r = await ac.get(
+			f"/v1/users/{self.laundry.id}",
+			headers=self.manager.headers
+		)
+		assert manager_r.status_code == 200
+
 	async def test_read_user_errors(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		- Получить данные пользователя может либо сам пользователь, либо сисадмин;
@@ -188,137 +304,190 @@ class TestUsers:
 			"get", self.sysadmin, ac, session
 		)
 
-	async def test_update_user(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		Обновление данных пользователя.
-		Если изменился email - нужно заново подтверждать.
-		Изменить роль и заблокировать юзера может только сисадмин.
-		Изменить email и пароль может только сам пользователь.
-		"""
-		put_from_sysadmin_data = dict(user={
-			"password": "testtesttest",
-			"role": RoleEnum.MANAGER.value,
-			"email": "testitplease12341@gmail.com",
-			"disabled": True
-		})
+		# ___
 
-		user_before_put = await session.execute(
-			select(User).where(User.id == self.laundry.id)
+		await users_funcs.change_user_data(self.laundry, session,
+										   region=RegionEnum.SOUTH)
+		if self.region_manager.region == RegionEnum.SOUTH:
+			raise ValueError
+		r = await ac.get(
+			f"/v1/users/{self.laundry.id}",
+			headers=self.region_manager.headers
 		)
-		current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
+		assert r.status_code == 403
 
-		response = await ac.put(
+	async def test_update_user_laundry_password_by_self(self, ac: AsyncClient, session: AsyncSession):
+		password = "qwertyqwerty"
+		params = dict(user_update={"password": password})
+		r = await ac.put(
+			f"/v1/users/{self.laundry.id}",
+			headers=self.laundry.headers,
+			json=params
+		)
+		assert r.status_code == 200
+		r = users.User(**r.json())
+		assert r.email == self.laundry.email
+
+		user_in_db = await users_funcs.get_user_by_id(self.laundry.id, session, in_db=True)
+		assert verify_data_hash(password, user_in_db.hashed_password)
+
+	async def test_update_user_laundry_by_self_not_permitted_fields(self, session: AsyncSession, ac: AsyncClient):
+		params = dict(user_update={"email": "qwerty@gmail.com"})
+		r = await ac.put(
+			f"/v1/users/{self.laundry.id}",
+			headers=self.laundry.headers,
+			json=params
+		)
+		assert r.status_code == 403
+
+	async def test_update_another_user_password_by_manager_and_sysadmin(self, session: AsyncSession,
+																		ac: AsyncClient):
+		params = dict(user_update={"password": "qwertyqweqwe"})
+		await users_funcs.change_user_data(self.region_manager, session,
+										   region=self.laundry.region)
+		for user in (self.sysadmin, self.manager, self.region_manager):
+			r = await ac.put(
+				f"/v1/users/{self.laundry.id}",
+				headers=user.headers,
+				json=params
+			)
+			assert r.status_code == 403
+
+	async def test_update_another_user_by_sysadmin_or_manager(self, session: AsyncSession, ac: AsyncClient):
+		email = "qwerty@gmail.com"
+		region = RegionEnum.SOUTH
+		role = RoleEnum.INSTALLER
+
+		params = dict(user_update={"email": email,
+								   "region": region.value,
+								   "role": role.value})
+
+		r = await ac.put(
 			f"/v1/users/{self.laundry.id}",
 			headers=self.sysadmin.headers,
-			json=put_from_sysadmin_data
+			json=params
 		)
-		assert response.status_code == 200
-		response_schema = users.User(**response.json())  # если что, вызовет ValidationError
-		user_after_put = await session.execute(
-			select(User).where(User.id == self.laundry.id)
+		assert r.status_code == 200
+		updated_user = users.User(**r.json())
+		assert updated_user.email == email
+		assert updated_user.region == region
+		assert updated_user.role == role
+
+		updated_user_in_db = await users_funcs.get_user_by_id(updated_user.id,
+															  session)
+		assert updated_user_in_db.email == email
+		assert updated_user_in_db.region == region
+		assert updated_user_in_db.role == role
+
+		# ___
+
+		await users_funcs.change_user_data(self.installer, session,
+										   region=self.region_manager.region,
+										   role=RoleEnum.LAUNDRY,
+										   email="asdsadasfg@gmail.com")
+		params["user_update"]["email"] = "qwersfwef@gmail.com"
+		r = await ac.put(
+			f"/v1/users/{self.installer.id}",
+			headers=self.region_manager.headers,
+			json=params
 		)
-		updated_data = sa_object_to_dict(user_after_put.scalar())
-		updated_user_password_hash = updated_data.get("hashed_password")
-		assert updated_user_password_hash == current_user_password_hash
-		assert updated_data["email"] == self.laundry.email
-		assert updated_data["disabled"] is put_from_sysadmin_data["user"].get("disabled")
-		assert updated_data["role"].value == put_from_sysadmin_data["user"].get("role")
-		assert response_schema.email == self.laundry.email
-		assert response_schema.disabled is put_from_sysadmin_data["user"].get("disabled")
-		assert response_schema.role.value == put_from_sysadmin_data["user"].get("role")
+		assert r.status_code == 200
+		upd_user = users.User(**r.json())
+		assert upd_user.region == region
+		assert upd_user.email == params["user_update"]["email"]
+		assert upd_user.role == role
 
-		# _________________________________________________________________________________
-
-		put_from_user_data = put_from_sysadmin_data
-
-		if isinstance(self.installer.id, int):
-			user_before_put = await session.execute(
-				select(User).where(User.id == self.installer.id)
+	async def test_update_user_manager_and_sysadmin_data_by_self(self, session: AsyncSession, ac: AsyncClient):
+		"""
+		password included
+		"""
+		password = "qwetyqwertywe"
+		region = RegionEnum.SOUTH
+		last_name = "admin"
+		params = dict(user_update={"password": password,
+								   "region": region.value,
+								   "last_name": last_name})
+		for user in (self.sysadmin, self.region_manager, self.manager):
+			r = await ac.put(
+				f"/v1/users/{user.id}",
+				headers=user.headers,
+				json=params
 			)
-		current_user_password_hash = sa_object_to_dict(user_before_put.scalar()).get("hashed_password")
-		response = await ac.put(
-			f"/v1/users/{self.installer.id}",
+			assert r.status_code == 200
+			updated_user = users.User(**r.json())
+			assert updated_user.region == region
+			assert updated_user.last_name == last_name
+			updated_user_in_db = await users_funcs.get_user_by_id(user.id,
+																  session, in_db=True)
+			assert verify_data_hash(password, updated_user_in_db.hashed_password)
+
+	async def test_update_user_by_not_permitted_user(self, session: AsyncSession, ac: AsyncClient):
+		params = dict(user_update={"region": RegionEnum.NORTHWEST.value})
+		r = await ac.put(
+			f"/v1/users/{self.laundry.id}",
 			headers=self.installer.headers,
-			json=put_from_user_data
+			json=params
 		)
-		assert response.status_code == 200
-		user_after_put = await session.execute(
-			select(User).where(User.id == self.installer.id)
-		)
-		updated_data = sa_object_to_dict(user_after_put.scalar())
-		assert updated_data["email"] == put_from_user_data["user"].get("email")
-		assert updated_data["role"].value != put_from_user_data["user"].get('role')
-		assert updated_data["disabled"] is not put_from_user_data["user"].get("disabled")
-		# assert updated_data["email_confirmed"] is False
-		assert updated_data["hashed_password"] != current_user_password_hash
+		assert r.status_code == 403
 
-	async def test_update_user_errors(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- Обновить данные может либо сам пользователь, либо сисадмин;
-		- ИД юзера должен быть существующим;
-		- users auth auto test.
-		"""
-		non_permissions_r = await ac.put(
+		# ___
+
+		r_ = await ac.put(
+			f"/v1/users/{self.manager.id}",
+			headers=self.region_manager.headers,
+			json=params
+		)
+		assert r_.status_code == 403
+
+		# ___
+
+		await users_funcs.change_user_data(self.installer, session,
+										   region=RegionEnum.SOUTH)
+		if self.region_manager.region == RegionEnum.SOUTH:
+			raise ValueError
+		r__ = await ac.put(
 			f"/v1/users/{self.installer.id}",
-			headers=self.laundry.headers,
-			json=dict(user={})
+			headers=self.region_manager.headers,
+			json=params
 		)
+		assert r__.status_code == 403
 
-		assert non_permissions_r.status_code == 403
-
-		non_existing_id_r = await ac.put(
-			f"/v1/users/12345",
-			headers=self.sysadmin.headers,
-			json=dict(user={})
-		)
-		assert non_existing_id_r.status_code == 404
-
-		await auth.url_auth_test(
-			f"/v1/users/{self.installer.id}", "put",
-			self.installer, ac, session, json=dict(user={})
-		)
+	async def test_update_user_self_role_by_self(self, session: AsyncSession, ac: AsyncClient):
+		for user in (self.manager, self.sysadmin, self.region_manager):
+			r = await ac.put(
+				f"/v1/users/{user.id}",
+				headers=user.headers,
+				json=dict(user_update={"role": RoleEnum.INSTALLER.value})
+			)
+			assert r.status_code == 403
 
 	async def test_delete_user(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		Удаление пользователя.
-		Удалить пользователя могут: сам пользователь / сисадмин.
-		"""
-		response_sysadmin = await ac.delete(
-			f"/v1/users/{self.laundry.id}",
-			headers=self.sysadmin.headers,
+		r = await ac.delete(
+			f"/v1/users/{self.manager.id}",
+			headers=self.sysadmin.headers
 		)
-		assert response_sysadmin.status_code == 200
+		assert r.status_code == 200
+		user_exists = await users_funcs.get_user_by_id(self.manager.id, session)
+		assert not user_exists
 
-		response_user = await ac.delete(
-			f"/v1/users/{self.installer.id}",
-			headers=self.installer.headers,
+	async def test_delete_user_by_self(self, session: AsyncSession, ac: AsyncClient):
+		r = await ac.delete(
+			f"/v1/users/{self.manager.id}",
+			headers=self.manager.headers
 		)
-		assert response_user.status_code == 200
+		assert r.status_code == 403
 
-		users_in_db = await session.execute(
-			select(User)
-		)
-
-		users_list = sa_objects_dicts_list(users_in_db.scalars().all())
-
-		assert not any(
-			(user.id in [u["id"] for u in users_list])
-			for user in [self.installer, self.laundry]
-		), str(users_list)
-
-	async def test_delete_user_errors(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- Удалить пользователя могут: сам пользователь / сисадмин;
-		- users auth auto test
-		"""
-		non_permissions_r = await ac.delete(
+	async def test_delete_user_by_not_permitted_user(self, session: AsyncSession, ac: AsyncClient):
+		r = await ac.delete(
 			f"/v1/users/{self.installer.id}",
 			headers=self.laundry.headers
 		)
+		assert r.status_code == 403
 
-		assert non_permissions_r.status_code == 403
-
-		await auth.url_auth_test(
-			f"/v1/users/{self.installer.id}", "delete",
-			self.installer, ac, session
+		r_ = await ac.delete(
+			f"/v1/users/{self.sysadmin.id}",
+			headers=self.manager.headers
 		)
+		assert r_.status_code == 403
+
+

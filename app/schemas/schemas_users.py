@@ -21,7 +21,7 @@ class UserBase(BaseModel):
 		title="Фамилия",
 		example="Иванов"
 	)
-	region: RegionEnum = Field(
+	region: Optional[RegionEnum] = Field(
 		title="Регион юзера"
 	)
 
@@ -100,5 +100,5 @@ class UserUpdate(BaseModel):
 		example=RoleEnum.MANAGER.value,
 		default=None
 	)
-	region: Optional[RegionEnum] = Field(title="Регион станции")
+	region: Optional[RegionEnum] = Field(title="Регион пользователя")
 

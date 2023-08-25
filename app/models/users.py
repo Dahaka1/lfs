@@ -49,13 +49,14 @@ class User(Base):
 		await db.execute(query)
 
 	@staticmethod
-	def check_user_permissions(action_by_user: schemas_users.User, user_id: int) -> bool:
+	def check_user_permissions(action_by_user: schemas_users.User, user: schemas_users.User) -> bool:
 		"""
 		Проверяет права пользователя на действие над ПОЛЬЗОВАТЕЛЕМ (put/delete методы и т.д.).
 		"""
-		if action_by_user.role != RoleEnum.SYSADMIN and action_by_user.id != user_id:
-			return False
-		return True
+		if action_by_user.role in (RoleEnum.SYSADMIN, RoleEnum.MANAGER) or action_by_user.id == user.id or \
+			action_by_user.role == RoleEnum.REGION_MANAGER and action_by_user.region == user.region:
+			return True
+		return False
 
 	@staticmethod
 	async def get_user_by_email(db: AsyncSession, email: str) -> Optional[schemas_users.UserInDB]:
@@ -111,4 +112,3 @@ class User(Base):
 	# 	await db.commit()
 	#
 	# 	return await User.get_user_by_email(email=user.email, db=db)
-

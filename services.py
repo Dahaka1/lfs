@@ -15,6 +15,7 @@ from app.static.enums import RoleEnum, ErrorTypeEnum, LogActionEnum
 
 # USERS PARAMS
 USER_DEFAULT_ROLE = RoleEnum.LAUNDRY
+USER_UPDATE_BY_SELF_AVAILABLE_FIELDS = ["password"]
 
 # USER AUTHORIZATION PARAMS
 ACCESS_TOKEN_EXPIRE_MINUTES = 20

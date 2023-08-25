@@ -3,6 +3,7 @@ from typing import Any
 
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
+import geopy.exc
 
 import config
 
@@ -29,9 +30,12 @@ def validate_address(address: str) -> None:
 	"""
 	geolocator = Nominatim(user_agent=config.GEO_APP, timeout=10)
 	geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
-	location = geocode(address)
-	if location is None:
-		raise ValueError(f"Incorrect station address '{address}'")
+	try:
+		location = geocode(address)
+		if location is None:
+			raise ValueError(f"Incorrect station address '{address}'")
+	except geopy.exc.GeocoderTimedOut:  # бывают неполадки с соединением =(
+		pass
 
 
 def update_updated_at_field(values: dict[str, Any]) -> dict[str, Any] | None:

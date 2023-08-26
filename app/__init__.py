@@ -1,5 +1,4 @@
 import os
-import smtplib
 
 import psycopg2
 import redis
@@ -9,7 +8,6 @@ from loguru import logger
 from redis import asyncio as aioredis
 
 import config
-import services
 from .database import sync_db
 from .static.sql_queries import GET_ALL_TABLES
 
@@ -73,22 +71,22 @@ async def fastapi_cache_init() -> None:
 async def check_connections() -> None:
 	await check_redis_connection()
 	await check_db_connection()
-	await check_smtp_connection()
+	# await check_smtp_connection()
 
 
-async def check_smtp_connection() -> None:
-	"""
-	Проверка соединения с SMTP-сервером.
-	"""
-	try:
-		with smtplib.SMTP(host=services.SMTP_HOST, port=services.SMTP_PORT) as conn:
-			status = conn.noop()[0]
-	except smtplib.SMTPServerDisconnected:
-		status = -1
-	if status != 250:
-		logger.error("Can't establish the connection to SMTP server.\n"
-					 "Please make sure that SMTP params in 'services' was defined right.")
-		exit()
+# async def check_smtp_connection() -> None:
+# 	"""
+# 	Проверка соединения с SMTP-сервером.
+# 	"""
+# 	try:
+# 		with smtplib.SMTP(host=services.SMTP_HOST, port=services.SMTP_PORT) as conn:
+# 			status = conn.noop()[0]
+# 	except smtplib.SMTPServerDisconnected:
+# 		status = -1
+# 	if status != 250:
+# 		logger.error("Can't establish the connection to SMTP server.\n"
+# 					 "Please make sure that SMTP params in 'services' was defined right.")
+# 		exit()
 
 
 async def check_redis_connection() -> None:

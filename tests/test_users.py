@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.users import User
 from app.schemas import schemas_users as users
 from app.static.enums import RoleEnum, RegionEnum, UserSortingEnum
-from app.utils.general import sa_objects_dicts_list, verify_data_hash
+from app.utils.general import verify_data_hash
 from tests.additional import auth, users as users_funcs, strings, other
 
 

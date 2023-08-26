@@ -32,6 +32,7 @@ from app.models.washing import WashingAgent, WashingMachine
 from app.models.stations import Station, StationSettings, StationProgram, StationControl
 from app.models.auth import RefreshToken
 from app.models.logs import Log, Error
+from app.models.relations import LaundryStation
 from config import DATABASE_URL_TEST, DATABASE_URL_SYNC_TEST
 from app.dependencies import get_async_session, get_sync_session
 from app.main import app

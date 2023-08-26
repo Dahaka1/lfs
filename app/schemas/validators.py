@@ -1,9 +1,9 @@
 import datetime
 from typing import Any
 
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
-import geopy.exc
+# from geopy.geocoders import Nominatim
+# from geopy.extra.rate_limiter import RateLimiter
+# import geopy.exc
 
 import config
 
@@ -24,18 +24,18 @@ def validate_program_number(program_step: int, program_number: int) -> None:
 		raise ValueError("Program number must be 'program_step' // 10")
 
 
-def validate_address(address: str) -> None:
-	"""
-	Проверка адреса на валидность.
-	"""
-	geolocator = Nominatim(user_agent=config.GEO_APP, timeout=10)
-	geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
-	try:
-		location = geocode(address)
-		if location is None:
-			raise ValueError(f"Incorrect station address '{address}'")
-	except geopy.exc.GeocoderTimedOut:  # бывают неполадки с соединением =(
-		pass
+# def validate_address(address: str) -> None:
+# 	"""
+# 	Проверка адреса на валидность.
+# 	"""
+# 	geolocator = Nominatim(user_agent=config.GEO_APP, timeout=10)
+# 	geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+# 	try:
+# 		location = geocode(address)
+# 		if location is None:
+# 			raise ValueError(f"Incorrect station address '{address}'")
+# 	except geopy.exc.GeocoderTimedOut:  # бывают неполадки с соединением =(
+# 		pass
 
 
 def update_updated_at_field(values: dict[str, Any]) -> dict[str, Any] | None:

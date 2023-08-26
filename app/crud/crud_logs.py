@@ -61,14 +61,23 @@ class CRUDLog:
 
 	@staticmethod
 	async def get_station_logs(station: schemas_stations.StationGeneralParams, db: AsyncSession, limit: int,
-							   code: int | float | None):
-		if not code:
+							   *args, schemas: bool = False):
+		"""
+		:params args: нужные коды логов
+		"""
+		code_type = int | float | None
+		if any((not isinstance(code, code_type) for code in args)):
+			raise ValueError("Invalid log code type")
+		codes = [float(c) for c in args if c]
+		if not codes:
 			query = select(Log).where(Log.station_id == station.id).order_by(Log.timestamp.desc()).limit(limit)
 		else:
 			query = select(Log).where(
-				(Log.station_id == station.id) & (Log.code == code)
+				(Log.station_id == station.id) & (Log.code.in_(codes))
 			).order_by(Log.timestamp.desc()).limit(limit)
 		result = (await db.execute(query)).scalars().all()
+		if schemas:
+			result = [schema.Log(**l.__dict__) for l in result]
 		return result
 
 	@staticmethod

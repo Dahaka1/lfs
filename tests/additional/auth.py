@@ -1,13 +1,14 @@
-import datetime
+import copy
+import random
 import uuid
 from typing import Any, Literal, Optional
 
 from httpx import AsyncClient
-from sqlalchemy import delete, update, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import RefreshToken
-from app.static.enums import StationStatusEnum, RoleEnum
+from app.static.enums import StationStatusEnum, RoleEnum, RegionEnum
 from app.utils.general import sa_object_to_dict
 from .stations import StationData, change_station_params
 from .users import change_user_data, UserData
@@ -203,7 +204,7 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 	"""
 	Поиск станции по ИД (в маршруте).
 	- Станция должна существовать;
-	- Станция не должна быть в статусе "обслуживание".
+	- Станция не должна быть в статусе "обслуживание"/"ошибка".
 	"""
 	if user.role != RoleEnum.SYSADMIN:  # на всякий случай от него проверяю, у него максимальные права везде
 		raise ValueError
@@ -218,6 +219,8 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 	match method:
 		case "post" | "put":
 			request_params["json"] = json or {}
+
+	station_start_status = copy.deepcopy(station.station_control.status)
 
 	# _________________________________________________________________________________________________
 
@@ -248,3 +251,67 @@ async def url_get_station_by_id_test(url: str, method: Literal["get", "post", "p
 
 	assert station_in_error_r.status_code == 403, f"{station_in_error_r} status code != 403"
 
+	await change_station_params(station, session, status=station_start_status)
+
+
+async def station_access_for_user_roles_test(url: str,
+											 method: Literal["get", "put", "post", "delete"],
+											 user: UserData,
+											 station: StationData,
+											 ac: AsyncClient,
+											 session: AsyncSession,
+											 json: dict[str, Any] = None) -> None:
+	requests = {
+		"get": ac.get, "post": ac.post, "put": ac.put, "delete": ac.delete
+	}
+	func = requests.get(method)
+	request_params = {"url": url, "headers": user.headers}
+	match method:
+		case "post" | "put":
+			request_params["json"] = json or {}
+
+	user_start_role = copy.deepcopy(user.role)  # изменяемый ли тип? хз
+
+	async def change_user_role(role_: RoleEnum) -> None:
+		await change_user_data(user, session, role=role_)
+
+	async def set_another_user_region() -> None:
+		while True:
+			region = random.choice(list(RegionEnum))
+			if region != station.region:
+				break
+		await change_user_data(user, session, region=region)
+
+	async def set_similar_user_region() -> None:
+		await change_user_data(user, session, region=station.region)
+
+	# ___
+	await change_user_role(RoleEnum.LAUNDRY)
+	laundry_r = await func(**request_params)
+	assert laundry_r.status_code == 403
+
+	# ___
+	for role in (RoleEnum.INSTALLER, RoleEnum.REGION_MANAGER):
+		await change_user_role(role)
+		await set_another_user_region()
+		not_permitted_region_r = await func(**request_params)
+		assert not_permitted_region_r.status_code == 403
+
+		# ___
+		# await set_similar_user_region()
+		# permitted_region_r = await func(**request_params)
+		# assert permitted_region_r.status_code in (200, 201)
+
+	# ___
+	# for role in (RoleEnum.MANAGER, RoleEnum.SYSADMIN):
+	# 	await change_user_role(role)
+	# 	await set_another_user_region()
+	# 	r = await func(**request_params)
+	# 	await set_similar_user_region()
+	# 	r_ = await func(**request_params)
+	# 	assert all(
+	# 		(r.status_code in (200, 201) for r in (r, r_))
+	# 	)
+
+	# ___
+	await change_user_role(user_start_role)

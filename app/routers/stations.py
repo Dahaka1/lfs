@@ -5,29 +5,35 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Body, status, HTTPException, Path, Query
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from ..crud import crud_stations, crud_logs as log
 from ..models.stations import Station
-from ..dependencies import get_async_session
-from ..dependencies.roles import get_sysadmin_user, get_region_manager_user
+from ..dependencies import get_async_session, get_sync_session
+from ..dependencies.roles import get_sysadmin_user, get_installer_user
 from ..dependencies.stations import get_current_station
 from ..exceptions import GettingDataError, CreatingError
 from ..schemas import schemas_stations
 from ..schemas.schemas_users import User
 from ..static import openapi
-from ..static.enums import StationParamsEnum, QueryFromEnum
+from ..static.enums import StationParamsEnum, QueryFromEnum, StationsSortingEnum
+from .config import CACHE_EXPIRING_DEFAULT
 
 router = APIRouter(
 	prefix="/stations",
-	tags=["stations"],
+	tags=["stations"]
 )
 
 
-@router.get("/", responses=openapi.read_all_stations_get, response_model=list[schemas_stations.StationGeneralParams])
-@cache(expire=3600)
+@router.get("/", responses=openapi.read_all_stations_get,
+			response_model=list[schemas_stations.StationInList])
+@cache(expire=CACHE_EXPIRING_DEFAULT)
 async def read_all_stations(
-	current_user: Annotated[User, Depends(get_region_manager_user)],
-	db: Annotated[AsyncSession, Depends(get_async_session)]
+	current_user: Annotated[User, Depends(get_installer_user)],
+	db: Annotated[Session, Depends(get_sync_session)],
+	async_db: Annotated[AsyncSession, Depends(get_async_session)],
+	order_by: Annotated[StationsSortingEnum, Query(title="Сортировка по столбцам")] = StationsSortingEnum.NAME,
+	desc: Annotated[bool, Query(title="В обратном порядке или нет")] = False
 ):
 	"""
 	Получение списка всех станций (без подробных данных по каждой).
@@ -36,7 +42,8 @@ async def read_all_stations(
 	Основные параметры станций будут меняться редко, поэтому здесь делаю кэширование
 	 ответа на час. Можно сократить время, если потребуется.
 	"""
-	return await crud_stations.read_all_stations(db=db)
+	return await crud_stations.read_all_stations(db, async_db, current_user,
+												 order_by, desc)
 
 
 @router.post("/", response_model=schemas_stations.Station, status_code=status.HTTP_201_CREATED,

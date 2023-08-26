@@ -135,7 +135,8 @@ class CRUDLaundryStation(LaundryStationManagerBase):
 
 	@classmethod
 	async def get_all_relations(cls, db: AsyncSession, user: User,
-								order_by: LaundryStationSorting, desc: bool) -> \
+								order_by: LaundryStationSorting = LaundryStationSorting.NAME,
+								desc: bool = False) -> \
 		list[schema.LaundryStationRelation]:
 		"""
 		В методе _all - получение станций по пользователю.

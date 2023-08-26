@@ -1,11 +1,13 @@
 from tests.additional.stations import rand_serial
+from tests.additional.strings import generate_string
 
 
 test_create_station_with_advanced_params = dict(station={
+	"name": generate_string(),
 	"serial": rand_serial(),
 	"wifi_name": "qwerty",
 	"wifi_password": "qwerty",
-	"address": "Санкт-Петербург",
+	# "address": "Санкт-Петербург",
 	"region": "Северо-западный",  # из енама регионов
 	"is_active": True,
 	"is_protected": True,

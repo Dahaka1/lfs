@@ -4,27 +4,88 @@ import uuid
 from pydantic import UUID4
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from loguru import logger
 
 from ..exceptions import UpdatingError, GettingDataError
 from ..models.stations import Station, StationSettings, StationControl, StationProgram
+from ..models.relations import LaundryStation
+from .crud_logs import CRUDLog
 from ..models.washing import WashingAgent, WashingMachine
+from ..models.users import User
 from ..schemas import schemas_stations, schemas_users, schemas_washing
-from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum
+from ..static.enums import StationParamsEnum, QueryFromEnum, StationStatusEnum, StationsSortingEnum, \
+	RoleEnum, LogActionEnum
 from ..static.typing import StationParamsSet
-from ..utils.general import sa_objects_dicts_list, encrypt_data, read_location
+from ..utils.general import encrypt_data
 from ..crud import crud_logs as log
+from ..utils.general import get_sa_tree
 
 
-async def read_all_stations(db: AsyncSession):
+async def read_all_stations(db: Session, async_db: AsyncSession, user: schemas_users.User,
+							order_by: StationsSortingEnum, desc: bool):
 	"""
-	Возвращает pydantic-модели станций (основные параметры).
+	:TODO: сделать асинхронный запрос - так и не смог понять, как сделать мульти-джоин...
+	:TODO: + желательно, естественно, объединить все в один запрос
 	"""
-	query = select(Station).order_by(Station.updated_at.desc())
-	result = await db.execute(query)
-	stations = sa_objects_dicts_list(result.scalars().all())
+	query = db.query(Station, StationControl, LaundryStation)
+	if user.role in (RoleEnum.INSTALLER, RoleEnum.REGION_MANAGER):
+		query = (query.where(Station.region == user.region).
+			 join(StationControl, Station.id == StationControl.station_id).
+			 join(LaundryStation, Station.id == LaundryStation.station_id, isouter=True).all())
+	else:
+		query = (query.join(StationControl, Station.id == StationControl.station_id).
+			 join(LaundryStation, Station.id == LaundryStation.station_id, isouter=True).all())
 
-	return stations
+	instances = get_sa_tree(query)
+	stations_list = []
+	for step in range(len(instances) // 3):
+		obj_data = instances[step * 3:(step + 1) * 3]
+		general, control, owner = obj_data
+		general = schemas_stations.StationGeneralParams(**general)
+		if owner:  # потом объединить в один запрос
+			owner = await User.get_user_by_id(async_db, owner["user_id"])
+		logs = await CRUDLog.get_station_logs(general, async_db, 2, 9.17, 3.1,  # коды потом можно законфигить
+											  schemas=True)
+		last_maintenance_log_at = None
+		last_working_log_at = None
+		for log_ in logs:
+			if not last_maintenance_log_at and log_.action == LogActionEnum.STATION_MAINTENANCE_END:
+				last_maintenance_log_at = log_.timestamp
+			if not last_working_log_at and log_.action == LogActionEnum.STATION_WORKING_PROCESS:
+				last_working_log_at = log_.timestamp
+		stations_list.append(schemas_stations.StationInList(general=general, owner=owner, control=control,
+								  last_work_at=last_working_log_at, last_maintenance_at=last_maintenance_log_at))
+
+	def sort_stations(lst: list[schemas_stations.StationInList]) -> list[schemas_stations.StationInList]:
+		null_attr_objs = []
+		sorting_keys = {StationsSortingEnum.OWNER: lambda st_: st_.owner.last_name,
+						StationsSortingEnum.STATUS: lambda st_: st_.control.status.value,
+						StationsSortingEnum.MAINTENANCE: lambda st_: st_.last_maintenance_at,
+						StationsSortingEnum.LAST_WORK: lambda st_: st_.last_work_at,
+						StationsSortingEnum.NAME: lambda st_: st_.general.name,
+						StationsSortingEnum.REGION: lambda st_: st_.general.region.value}
+		for idx, st in enumerate(lst):
+			nullable_fields = {StationsSortingEnum.OWNER: st.owner,
+					  StationsSortingEnum.LAST_WORK: st.last_work_at,
+					  StationsSortingEnum.MAINTENANCE: st.last_maintenance_at,
+					  StationsSortingEnum.STATUS: st.control.status}
+			if order_by in nullable_fields:
+				field = nullable_fields[order_by]
+				if field is None:
+					null_attr_objs.append(st)
+		for st in null_attr_objs:
+			del lst[lst.index(st)]
+
+		sorting_params = {"key": sorting_keys[order_by]}
+		if desc:
+			sorting_params["reverse"] = True
+		result = sorted(lst, **sorting_params)
+		result.extend(null_attr_objs)
+
+		return result
+
+	return sort_stations(stations_list)
 
 
 async def create_station(db: AsyncSession,
@@ -39,17 +100,18 @@ async def create_station(db: AsyncSession,
 	"""
 	wifi_data = {"login": station.wifi_name, "password": station.wifi_password}
 	hashed_wifi_data = encrypt_data(wifi_data)
-	location = await read_location(station.address)
+	# location = await read_location(station.address)
 
 	station_params = dict(
 		db=db,
-		location={"latitude": location.latitude, "longitude": location.longitude},
+		# location={"latitude": location.latitude, "longitude": location.longitude},
 		is_active=station.is_active,
 		is_protected=station.is_protected,
 		hashed_wifi_data=hashed_wifi_data,
 		region=station.region,
 		serial=station.serial,
-		comment=station.comment
+		comment=station.comment,
+		name=station.name
 	)
 
 	if released:
@@ -109,12 +171,17 @@ async def create_station(db: AsyncSession,
 async def read_station(
 	station: schemas_stations.StationGeneralParams,
 	params_set: StationParamsEnum,
-	db: AsyncSession
+	db: AsyncSession,
+	user: schemas_users.User = None
 ) -> StationParamsSet:
 	"""
 	Возвращает объект с запрошенными данными.
 	"""
+	if user:
+		Station.check_user_permissions(user, station)
 	match params_set:
+		case StationParamsEnum.GENERAL:
+			data: schemas_stations.StationGeneralParams = schemas_stations.StationGeneralParams(**station.dict())
 		case StationParamsEnum.SETTINGS:
 			data: schemas_stations.StationSettings = await StationSettings.get_relation_data(station, db)
 		case StationParamsEnum.CONTROL:
@@ -132,13 +199,18 @@ async def read_station(
 async def read_station_all(
 	station: schemas_stations.StationGeneralParamsForStation | schemas_stations.StationGeneralParams,
 	db: AsyncSession,
-	query_from: QueryFromEnum = QueryFromEnum.STATION
+	query_from: QueryFromEnum = QueryFromEnum.STATION,
+	user: schemas_users.User = None
 ) -> schemas_stations.StationForStation | schemas_stations.Station:
 	"""
 	Возвращает все данные по станции.
 
 	Надо обязательно сократить количество запросов... (отмечено в TODO).
 	"""
+	if query_from == QueryFromEnum.USER:
+		if not user:
+			raise ValueError("Expected for user object")
+		Station.check_user_permissions(user, station)
 	settings, control = await Station.relations(db, station)
 	programs = await StationProgram.get_relation_data(station, db)
 	washing_machines = await WashingMachine.get_station_objects(station.id, db)
@@ -200,12 +272,12 @@ async def update_station_general(
 		current_data.pop("hashed_wifi_data")  # костыль - надо решить с типизацией, мб сделать еще одну функцию
 		# поиска станции по ИД, чтобы она не возвращала wifi
 
-	if updating_params.address:
-		location = await read_location(updating_params.address)
-		location_dict = {"latitude": location.latitude, "longitude": location.longitude}
-		if station.location != location_dict:
-			current_data["location"] = {"latitude": location.latitude, "longitude": location.longitude}
-			updated_params_list.append("location")
+	# if updating_params.address:
+	# 	# location = await read_location(updating_params.address)
+	# 	location_dict = {"latitude": location.latitude, "longitude": location.longitude}
+	# 	if station.location != location_dict:
+	# 		current_data["location"] = {"latitude": location.latitude, "longitude": location.longitude}
+	# 		updated_params_list.append("location")
 
 	if any(updated_params_list):
 		current_data["updated_at"] = datetime.datetime.now()  # updated_at почему-то автоматически не обновляется =(
@@ -220,9 +292,10 @@ async def update_station_general(
 		id=station.id, created_at=station.created_at, updated_at=station.updated_at or datetime.datetime.now(),
 		is_active=updating_params.is_active if not updating_params.is_active is None else station.is_active,
 		is_protected=updating_params.is_protected if not updating_params.is_protected is None else station.is_protected,
-		location=current_data.get("location") or station.location,
+		# location=current_data.get("location") or station.location,
 		region=updating_params.region or station.region,
-		serial=station.serial, comment=updating_params.comment
+		serial=station.serial, comment=updating_params.comment,
+		name=updating_params.name if updating_params.name else station.name
 	)
 
 	if "hashed_wifi_data" in current_data:
@@ -270,7 +343,7 @@ async def update_station_control(
 						   f"but got agent №{agent.agent_number}")
 
 	if updated_params.program_step:
-		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db)
+		station_programs = await read_station(station, StationParamsEnum.PROGRAMS, db, action_by)
 		if updated_params.program_step.dict() not in [program.dict() for program in station_programs]:
 			raise UpdatingError(f"Station program '{updated_params.program_step}' wasn't found in station programs")
 

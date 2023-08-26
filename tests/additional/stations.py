@@ -3,7 +3,7 @@ import datetime
 import random
 import uuid
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Self
 
 from fastapi.encoders import jsonable_encoder
 from httpx import AsyncClient
@@ -12,12 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 import services
+from app.crud.managers.relations import CRUDLaundryStation
 from app.database import Base
 from app.models.stations import StationControl, Station, StationSettings, StationProgram
 from app.models.washing import WashingAgent, WashingMachine
 from app.schemas import schemas_stations, schemas_washing
-from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum, LogActionEnum
+from app.static.enums import RoleEnum, RegionEnum, StationStatusEnum, LogActionEnum, LogTypeEnum
 from app.utils.general import sa_object_to_dict, sa_objects_dicts_list
+from .logs import Log
+from .strings import generate_string
 from .users import create_authorized_user
 
 
@@ -27,10 +30,11 @@ class StationData:
 	Класс станции с парамерами для тестов.
 	"""
 	id: uuid.UUID
+	name: str
 	serial: str
 	is_active: bool
 	is_protected: bool
-	location: dict
+	# location: dict
 	region: RegionEnum
 	station_programs: list[schemas_stations.StationProgram]
 	station_washing_machines: list[schemas_washing.WashingMachine]
@@ -41,6 +45,7 @@ class StationData:
 	updated_at: Optional[datetime.datetime]
 	headers: dict[str, str]
 	comment: Optional[str]
+	general_schema: schemas_stations.StationGeneralParams
 
 	# пришлось сделать дикты вторым вариантом атрибутов, иначе везде ошибка линтера =(
 	# а pydantic модели почему-то вообще не работают внутри этого класса
@@ -122,6 +127,58 @@ class StationData:
 									program_step=None, washing_agents=[], washing_machine=None)
 		await self.refresh(session)
 
+	async def generate_owner(self, session: AsyncSession, ac: AsyncClient,
+							 sync_session: Session) -> None:
+		_, user = await create_authorized_user(ac, sync_session, RoleEnum.LAUNDRY)
+		relation = CRUDLaundryStation(user, session, self.general_schema)
+		await relation.create()
+
+	@classmethod
+	async def generate_stations_list(cls, ac: AsyncClient,
+									 sync_session: Session,
+									 sysadmin: Any,
+									 session: AsyncSession,
+									 amount: int = None,
+									 create_rand_data_for_stations_list=True) -> list[Self]:
+		"""
+		:params sysadmin: tests.additional.users.UserData
+		"""
+		stations_ = []
+		if not amount:
+			amount = random.randint(1, 5)
+		for _ in range(amount):
+			station = await generate_station(ac, sync_session, sysadmin)
+			if create_rand_data_for_stations_list:
+				await station.generate_data_for_read_stations_list(session, ac, sync_session)
+			stations_.append(station)
+		return stations_
+
+	async def generate_data_for_read_stations_list(
+		self, session: AsyncSession, ac: AsyncClient, sync_session: Session,
+		ctrl=False, owner=False, logs=False
+	) -> None:
+		def rand() -> int:
+			return random.randint(0, 1)
+
+		if not ctrl:
+			ctrl = rand()
+		if not owner:
+			owner = rand()
+		if not logs:
+			logs = rand()
+		if ctrl:
+			await generate_station_control(self, session)
+		if owner:
+			await self.generate_owner(session, ac, sync_session)
+		if logs:
+			await Log.generate(self, LogTypeEnum.LOG,
+							   [3.1], session, ac, amount=1)
+			await change_station_params(self, session,
+										status=StationStatusEnum.MAINTENANCE)
+			await Log.generate(self, LogTypeEnum.LOG,
+							   [9.17], session, ac, amount=1)
+		await self.refresh(session)
+
 
 def rand_serial() -> str:
 	return "".join(
@@ -148,12 +205,13 @@ async def generate_station(
 			raise Exception
 		user, user_schema = await create_authorized_user(ac, sync_session, RoleEnum.SYSADMIN)
 	station_data = dict(station={
+		"name": generate_string(),
 		"serial": rand_serial(),
 		"is_active": kwargs.get("is_active") or True,
 		"is_protected": kwargs.get("is_protected") or False,
 		"wifi_name": "qwerty",
 		"wifi_password": "qwerty",
-		"address": "Санкт-Петербург",
+		# "address": "Санкт-Петербург",
 		"region": "Северо-западный"
 	})
 
@@ -172,16 +230,19 @@ async def generate_station(
 
 	if response.status_code == 201:
 		station = schemas_stations.Station(**response.json())
+		station_general_schema = schemas_stations.StationGeneralParams(
+			**station.dict()
+		)
 		headers = {"X-Station-Uuid": str(station.id)}
 		attrs = {attr: getattr(station, attr) for attr in station.dict()}
 		return StationData(
-			**attrs, headers=headers
+			**attrs, headers=headers, general_schema=station_general_schema
 		)
 	else:
 		raise AssertionError(str(response))
 
 
-async def change_station_params(station: StationData, session: AsyncSession, **kwargs) -> None:
+async def change_station_params(station: StationData | schemas_stations.Station, session: AsyncSession, **kwargs) -> None:
 	"""
 	Изменение параметров станции.
 	"""
@@ -259,7 +320,8 @@ async def get_station_by_id(station_id: uuid.UUID, session: AsyncSession) -> Opt
 			station_washing_agents=station_washing_agents,
 			station_washing_machines=station_washing_machines,
 			station_settings=station_settings,
-			station_control=station_control
+			station_control=station_control,
+			general_schema=station_general
 		)
 
 
@@ -316,4 +378,17 @@ async def delete_washing_services(object_number: int, station: StationData, sess
 			(getattr(cls, numeric_field) == object_number)
 		)
 	)
+	await session.commit()
+
+
+async def get_all_stations(session: AsyncSession) -> list[schemas_stations.StationGeneralParams]:
+	query = select(Station)
+	r = await session.execute(query)
+	res = [schemas_stations.StationGeneralParams(**s.__dict__) for s in r.scalars().all()]
+	return res
+
+
+async def delete_all_stations(session: AsyncSession) -> None:
+	query = delete(Station)
+	await session.execute(query)
 	await session.commit()

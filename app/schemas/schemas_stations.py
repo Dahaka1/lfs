@@ -8,6 +8,7 @@ from . import validators
 from .schemas_washing import WashingAgent, WashingMachine, WashingMachineUpdate, WashingAgentUpdate, \
 	WashingAgentWithoutRollback, WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
 from ..static.enums import StationStatusEnum, RegionEnum
+from .schemas_users import User
 
 
 class StationServicesUpdate(BaseModel):
@@ -25,25 +26,26 @@ class StationGeneralParams(BaseModel):
 	"""
 	id: UUID4 = Field(title="Уникальный ID станции")
 	serial: str = Field(title="Серийный номер станции")
+	name: str = Field(title="Название станции")
 	created_at: Optional[datetime.datetime] = Field(title="Дата/время создания станции",
 													description="Может быть пустым, если станция еще не выпущена")
 	updated_at: Optional[datetime.datetime] = Field(title="Дата/время последнего обновления (основных параметров станции)")
 	is_active: bool = Field(title="Активна/неактивна")
 	is_protected: bool = Field(title='"Под охраной"/нет')
-	location: dict = Field(title="Координаты местоположения станции")
+	# location: dict = Field(title="Координаты местоположения станции")
 	region: RegionEnum = Field(title="Регион станции")
 	comment: Optional[str] = Field(title="Комментарий (заметка) о станции",
 								   max_length=services.MAX_STATION_COMMENT_LENGTH)
 
-	@validator("location")
-	def validate_location(cls, location):
-		"""
-		Location - словарь с данными о геолокации.
-		"""
-		lng, lat = location.get("longitude"), location.get("latitude")
-		if lng is None or lat is None:
-			raise ValueError(f"Invalid station location data")
-		return location
+	# @validator("location")
+	# def validate_location(cls, location):
+	# 	"""
+	# 	Location - словарь с данными о геолокации.
+	# 	"""
+	# 	lng, lat = location.get("longitude"), location.get("latitude")
+	# 	if lng is None or lat is None:
+	# 		raise ValueError(f"Invalid station location data")
+	# 	return location
 
 	class Config:
 		orm_mode = True
@@ -70,12 +72,13 @@ class StationGeneralParamsUpdate(BaseModel):
 	"""
 	Обновление станции (ее параметров).
 	"""
+	name: Optional[str] = Field(title="Название станции")
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет')
 	is_active: Optional[bool] = Field(title="Активна/неактивна")
 	wifi_name: Optional[str] = Field(min_length=1, title="Имя точки доступа WiFi")
 	wifi_password: Optional[str] = Field(min_length=1, title="Пароль для точки доступа WiFi")
-	address: Optional[str] = Field(max_length=200, title="Физический адрес местоположения станции",
-						 example="Санкт-Петербург, ул. Дыбенко, 26")
+	# address: Optional[str] = Field(max_length=200, title="Физический адрес местоположения станции",
+	# 					 example="Санкт-Петербург, ул. Дыбенко, 26")
 	region: Optional[RegionEnum] = Field(title="Регион станции")
 	comment: Optional[str] = Field(title="Комментарий (заметка) о станции",
 								   max_length=services.MAX_STATION_COMMENT_LENGTH)
@@ -88,13 +91,13 @@ class StationGeneralParamsUpdate(BaseModel):
 		wifi_name, wifi_password = values.get("wifi_name"), values.get("wifi_password")
 		if any((wifi_name, wifi_password)):
 			if not all((wifi_name, wifi_password)):
-				raise ValueError(f"If wifi data updating, both of fields wifi name and password are expecting")
+				raise ValueError(f"If wifi data updating, both fields wifi name and password are expecting")
 		return values
 
-	@validator("address")
-	def validate_address(cls, address):
-		validators.validate_address(address)
-		return address
+	# @validator("address")
+	# def validate_address(cls, address):
+	# 	validators.validate_address(address)
+	# 	return address
 
 
 class StationSettings(BaseModel):
@@ -309,6 +312,7 @@ class StationCreate(BaseModel):
 	Создание станции.
 	"""
 	serial: str = Field(title="Серийный номер станции", min_length=3, max_length=10)
+	name: str = Field(title="Название станции", max_length=services.MAX_STATION_NAME_LENGTH)
 	is_active: Optional[bool] = Field(title="Активна/неактивна", default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected: Optional[bool] = Field(title='"Под охраной"/нет', default=services.DEFAULT_STATION_IS_PROTECTED)
 	wifi_name: str = Field(min_length=1, title="Имя точки доступа WiFi")
@@ -323,8 +327,8 @@ class StationCreate(BaseModel):
 												 ge=services.MIN_STATION_WASHING_AGENTS_AMOUNT,
 												 le=services.MAX_STATION_WASHING_AGENTS_AMOUNT,
 												 default=services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT)
-	address: str = Field(max_length=200, title="Физический адрес местоположения станции",
-						 example="Санкт-Петербург, ул. Дыбенко, 26")
+	# address: str = Field(max_length=200, title="Физический адрес местоположения станции",
+	# 					 example="Санкт-Петербург, ул. Дыбенко, 26")
 	region: RegionEnum = Field(title="Регион станции")
 
 	settings: Optional[StationSettingsCreate] = Field(title="Настройки станции", default=None)
@@ -334,10 +338,10 @@ class StationCreate(BaseModel):
 	washing_machines: Optional[list[WashingMachineCreateMixedInfo]] = Field(title="Стиральные машины станции",
 																			default=None)
 
-	@validator("address")
-	def validate_address(cls, address):
-		validators.validate_address(address)
-		return address
+	# @validator("address")
+	# def validate_address(cls, address):
+	# 	validators.validate_address(address)
+	# 	return address
 
 	@validator("serial")
 	def validate_serial(cls, serial):
@@ -391,3 +395,10 @@ class StationCreate(BaseModel):
 
 		return values
 
+
+class StationInList(BaseModel):
+	general: StationGeneralParams
+	owner: User | None
+	control: StationControl
+	last_work_at: datetime.datetime | None
+	last_maintenance_at: datetime.datetime | None

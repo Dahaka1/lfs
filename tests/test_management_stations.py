@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import stations as stations_models
 from app.schemas import schemas_stations as stations, schemas_washing as washing
 from app.static.enums import StationParamsEnum, RoleEnum, RegionEnum, StationStatusEnum
-from app.utils.general import decrypt_data, read_location
-from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs, strings, static
+from app.utils.general import decrypt_data
+from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs, strings
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")
@@ -76,11 +76,9 @@ class TestManagement:
 		"""
 		url = f"/v1/manage/station/{self.station.id}"
 		responses = []
-		for user in (self.installer, self.manager, self.laundry):
-			forbidden_r = await ac.get(url + StationParamsEnum.GENERAL.value, headers=user.headers)
-			responses.append(forbidden_r)
-		for dataset in (StationParamsEnum.GENERAL, StationParamsEnum.CONTROL, StationParamsEnum.SETTINGS,
-						StationParamsEnum.WASHING_MACHINES, StationParamsEnum.WASHING_AGENTS):
+		datasets = (StationParamsEnum.GENERAL, StationParamsEnum.CONTROL, StationParamsEnum.SETTINGS,
+						StationParamsEnum.WASHING_MACHINES, StationParamsEnum.WASHING_AGENTS)
+		for dataset in datasets:
 			url_ = url + dataset.value
 			laundry_forbidden_r = await ac.get(url_, headers=self.laundry.headers)
 			responses.append(laundry_forbidden_r)
@@ -89,14 +87,17 @@ class TestManagement:
 			(r.status_code == 403 for r in responses)
 		)
 
-		await auth.url_auth_test(
-			url + StationParamsEnum.GENERAL.value, "get", self.sysadmin, ac, session
-		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value, "get", self.sysadmin,
 			self.station,
 			session, ac
 		)
+		# ___
+		for dataset in datasets:
+			url_ = url + f"/{dataset.value}"
+			await auth.station_access_for_user_roles_test(
+				url_, "get", self.sysadmin, self.station, ac, session
+			)
 
 	async def test_read_station_all_by_user(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -124,8 +125,8 @@ class TestManagement:
 		await auth.url_auth_test(
 			url + str(self.station.id), "get", self.sysadmin, ac, session
 		)
-		await auth.url_auth_roles_test(
-			url + str(self.station.id), "get", RoleEnum.SYSADMIN, self.sysadmin, session, ac
+		await auth.station_access_for_user_roles_test(
+			url + str(self.station.id), "get", self.sysadmin, self.station, ac, session
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}", "get", self.sysadmin, self.station,
@@ -142,11 +143,11 @@ class TestManagement:
 		"""
 		random_region = random.choice(list(RegionEnum))
 		params = dict(
-			is_protected=False, address=random.choice(static.CITIES),
+			is_protected=False,
 			region=random_region.value, wifi_name=strings.generate_string(),
 			wifi_password=strings.generate_string()
 		)
-		location = await read_location(params.get("address"))
+		# location = await read_location(params.get("address"))
 
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
@@ -160,8 +161,8 @@ class TestManagement:
 
 		assert self.station.region == result.region == random_region
 		assert self.station.is_protected is result.is_protected is params.get("is_protected")
-		assert self.station.location == result.location == {"latitude": location.latitude,
-															"longitude": location.longitude}
+		# assert self.station.location == result.location == {"latitude": location.latitude,
+		# 													"longitude": location.longitude}
 		assert result.wifi_name == params.get("wifi_name") and result.wifi_password == params.get("wifi_password")
 
 		station_general = await stations_funcs.get_station_relation(self.station.id, stations_models.Station, session)
@@ -220,7 +221,6 @@ class TestManagement:
 		- roles auto test
 		"""
 		updating_data = dict(updating_params={
-			"address": "qwerty_qwerty",
 			"region": "Москва"
 		})
 
@@ -235,9 +235,9 @@ class TestManagement:
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value,
 			"put", self.sysadmin, ac, session, json=updating_data
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.GENERAL.value, "put",
-			RoleEnum.SYSADMIN, self.sysadmin, session, ac, json=updating_data
+			self.sysadmin, self.station, ac, session, json=dict(updating_params={"region": RegionEnum.NORTHWEST.value})
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.GENERAL.value,
@@ -411,9 +411,9 @@ class TestManagement:
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
 			"put", self.sysadmin, ac, session, json=testing_data
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.CONTROL.value,
-			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_data
+			"put", self.sysadmin, self.station, ac, session, json=testing_data
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.CONTROL.value,
@@ -492,15 +492,16 @@ class TestManagement:
 		)
 		assert non_active_station_r.status_code == 409
 
+		await stations_funcs.change_station_params(self.station, session, is_active=True)
 		# __________________________________________________________________________________
 
 		await auth.url_auth_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
 			"put", self.installer, ac, session, json=test_json
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.SETTINGS.value,
-			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=test_json
+			"put", self.sysadmin, self.station, ac, session, json=test_json
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.SETTINGS.value,
@@ -598,9 +599,11 @@ class TestManagement:
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			"post", self.sysadmin, ac, session, json=testing_data
 		)
-		await auth.url_auth_roles_test(
+		testing_data["programs"][0]["program_step"] = 61
+		testing_data["programs"][0]["washing_agents"] = [2]
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
-			"post", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_data
+			"post", self.sysadmin, self.station, ac, session, json=testing_data
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
@@ -789,9 +792,9 @@ class TestManagement:
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
 			"put", self.installer, ac, session, json=testing_json
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
-			"put", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+			"put", self.sysadmin, self.station, ac, session, json=testing_json
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{rand_program.program_step}",
@@ -848,9 +851,9 @@ class TestManagement:
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
 			"delete", self.installer, ac, session
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",
-			"delete", RoleEnum.INSTALLER, self.installer, session, ac
+			"delete", self.sysadmin, self.station, ac, session
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + f"/{program_step.program_step}",

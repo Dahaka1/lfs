@@ -7,14 +7,13 @@ from ..crud import crud_stations, crud_washing
 from ..dependencies import get_async_session
 from ..dependencies.roles import get_sysadmin_user, get_installer_user
 from ..dependencies.stations import get_station_by_id, get_station_program_by_number
-from ..dependencies.users import get_current_active_user
 from ..exceptions import GettingDataError, UpdatingError
 from ..exceptions import PermissionsError, CreatingError, DeletingError
-from ..models.stations import StationControl, StationSettings, StationProgram
+from ..models.stations import StationControl, StationSettings, StationProgram, Station
 from ..models.washing import WashingAgent, WashingMachine
 from ..schemas import schemas_stations as stations, schemas_users as users, schemas_washing as washing
 from ..static import openapi
-from ..static.enums import StationParamsEnum, QueryFromEnum, RoleEnum, WashingServicesEnum
+from ..static.enums import StationParamsEnum, QueryFromEnum, WashingServicesEnum
 
 router = APIRouter(
 	prefix="/manage",
@@ -24,7 +23,7 @@ router = APIRouter(
 
 @router.get("/station/{station_id}/{dataset}", responses=openapi.read_station_partial_by_user_get)
 async def read_station_partial_by_user(
-	current_user: Annotated[users.User, Depends(get_current_active_user)],
+	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
 	db: Annotated[AsyncSession, Depends(get_async_session)],
 	dataset: Annotated[StationParamsEnum, Path(title="Набор параметров станции")]
@@ -32,44 +31,41 @@ async def read_station_partial_by_user(
 	"""
 	Получение выборочных данных по станции пользователем.
 
-	Основные параметры доступны только для SYSADMIN-пользователей.
-	Остальные - для INSTALLER и выше.
+	Доступно для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
-	match dataset:
-		case StationParamsEnum.GENERAL:
-			if current_user.role != RoleEnum.SYSADMIN:
-				raise PermissionsError()
-			return stations.StationGeneralParams(**station.dict())
-		case _:
-			if current_user.role not in (RoleEnum.SYSADMIN, RoleEnum.MANAGER, RoleEnum.INSTALLER):
-				raise PermissionsError()
-			try:
-				return await crud_stations.read_station(station, dataset, db)
-			except GettingDataError as e:
-				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+	try:
+		return await crud_stations.read_station(station, dataset, db, current_user)
+	except GettingDataError as e:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+	except PermissionError:
+		raise PermissionsError()
 
 
 @router.get("/station/{station_id}", response_model=stations.Station, responses=openapi.read_station_all_by_user)
 async def read_station_all_by_user(
-	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
+	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
 	db: Annotated[AsyncSession, Depends(get_async_session)]
 ):
 	"""
 	Получение всех данных по станции пользователем.
 
-	Доступно только для SYSADMIN-пользователей.
+	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
 	try:
-		return await crud_stations.read_station_all(station, db, query_from=QueryFromEnum.USER)
+		return await crud_stations.read_station_all(station, db, query_from=QueryFromEnum.USER, user=current_user)
 	except GettingDataError as e:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+	except PermissionError:
+		raise PermissionsError()
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.GENERAL.value,
 			responses=openapi.update_station_general_put)
 async def update_station_general(
-	current_user: Annotated[users.User, Depends(get_sysadmin_user)],
+	current_user: Annotated[users.User, Depends(get_installer_user)],
 	station: Annotated[stations.StationGeneralParams, Depends(get_station_by_id)],
 	updating_params: Annotated[stations.StationGeneralParamsUpdate, Body(embed=True,
 																	  title="Измененные основные параметры станции")],
@@ -84,8 +80,13 @@ async def update_station_general(
 	Если стала активной, то зависимые параметры не меняются - как я понимаю, после активации нужно
 	 еще вручную включить станцию, ТЭН, и т.д.
 
-	Доступно только для SYSADMIN-пользователей.
+	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	if any(
 		val is not None for val in (updating_params.dict().values())
 	):
@@ -129,13 +130,17 @@ async def update_station_control(
 	Если переданная стиральная машина неактивна - вернется ошибка.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
 	try:
+		Station.check_user_permissions(current_user, station)
 		return await crud_stations.update_station_control(
 			station, updating_params, db, action_by=current_user
 		)
 	except UpdatingError as e:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+	except PermissionError:
+		raise PermissionsError()
 
 
 @router.put("/station/{station_id}/" + StationParamsEnum.SETTINGS.value, responses=openapi.update_station_settings_put,
@@ -157,14 +162,18 @@ async def update_station_settings(
 	Выключение/включение ТЭН'а ни на что не влияет.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
 	if updating_params.station_power is False:
 		await StationControl.update_relation_data(station, stations.StationControlUpdate(), db)
 		# StationControlUpdate() - все нулевое
 	try:
+		Station.check_user_permissions(current_user, station)
 		return await crud_stations.update_station_settings(station, updating_params, db, action_by=current_user)
 	except UpdatingError as e:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+	except PermissionError:
+		raise PermissionsError()
 
 
 @router.post("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value,
@@ -188,13 +197,19 @@ async def create_station_program(
 	Создать программу с уже существующим номером шага (этапа) нельзя.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	station_current_programs: list[stations.StationProgram] = await StationProgram.get_relation_data(station, db)
 	if any(
 		(program.program_step in map(lambda pg: pg.program_step, station_current_programs) for program in programs)
 	):
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Got an existing program step")
-	station_full_data = await crud_stations.read_station_all(station, db, query_from=QueryFromEnum.USER)
+	station_full_data = await crud_stations.read_station_all(station, db, query_from=QueryFromEnum.USER,
+															 user=current_user)
 	try:
 		station_with_created_programs = await StationProgram.create_station_programs(
 			station_full_data, programs, db
@@ -229,15 +244,19 @@ async def update_station_program(
 	Можно не передавать номер программы, а только номер шага - номер программы определится автоматически.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
 	station, current_program = station_and_program
 	try:
+		Station.check_user_permissions(current_user, station)
 		return await crud_stations.update_station_program(station, current_program, updating_params, db,
 														  action_by=current_user)
 	except UpdatingError as err:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err))
 	except GettingDataError as err:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+	except PermissionError:
+		raise PermissionsError()
 
 
 @router.delete("/station/{station_id}/" + StationParamsEnum.PROGRAMS.value + "/{program_step_number}",
@@ -253,9 +272,13 @@ async def delete_station_program(
 	Нельзя удалить программу, если в данный момент станция работает по ней.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
 	station, program = station_and_program
-
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	station_control = await StationControl.get_relation_data(station, db)
 	if station_control.program_step and station_control.program_step.dict() == program.dict():
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Can't delete program step "
@@ -298,7 +321,12 @@ async def create_station_washing_services(
 	максимально количество объектов у станций (в бизнес-настройках).
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	params_dict = creating_params.dict()
 	match dataset:
 		case WashingServicesEnum.WASHING_MACHINES:
@@ -343,7 +371,12 @@ async def update_station_washing_agent(
 	 кастомные параметры использования средств.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	agent = await WashingAgent.get_obj_by_number(db, agent_number, station.id)
 
 	if not agent:
@@ -381,7 +414,12 @@ async def update_station_washing_machine(
 	 стиральное средство, которое в данный момент используется программой станции, то все автоматически обновится.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	machine = await WashingMachine.get_obj_by_number(db, machine_number, station.id)
 
 	if not machine:
@@ -413,7 +451,12 @@ async def delete_station_washing_services(
 	Если объект в данный момент используется станцией, удалить его нельзя.
 
 	Доступно только для INSTALLER-пользователей и выше.
+	REGION_MANAGER и INSTALLER для доступа должны иметь тот же регион, что и станция.
 	"""
+	try:
+		Station.check_user_permissions(current_user, station)
+	except PermissionError:
+		raise PermissionsError()
 	match dataset:
 		case WashingServicesEnum.WASHING_MACHINES:
 			cls = WashingMachine

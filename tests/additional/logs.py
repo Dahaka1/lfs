@@ -3,15 +3,14 @@ import random
 import uuid
 from typing import Any
 
+from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from httpx import AsyncClient
 
-from app.models import logs as model
-from app.static.enums import LogTypeEnum, LogCaseEnum, LogActionEnum, ErrorTypeEnum, StationStatusEnum
 import services
-from tests.additional.stations import StationData
+from app.models import logs as model
 from app.schemas import schemas_logs as schema
+from app.static.enums import LogTypeEnum, LogCaseEnum, LogActionEnum, ErrorTypeEnum, StationStatusEnum
 from app.utils.general import sa_object_to_dict
 
 
@@ -42,13 +41,16 @@ class Log:
 		return str(self)
 
 	@classmethod
-	async def generate(cls, station: StationData, type_: LogTypeEnum, code_base: list[int | float],
+	async def generate(cls, station: Any, type_: LogTypeEnum, code_base: list[int | float],
 							session: AsyncSession, ac: AsyncClient, amount: int = 10, **kwargs) -> list[schema.Log]:
 		"""
 		Создание логов должно работать!)
+		:params station: tests.additional.stations.StationData
 		"""
 		codes = random.choices(code_base, k=amount)
 		params = dict(content="test", log_type=type_, station=station)
+		status_headers = {LogActionEnum.STATION_MAINTENANCE_END: "X-Station-Maintenance-End",
+						  LogActionEnum.ERROR_STATION_CONTROL_STATUS_END: "X-Station-Error-End"}
 		match type_:
 			case LogTypeEnum.LOG:
 				url = "/v1/logs/log"
@@ -64,7 +66,12 @@ class Log:
 		for code in codes:
 			params["code"] = code
 			log = cls(**params)
-			r = await ac.post(url, headers=station.headers, json=log.json())
+			headers = station.headers
+			if log.action in status_headers:
+				header = status_headers[log.action]
+				headers[header] = "true"
+			r = await ac.post(url, headers=headers, json=log.json())
+			assert r.status_code == 201, r.json()
 			await station.turn_on(session)
 			await station.reset(session)
 			logs.append(r.json())
@@ -96,7 +103,10 @@ class Log:
 			j["data"] = self.data
 		return j
 
-	def generate_additional_data(self, station: StationData) -> dict[str, Any]:
+	def generate_additional_data(self, station: Any) -> dict[str, Any]:
+		"""
+		:params station: tests.additional.stations.StationData
+		"""
 		json = {}
 		rand_station_program = random.choice(station.station_programs)
 		machines_queue = copy.deepcopy([m.machine_number for m in station.station_washing_machines])
@@ -137,7 +147,10 @@ class Log:
 		if result:
 			return schema_(**sa_object_to_dict(result))
 
-	def check_action(self, station: StationData) -> None:
+	def check_action(self, station: Any) -> None:
+		"""
+		:params station: tests.additional.stations.StationData
+		"""
 		ctrl = station.station_control
 		setts = station.station_settings
 		agents = station.station_washing_agents

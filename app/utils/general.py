@@ -4,10 +4,10 @@ from datetime import timedelta, datetime, timezone
 from string import ascii_letters
 from typing import Any, Sequence
 
-import geopy
-from geopy.geocoders import Nominatim
-from geopy.adapters import AioHTTPAdapter
-from geopy.extra.rate_limiter import AsyncRateLimiter
+# import geopy
+# from geopy.geocoders import Nominatim
+# from geopy.adapters import AioHTTPAdapter
+# from geopy.extra.rate_limiter import AsyncRateLimiter
 from cryptography.fernet import Fernet
 from fastapi.responses import JSONResponse
 from jose import jwt
@@ -122,13 +122,38 @@ def decrypt_data(data: str) -> str | dict:
 	return decrypted_data
 
 
-async def read_location(address: str) -> geopy.Location:
-	"""
-	Чтение адреса.
-	"""
-	while True:
-		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter, timeout=10) as geolocator:
-			geocode = AsyncRateLimiter(geolocator.geocode, min_delay_seconds=1)
-			location = await geocode(address)
-		return location
+# async def read_location(address: str) -> geopy.Location:
+# 	"""
+# 	Чтение адреса.
+# 	"""
+# 	while True:
+# 		async with Nominatim(user_agent=config.GEO_APP, adapter_factory=AioHTTPAdapter, timeout=10) as geolocator:
+# 			geocode = AsyncRateLimiter(geolocator.geocode, min_delay_seconds=1)
+# 			location = await geocode(address)
+# 		return location
 
+
+def get_sa_tree(rows):
+	"""
+	Получение результата при мульти-джоине SA
+	"""
+	def get_level_diff(row1, row2):
+		if row1 is None:
+			return 0, len(row2)
+		assert len(row1) == len(row2)
+		for col in range(len(row1)):
+			if row1[col] != row2[col]:
+				return col, len(row2)
+		assert False, "should not have duplicates"
+
+	result = []
+	prev_row = None
+	for row in rows:
+		level = get_level_diff(prev_row, row)
+		for l in range(*level):
+			instance = row[l]
+			if instance:
+				instance = instance.__dict__
+			result.append(instance)
+			prev_row = row
+	return result

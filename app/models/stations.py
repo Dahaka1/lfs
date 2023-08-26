@@ -13,10 +13,10 @@ import services
 from .washing import WashingAgent, WashingMachine, WashingMixin
 from ..database import Base
 from ..exceptions import GettingDataError, UpdatingError, CreatingError
-from ..schemas import schemas_stations, schemas_washing
+from ..schemas import schemas_stations, schemas_washing, schemas_users
 from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, \
 	WashingAgentCreateMixedInfo, WashingMachineCreateMixedInfo
-from ..static.enums import StationStatusEnum, RegionEnum
+from ..static.enums import StationStatusEnum, RegionEnum, RoleEnum
 from ..static.typing import StationParamsSet
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
 
@@ -34,14 +34,14 @@ class Station(Base):
 	Created_at - дата и время создания.
 	Updated_at - дата и время последнего обновления.
 	"""
-	FIELDS = ["location", "is_active", "is_protected", "hashed_wifi_data", "region", "serial", "comment",
-			  "created_at"]
+	FIELDS = ["is_active", "is_protected", "hashed_wifi_data", "region", "serial", "comment",
+			  "created_at", "name"]
 
 	__tablename__ = "station"
 
 	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 	serial = Column(String, unique=True)
-	location = Column(JSON, nullable=False, default={})
+	name = Column(String)
 	is_active = Column(Boolean, default=services.DEFAULT_STATION_IS_ACTIVE)
 	is_protected = Column(Boolean)
 	hashed_wifi_data = Column(String)
@@ -199,6 +199,12 @@ class Station(Base):
 
 		await db.execute(query)
 		await db.commit()
+
+	@staticmethod
+	def check_user_permissions(user: schemas_users.User,
+									 station: schemas_stations.StationGeneralParams) -> None:
+		if user.role < RoleEnum.MANAGER and user.region != station.region:
+			raise PermissionError
 
 
 class StationMixin:

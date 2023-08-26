@@ -2,14 +2,13 @@ import random
 from math import floor
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas import schemas_logs as schema
 from app.static.enums import LogTypeEnum, ErrorTypeEnum, RoleEnum
 from tests.additional import stations as stations_funcs, auth as auth_funcs, users as users_funcs
 from tests.additional.logs import Log
-from app.schemas import schemas_logs as schema
-
 
 log_codes = [
 		1, 1.1, 1.2,

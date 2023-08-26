@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...exceptions import ValidationError, UpdatingError
 from ...models.stations import StationSettings, StationControl, StationProgram, Station
 from ...models.washing import WashingAgent, WashingMachine
-from ...schemas import schemas_stations, schemas_washing
+from ...schemas import schemas_stations, schemas_washing, schemas_users
 from ...static.enums import StationParamsEnum, StationStatusEnum
 from ...static.typing import StationParamsSet
 
@@ -31,6 +31,7 @@ class StationManagerBase:
 		self._programs: list[schemas_stations.StationProgram] | None = kwargs.get("programs")
 		self._machines: list[schemas_washing.WashingMachine] | None = kwargs.get("machines")
 		self._agents: list[schemas_washing.WashingAgent] | None = kwargs.get("agents")
+		self._owner: schemas_users.User | None = kwargs.get("owner")
 		self._datasets = args
 
 	async def __aenter__(self):
@@ -224,7 +225,7 @@ class StationManager(StationManagerBase):
 		await self._activate()
 
 
-class CRUDStation(StationManagerBase):
+class CRUDStation(StationManager):
 	"""
 	Здесь дублирование кода, чтобы избежать проблем с импортом из crud.
 	В будущем нужно рефакторить - перенести CRUD-функции сюда.

@@ -58,6 +58,15 @@ class LaundryStationSorting(Enum):
 	REGION = "region"
 
 
+class StationsSortingEnum(Enum):
+	NAME = "name"
+	REGION = "region"
+	OWNER = "owner"
+	STATUS = "status"
+	LAST_WORK = "last_work"
+	MAINTENANCE = "maintenance"
+
+
 class RegionEnum(Enum):
 	CENTRAL = "Центральный"
 	NORTHWEST = "Северо-западный"

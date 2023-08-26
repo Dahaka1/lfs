@@ -1,15 +1,15 @@
 import uuid
 
 import pytest
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from httpx import AsyncClient
 
-from tests.additional.auth import url_auth_test, url_auth_roles_test, url_get_station_by_id_test
-from tests.additional import users as users_funcs, stations as stations_funcs
 from app.schemas import schemas_relations as schema
 from app.schemas.schemas_stations import StationGeneralParams
 from app.static.enums import RoleEnum, RegionEnum, LaundryStationSorting
+from tests.additional import users as users_funcs, stations as stations_funcs
+from tests.additional.auth import url_auth_test, url_auth_roles_test, url_get_station_by_id_test
 
 
 @pytest.mark.usefixtures("generate_users", "generate_default_station")

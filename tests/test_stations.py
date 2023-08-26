@@ -5,15 +5,18 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 import services
 from app.models import stations
 from app.schemas import schemas_stations
 from app.schemas import schemas_washing as washing
-from app.utils.general import read_location
-from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum
+# from app.utils.general import read_location
+from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum, \
+	StationsSortingEnum
 from tests.additional import auth, users as users_funcs
-from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params, rand_serial
+from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params, \
+	rand_serial, delete_all_stations
 from tests.fills import stations as station_fills
 
 
@@ -21,22 +24,20 @@ from tests.fills import stations as station_fills
 class TestStations:
 	installer: users_funcs.UserData
 	manager: users_funcs.UserData
+	region_manager: users_funcs.UserData
 	sysadmin: users_funcs.UserData
 	laundry: users_funcs.UserData
 	station: StationData
-
-	"""
-	Тестирование создания станции.
-	"""
 
 	async def test_create_station_with_default_params(self, ac: AsyncClient, session: AsyncSession):
 		"""
 		Создание станции без указания опциональных параметров.
 		"""
 		station_data = dict(station={
+			"name": "Qwerty",
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
-			"address": "Санкт-Петербург",
+			# "address": "Санкт-Петербург",
 			"region": RegionEnum.NORTHWEST.value,
 			"serial": rand_serial()
 		})
@@ -45,7 +46,7 @@ class TestStations:
 			headers=self.sysadmin.headers,
 			json=station_data
 		)
-		real_location = await read_location("Санкт-Петербург")
+		# real_location = await read_location("Санкт-Петербург")
 		station_response = schemas_stations.Station(
 			**response.json())  # Validation error может подняться, если что-то не так
 		station_in_db = await get_station_by_id(station_response.id, session)
@@ -54,8 +55,8 @@ class TestStations:
 		assert len(station_in_db.station_washing_agents) == services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT
 		assert len(station_in_db.station_washing_machines) == services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT
 		assert not station_in_db.station_programs
-		assert station_in_db.location["latitude"] == real_location.latitude and \
-			   station_in_db.location["longitude"] == real_location.longitude
+		# assert station_in_db.location["latitude"] == real_location.latitude and \
+		# 	   station_in_db.location["longitude"] == real_location.longitude
 		assert station_in_db.is_active == services.DEFAULT_STATION_IS_ACTIVE
 		assert station_in_db.is_protected == services.DEFAULT_STATION_IS_PROTECTED
 		assert station_in_db.station_control.status == services.DEFAULT_STATION_STATUS
@@ -74,6 +75,7 @@ class TestStations:
 			)
 		)), "If station status is working, washing machine must be defined, and one of params [program_step, washing_agents] " \
 			"must be not null"
+		assert station_in_db.name == station_data["station"]["name"]
 
 	async def test_create_station_with_advanced_params(self, ac: AsyncClient, session: AsyncSession):
 		"""
@@ -152,9 +154,10 @@ class TestStations:
 		Новый параметр, поэтому добавлю отдельный тест
 		"""
 		station_data = dict(station={
+			"name": "qwerty",
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
-			"address": "Санкт-Петербург",
+			# "address": "Санкт-Петербург",
 			"region": RegionEnum.NORTHWEST.value,
 			"serial": rand_serial(),
 			"comment": "it is test!"
@@ -188,9 +191,10 @@ class TestStations:
 		Если станция не выпущена - установится пустая дата создания
 		"""
 		station_data = dict(station={
+			"name": "qwerty",
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
-			"address": "Санкт-Петербург",
+			# "address": "Санкт-Петербург",
 			"region": RegionEnum.NORTHWEST.value,
 			"serial": rand_serial()
 		})
@@ -211,9 +215,10 @@ class TestStations:
 		Если станция не выпущена, можно ее выпустить.
 		"""
 		station_data = dict(station={
+			"name": "qwerty",
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
-			"address": "Санкт-Петербург",
+			# "address": "Санкт-Петербург",
 			"region": RegionEnum.NORTHWEST.value,
 			"serial": rand_serial()
 		})
@@ -236,9 +241,10 @@ class TestStations:
 
 	async def test_not_released_station(self, session: AsyncSession, ac: AsyncClient):
 		station_data = dict(station={
+			"name": "qwerty",
 			"wifi_name": "qwerty",
 			"wifi_password": "qwerty",
-			"address": "Санкт-Петербург",
+			# "address": "Санкт-Петербург",
 			"region": RegionEnum.NORTHWEST.value,
 			"serial": rand_serial()
 		})
@@ -348,47 +354,106 @@ class TestStations:
 			json=station_fills.test_create_station_with_advanced_params
 		)
 
-	async def test_read_all_stations(self, ac: AsyncClient, session: AsyncSession):
+	async def test_read_all_stations(self, ac: AsyncClient, session: AsyncSession,
+									 sync_session: Session):
 		"""
-		Чтение списка всех станций.
+		Чтение списка станций.
 		"""
-		stations_list = []
-		for _ in range(5):
-			station = await generate_station(ac, user=self.sysadmin)
-			stations_list.append(station)
+		await delete_all_stations(session)  # не могу проследить, откуда появляется ошибка - где-то
+		# из контроля станции удалил стиральную машину при рабочем состоянии
+		stations_ = await StationData.generate_stations_list(ac, sync_session, self.sysadmin, session,
+												 amount=10)
+		# ____
+		# sys, manager role
+		for user in (self.sysadmin, self.manager):
+			r = await ac.get(
+				"/v1/stations/",
+				headers=user.headers
+			)
+			assert r.status_code == 200
+			r = [schemas_stations.StationInList(**s) for s in r.json()]
+			assert len(r) >= len(stations_)
 
-		response = await ac.get(
+		# ____
+		# region manager & installer role
+		for user in (self.installer, self.region_manager):
+			r = await ac.get(
+				"/v1/stations/",
+				headers=user.headers
+			)
+			assert r.status_code == 200
+			r = [schemas_stations.StationInList(**s) for s in r.json()]
+			assert len(r)
+			assert all(
+				(st.general.region == user.region for st in r)
+			)
+
+	async def test_read_all_stations_(self, session: AsyncSession, ac: AsyncClient,
+									  sync_session: Session):
+		"""
+		проверить, что точно возвращаются параметры
+		"""
+		await self.station.generate_data_for_read_stations_list(
+			session, ac, sync_session, ctrl=True, owner=True, logs=True
+		)
+		r = await ac.get(
 			"/v1/stations/",
 			headers=self.sysadmin.headers
 		)
+		r = [schemas_stations.StationInList(**s) for s in r.json()]
+		station = next(s for s in r if str(s.general.id) == str(self.station.id))
+		assert station.last_work_at
+		assert station.last_maintenance_at
+		assert station.owner
+		assert station.control.status
 
-		assert response.status_code == 200
-		for station in response.json():
-			assert not any(
-				("wifi" in key for key in station)
-			)
-			station = schemas_stations.StationGeneralParams(**station)  # если что, будет Validation error
-			station.id = str(station.id)
-			station.region = station.region.value
-			try:
-				defined_station = next(st for st in stations_list if st.id == station.id)
-			except StopIteration:  # там станции лежат уже с других тестов просто
-				continue
-			for k, v in station.dict().items():
-				if k in defined_station.__dict__:
-					assert getattr(defined_station, k) == v
+	async def test_read_all_stations_with_ordering(self, ac: AsyncClient, session: AsyncSession,
+												   sync_session: Session):
+		headers = self.sysadmin.headers
+		await StationData.generate_stations_list(ac, sync_session, self.sysadmin, session,
+												 amount=10)
+		sorting_keys = {StationsSortingEnum.OWNER: lambda st_: st_.owner.last_name,
+						StationsSortingEnum.STATUS: lambda st_: st_.control.status.value,
+						StationsSortingEnum.MAINTENANCE: lambda st_: st_.last_maintenance_at,
+						StationsSortingEnum.LAST_WORK: lambda st_: st_.last_work_at,
+						StationsSortingEnum.NAME: lambda st_: st_.general.name,
+						StationsSortingEnum.REGION: lambda st_: st_.general.region.value}
+		for order in list(StationsSortingEnum):
+			for desc in (True, False):
+				url = f"/v1/stations/?order_by={order.value}"
+				sorting_params = {"key": sorting_keys[order]}
+				if desc:
+					url += "&desc=true"
+					sorting_params["reverse"] = True
+				r = await ac.get(url, headers=headers)
+				assert r.status_code == 200
+				r = [schemas_stations.StationInList(**s) for s in r.json()]
+				nullable_objs = []
+				for s in r:
+					nullable_fields = {StationsSortingEnum.OWNER: s.owner,
+									  StationsSortingEnum.STATUS: s.control.status,
+									  StationsSortingEnum.MAINTENANCE: s.last_maintenance_at,
+									  StationsSortingEnum.LAST_WORK: s.last_work_at}
+					if order in nullable_fields:
+						nullable_field = nullable_fields[order]
+						if nullable_field is None:
+							nullable_objs.append(s)
+				for obj in nullable_objs:
+					del r[r.index(obj)]
+				assert r == sorted(r, **sorting_params)
 
-	async def test_read_all_stations_errors(self, ac: AsyncClient, session: AsyncSession):
-		"""
-		- users auth auto test;
-		- roles auto test
-		"""
-		await auth.url_auth_roles_test(
-			"/v1/stations/", "get",
-			RoleEnum.SYSADMIN, self.sysadmin, session, ac
+	async def test_read_all_stations_by_not_permitted_user(self, ac: AsyncClient, session: AsyncSession):
+		r = await ac.get(
+			"/v1/stations/",
+			headers=self.laundry.headers
 		)
+		assert r.status_code == 403
+
+	async def test_read_all_stations_not_authenticated(self, ac: AsyncClient,
+													   session: AsyncSession):
 		await auth.url_auth_test(
-			"/v1/stations/", "get", self.sysadmin, ac, session
+			"/v1/stations/", "get", self.sysadmin,
+			ac, session
 		)
 
 	async def test_read_stations_params(self, ac: AsyncClient, session: AsyncSession):

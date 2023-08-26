@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import services
 from app.schemas import schemas_washing as washing
-from app.static.enums import RoleEnum, WashingServicesEnum
+from app.static.enums import WashingServicesEnum
 from tests.additional import auth, stations as stations_funcs, logs as logs_funcs, users as users_funcs
 
 
@@ -31,7 +31,7 @@ class TestManagementWashing:
 		await stations_funcs.delete_washing_services(washing_agent_number, self.station, session, "agent")
 		washing_agent_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(creating_params={"agent_number": washing_agent_number})
 		)
 		assert washing_agent_r.status_code == 201
@@ -56,7 +56,7 @@ class TestManagementWashing:
 
 		washing_machine_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value,
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(creating_params=machine_params)
 		)
 
@@ -84,7 +84,7 @@ class TestManagementWashing:
 
 		existing_object_r = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=testing_json
 		)
 		assert existing_object_r.status_code == 409
@@ -95,9 +95,9 @@ class TestManagementWashing:
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
 			"post", self.installer, ac, session, json=testing_json
 		)
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value,
-			"post", RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+			"post", self.sysadmin, self.station, ac, session, json=testing_json
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value,
@@ -113,7 +113,7 @@ class TestManagementWashing:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" +
 			WashingServicesEnum.WASHING_AGENTS.value + f"/{rand_washing_agent.agent_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(updating_params={"rollback": False, "volume": 14})
 		)
 
@@ -138,7 +138,7 @@ class TestManagementWashing:
 		response = await ac.put(
 			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{rand_washing_machine.machine_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=testing_data
 		)
 
@@ -162,7 +162,7 @@ class TestManagementWashing:
 		using_machine_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/{WashingServicesEnum.WASHING_MACHINES.value}/"
 			f"{machine.machine_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=testing_data
 		)
 
@@ -187,7 +187,7 @@ class TestManagementWashing:
 		change_obj_number_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_washing_machine.machine_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(updating_params={"machine_number": updated_machine.machine_number})
 		)
 
@@ -214,7 +214,7 @@ class TestManagementWashing:
 		change_obj_number_to_existing_number_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{rand_washing_agent_.agent_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(updating_params={"agent_number": rand_washing_agent.agent_number})
 		)
 
@@ -229,7 +229,7 @@ class TestManagementWashing:
 		using_machine_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=dict(updating_params={"is_active": False})
 		)
 
@@ -241,7 +241,7 @@ class TestManagementWashing:
 
 		non_existing_obj_r = await ac.put(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value + "/50",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			json=testing_json
 		)
 		assert non_existing_obj_r.status_code == 404
@@ -254,10 +254,10 @@ class TestManagementWashing:
 			"put", self.sysadmin, ac, session, json=testing_json
 		)
 
-		await auth.url_auth_roles_test(
+		await auth.station_access_for_user_roles_test(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}", "put",
-			RoleEnum.INSTALLER, self.installer, session, ac, json=testing_json
+			self.sysadmin, self.station, ac, session, json=testing_json
 		)
 
 		await auth.url_get_station_by_id_test(
@@ -274,7 +274,7 @@ class TestManagementWashing:
 		response = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{rand_machine.machine_number}",
-			headers=self.installer.headers
+			headers=self.sysadmin.headers
 		)
 
 		assert response.status_code == 200
@@ -298,7 +298,7 @@ class TestManagementWashing:
 		using_machine_r = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_MACHINES.value +
 			f"/{machine_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			
 		)
 		assert using_machine_r.status_code == 409
@@ -311,7 +311,7 @@ class TestManagementWashing:
 		using_agent_r = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{using_washing_agent_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			
 		)
 
@@ -326,7 +326,7 @@ class TestManagementWashing:
 		using_agent_r = await ac.delete(
 			f"/v1/manage/station/{self.station.id}/" + WashingServicesEnum.WASHING_AGENTS.value +
 			f"/{agent_number}",
-			headers=self.installer.headers,
+			headers=self.sysadmin.headers,
 			
 		)
 
@@ -340,8 +340,8 @@ class TestManagementWashing:
 		await auth.url_auth_test(
 			testing_url, "delete", self.installer, ac, session
 		)
-		await auth.url_auth_roles_test(
-			testing_url, "delete", RoleEnum.INSTALLER, self.installer, session, ac
+		await auth.station_access_for_user_roles_test(
+			testing_url, "delete", self.sysadmin, self.station, ac, session
 		)
 		await auth.url_get_station_by_id_test(
 			"/v1/manage/station/{station_id}/" + WashingServicesEnum.WASHING_AGENTS.value +

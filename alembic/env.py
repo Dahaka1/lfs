@@ -25,6 +25,7 @@ from app.models.stations import Station, StationSettings, StationProgram, Statio
 from app.models.washing import WashingAgent, WashingMachine
 from app.models.auth import RefreshToken
 from app.models.logs import Log, Error
+from app.models.relations import LaundryStation
 
 target_metadata = Base.metadata
 

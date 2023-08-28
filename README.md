@@ -5,7 +5,6 @@ LFS company backed server. The project realizes administrative processes for com
 See the docs of the project for advanced functionality information.
 
 ## RUN IT
-Fill .env-docker file (its "null"-values).
 Start server by cmds:
 ```
 docker-compose build

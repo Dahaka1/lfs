@@ -1,8 +1,6 @@
 from httpx import AsyncClient
-from httpx import TimeoutException
+from httpx import HTTPError, InvalidURL, StreamError
 from loguru import logger
-
-from ..exceptions import GettingDataError
 
 
 async def get_sheet_data(url: str) -> list[list[str]] | None:
@@ -13,7 +11,7 @@ async def get_sheet_data(url: str) -> list[list[str]] | None:
 	async with AsyncClient() as client:
 		try:
 			r = await client.get(url, timeout=10)
-		except TimeoutException as err:
+		except (HTTPError, InvalidURL, StreamError) as err:
 			logger.error(str(err))
 			raise ConnectionError(f"{err_text} {err}")
 	if r.status_code == 200:

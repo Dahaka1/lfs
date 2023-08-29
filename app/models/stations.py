@@ -8,7 +8,9 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import Enum, Column, Integer, String, Boolean, ForeignKey, \
 	UUID, JSON, func, insert, select, PrimaryKeyConstraint, update, TIMESTAMP, Row
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import error_wrappers
 
+import config
 import services
 from .washing import WashingAgent, WashingMachine, WashingMixin
 from ..database import Base
@@ -19,6 +21,7 @@ from ..schemas.schemas_washing import WashingMachineCreate, WashingAgentCreate, 
 from ..static.enums import StationStatusEnum, RegionEnum, RoleEnum
 from ..static.typing import StationParamsSet
 from ..utils.general import sa_object_to_dict, sa_objects_dicts_list
+from ..utils.google_sheets import get_sheet_data
 
 
 class Station(Base):
@@ -347,6 +350,7 @@ class StationProgram(Base, StationMixin):
 	)
 
 	station_id = Column(UUID(as_uuid=True), ForeignKey("station.id", ondelete="CASCADE", onupdate="CASCADE"))
+	name = Column(String, nullable=False)
 	program_step = Column(Integer, nullable=False)
 	program_number = Column(Integer, nullable=False)
 	washing_agents = Column(JSON)
@@ -388,6 +392,43 @@ class StationProgram(Base, StationMixin):
 
 		await db.flush()
 		return station
+
+	@staticmethod
+	async def get_default_programs(station_washing_agents: list[schemas_washing.WashingAgentCreate]) \
+		-> list[schemas_stations.StationProgramCreate]:
+		"""
+		Получение списка дефолтных программ из онлайн-таблицы.
+		:raises: app.exceptions.GettingDataError
+		"""
+		error_postfix = ". Please, fix the problem or pass the defined station programs list"
+		try:
+			default_programs_r = await get_sheet_data(config.GoogleSheetTableQuery.station_default_programs)
+		except ConnectionError as err:
+			raise ConnectionError(str(err) + error_postfix)
+		programs = []
+		err_text = "Programs reading from google sheets error:"
+		for item in default_programs_r:
+			try:
+				program_name, program_number, program_step_number, washing_agent_numbers = item
+			except ValueError:
+				raise GettingDataError(f"{err_text} invalid length of item" + error_postfix)
+			try:
+				schema = schemas_stations.StationProgramInGoogleSheet(program_name=program_name, program_number=program_number,
+															 program_step_number=program_step_number,
+															 washing_agent_numbers=washing_agent_numbers)
+			except error_wrappers.ValidationError as err:
+				raise GettingDataError(str(err) + error_postfix)
+			agent_numbers = [ag.agent_number for ag in station_washing_agents]
+			for num in schema.washing_agent_numbers:
+				if num not in agent_numbers:
+					raise GettingDataError(f"{err_text} washing agent №{num} not found in station washing agents" +
+										   error_postfix)
+			program = schemas_stations.StationProgramCreate(name=schema.program_name, program_number=schema.program_number,
+													  program_step=schema.program_step_number,
+													  washing_agents=schema.washing_agent_numbers)
+			programs.append(program)
+
+		return programs
 
 
 class StationControl(Base, StationMixin):

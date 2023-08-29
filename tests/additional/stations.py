@@ -190,6 +190,7 @@ async def generate_station(
 	ac: AsyncClient,
 	sync_session: Session = None,
 	user: Any = None,
+	use_default_programs=False,
 	**kwargs
 ) -> StationData:
 	"""
@@ -219,7 +220,7 @@ async def generate_station(
 		if v is not None:
 			station_data["station"][k] = v
 
-	if not kwargs.get("programs"):
+	if not kwargs.get("programs") and not use_default_programs:
 		station_data["station"]["programs"] = generate_station_programs()
 
 	response = await ac.post(
@@ -264,19 +265,25 @@ async def change_station_params(station: StationData | schemas_stations.Station,
 	await session.commit()
 
 
-def generate_station_programs() -> list[dict[str, Any]]:
+def generate_station_programs(amount: int = 4,
+							  as_schema=False) -> list[schemas_stations.StationProgramCreate] | list[dict[str, Any]]:
 	"""
 	Сгенерировать программы для станции.
 	"""
 	programs = []
 	program_step = 11
-	for _ in range(4):
+	names = ["Махра белая", "Махра цветная"]
+	for _ in range(amount):
 		washing_agents = [random.randint(1, services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT)]
 		program = schemas_stations.StationProgramCreate(
-			program_step=program_step, washing_agents=washing_agents
+			name=random.choice(names), program_step=program_step, washing_agents=washing_agents
 		)
 		programs.append(program)
 		program_step += 1
+		if program_step % 10 == 6:
+			program_step += 5
+	if as_schema:
+		return programs
 	return [pg.dict() for pg in programs]
 
 

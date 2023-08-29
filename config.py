@@ -93,3 +93,16 @@ ORIGINS = [
     "http://localhost:8080",
 	"https://lfs-spb.ru"
 ]
+
+
+class GoogleSheetTableQuery:
+	_QUERY = "https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}/values/{sheetName}!{range}?key={apiKey}"
+	_PARAMS = dict(
+		_station_default_programs_params={
+			"spreadsheetId": os.getenv("GS_STATION_PROGRAMS_SHEET_ID"),
+			"sheetName": "Main", "apiKey": os.getenv("GS_API_KEY"),
+			"range": "A2:Z999"
+		}
+	)
+	station_default_programs = _QUERY.format(**_PARAMS["_station_default_programs_params"])
+

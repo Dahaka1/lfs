@@ -8,15 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 import services
+from app.exceptions import CreatingError
 from app.models import stations
-from app.schemas import schemas_stations
+from app.schemas import schemas_stations, schemas_washing
 from app.schemas import schemas_washing as washing
 # from app.utils.general import read_location
 from app.static.enums import RegionEnum, StationStatusEnum, RoleEnum, StationParamsEnum, \
 	StationsSortingEnum
 from tests.additional import auth, users as users_funcs
 from tests.additional.stations import get_station_by_id, generate_station, StationData, change_station_params, \
-	rand_serial, delete_all_stations
+	rand_serial, delete_all_stations, generate_station_programs
 from tests.fills import stations as station_fills
 
 
@@ -29,10 +30,12 @@ class TestStations:
 	laundry: users_funcs.UserData
 	station: StationData
 
-	async def test_create_station_with_default_params(self, ac: AsyncClient, session: AsyncSession):
+	async def test_create_station_with_default_params(self, ac: AsyncClient, session: AsyncSession,
+													  monkeypatch):
 		"""
 		Создание станции без указания опциональных параметров.
 		"""
+
 		station_data = dict(station={
 			"name": "Qwerty",
 			"wifi_name": "qwerty",
@@ -48,13 +51,13 @@ class TestStations:
 		)
 		# real_location = await read_location("Санкт-Петербург")
 		station_response = schemas_stations.Station(
-			**response.json())  # Validation error может подняться, если что-то не так
+			**response.json()
+		)  # Validation error может подняться, если что-то не так
 		station_in_db = await get_station_by_id(station_response.id, session)
-
-		assert station_in_db.dict() == station_in_db.dict()
+		assert station_response.dict() == station_in_db.dict()
 		assert len(station_in_db.station_washing_agents) == services.DEFAULT_STATION_WASHING_AGENTS_AMOUNT
 		assert len(station_in_db.station_washing_machines) == services.DEFAULT_STATION_WASHING_MACHINES_AMOUNT
-		assert not station_in_db.station_programs
+		assert station_in_db.station_programs
 		# assert station_in_db.location["latitude"] == real_location.latitude and \
 		# 	   station_in_db.location["longitude"] == real_location.longitude
 		assert station_in_db.is_active == services.DEFAULT_STATION_IS_ACTIVE
@@ -107,6 +110,7 @@ class TestStations:
 		for program in station_in_db.station_programs:
 			defined_program = next(pg for pg in params["programs"] if pg["program_step"] == program.program_step)
 			assert program.program_step == defined_program["program_step"]
+			assert program.name == defined_program["name"]
 			for washing_agent in program.washing_agents:
 				for ag in defined_program["washing_agents"]:
 					if isinstance(ag, int) and ag == washing_agent.agent_number:
@@ -148,6 +152,72 @@ class TestStations:
 					assert getattr(washing_machine, param) == default_param
 
 		params["region"] = "Северо-западный"  # меняю обратно для след тестов
+
+	async def test_create_station_with_default_programs(self, session: AsyncSession, ac: AsyncClient,
+														monkeypatch, sync_session: Session):
+		programs = generate_station_programs(amount=4, as_schema=True)
+
+		async def get_default_programs(*args, **kwargs):
+			return programs
+		monkeypatch.setattr(stations.StationProgram, "get_default_programs", get_default_programs)
+
+		station = await generate_station(ac, sync_session, self.sysadmin, use_default_programs=True)
+
+		assert any(station.station_programs)
+		assert len(station.station_programs) == len(programs)
+		for pg in programs:
+			station_pg = next(p for p in station.station_programs if p.program_step == pg.program_step)
+			assert pg.program_number == station_pg.program_number
+			assert pg.name == station_pg.name
+			station_pg_washing_agent_number = [ag.agent_number for ag in station_pg.washing_agents]
+			for ag in pg.washing_agents:
+				ag = schemas_washing.WashingAgentWithoutRollback(**ag)  # тип почему-то нарушен
+				assert ag.agent_number in station_pg_washing_agent_number
+
+	async def test_create_station_with_invalid_default_programs(self, session: AsyncSession, ac: AsyncClient,
+															  monkeypatch, sync_session: Session):
+		async def get_default_programs(*args, **kwargs):
+			raise CreatingError("Some getting default program exception")
+		monkeypatch.setattr(stations.StationProgram, "get_default_programs", get_default_programs)
+
+		station_data = dict(station={
+			"name": "Qwerty",
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			# "address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
+		})
+
+		r = await ac.post(
+			"/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+		assert r.status_code == 422
+
+	async def test_create_station_with_getting_default_programs_connection_error(self, session: AsyncSession,
+																				 ac: AsyncClient,
+																				 monkeypatch):
+		async def get_default_programs(*args, **kwargs):
+			raise ConnectionError("Some getting default program exception")
+		monkeypatch.setattr(stations.StationProgram, "get_default_programs", get_default_programs)
+
+		station_data = dict(station={
+			"name": "Qwerty",
+			"wifi_name": "qwerty",
+			"wifi_password": "qwerty",
+			# "address": "Санкт-Петербург",
+			"region": RegionEnum.NORTHWEST.value,
+			"serial": rand_serial()
+		})
+
+		r = await ac.post(
+			"/v1/stations/",
+			headers=self.sysadmin.headers,
+			json=station_data
+		)
+		assert r.status_code == 400
 
 	async def test_create_station_with_comment(self, ac: AsyncClient, session: AsyncSession):
 		"""

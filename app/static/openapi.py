@@ -278,6 +278,9 @@ create_station_post = {
 	},
 	403: {
 		"description": "Permissions error / Disabled user "
+	},
+	400: {
+		"description": "Getting default station programs connection error"
 	}
 }
 

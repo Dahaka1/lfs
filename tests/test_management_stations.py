@@ -517,7 +517,7 @@ class TestManagement:
 		"""
 		washing_agents = [ag.agent_number for ag in self.station.station_washing_agents]
 		programs = [
-			{"program_step": num, "washing_agents": washing_agents} for num in range(31, 36)
+			{"program_step": num, "washing_agents": washing_agents, "name": "Махра"} for num in range(31, 36)
 		]
 		response = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
@@ -542,7 +542,7 @@ class TestManagement:
 		programs = [
 			{"program_step": num, "washing_agents": [{"agent_number": 2, "volume": 16},
 													 {"agent_number": 3, "volume": 18}],
-			 "program_number": 4} for num in range(41, 46)
+			 "program_number": 4, "name": "Махра"} for num in range(41, 46)
 		]
 
 		response = await ac.post(
@@ -571,7 +571,7 @@ class TestManagement:
 		- roles auto test;
 		- station get by id auto test+
 		"""
-		testing_data = dict(programs=[{"program_step": 51, "washing_agents": [1, 2]}])
+		testing_data = dict(programs=[{"name": "Махра", "program_step": 51, "washing_agents": [1, 2]}])
 		for _ in range(2):
 			existing_program_r = await ac.post(
 				f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
@@ -589,7 +589,7 @@ class TestManagement:
 		non_existing_agent_response = await ac.post(
 			f"/v1/manage/station/{self.station.id}/" + StationParamsEnum.PROGRAMS.value,
 			headers=self.installer.headers,
-			json=dict(programs=[{"program_step": 52, "washing_agents": [1, 2]}])
+			json=dict(programs=[{"name": "Махра", "program_step": 52, "washing_agents": [1, 2]}])
 		)
 		assert non_existing_agent_response.status_code == 404
 

@@ -132,6 +132,7 @@ class StationProgram(BaseModel):
 	"""
 	Программы станции (таблица station_program).
 	"""
+	name: str = Field(title="Название программы станции", example="Махра белая", min_length=1, max_length=30)
 	program_step: int = Field(ge=11, title="Шаг (этап) программы станции", example="11-15, 21-25, 31-35, ...")
 	program_number: int = Field(ge=1, title="Номер программы станции", example="1, 2, 3, ...")
 	washing_agents: list[WashingAgentWithoutRollback] = Field(
@@ -204,12 +205,52 @@ class StationProgramUpdate(StationProgramCreate):
 	"""
 	Обновление программы станции.
 	"""
+	name: Optional[str] = Field(title="Название программы станции", example="Махра белая", min_length=1, max_length=30)
 	program_step: Optional[int] = Field(ge=11, title="Новый шаг (этап) программы станции",
 										example="11-15, 21-25, 31-35, ...")
 	washing_agents: Optional[list[WashingAgentWithoutRollback | int]] = Field(
 		title="Стиральные средства станции и дозировки",
 		default_factory=list
 	)
+
+
+class StationProgramInGoogleSheet(BaseModel):
+	"""
+	Валидация заполненных дефолтных параметров программ в google sheets
+	"""
+	program_name: str = Field(min_length=1, max_length=30)
+	program_number: str | int = Field(min_length=2, max_length=3)
+	program_step_number: str | int = Field(min_length=1, max_length=1)
+	washing_agent_numbers: str | list[int]
+
+	@root_validator()
+	def validate_program_step_number(cls, values):
+		program_step, program_number = values.get("program_step_number"), values.get("program_number")
+		try:
+			program_step = values["program_step_number"] = int(program_step)
+			program_number = values["program_number"] = int(program_number)
+		except ValueError:
+			raise ValueError(f"Invalid program and/or program step number <{program_number} - {program_step}>")
+		validators.validate_program_step(program_step)
+		validators.validate_program_number(program_step=program_step, program_number=program_number)
+
+		return values
+
+	@validator("washing_agent_numbers")
+	def validate_washing_agent_number(cls, washing_agent_numbers: str):
+		digits_count = len([char for char in washing_agent_numbers if char.isdigit()])
+		if digits_count == 0:
+			raise ValueError("Expected for washing agent numbers at program defining")
+		elif digits_count > 1 and washing_agent_numbers.count(" ") == 0:
+			raise ValueError("Expected for spaces between washing agent numbers in list")
+		lst = washing_agent_numbers.strip("][").split(", ")
+		result = []
+		for char in lst:
+			try:
+				result.append(int(char))
+			except ValueError:
+				raise ValueError(f"Invalid character at washing agent numbers '{char}'")
+		return result
 
 
 class StationControl(BaseModel):

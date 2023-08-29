@@ -54,7 +54,6 @@ class WashingMixin:
 		schema = getattr(schemas_washing, cls.__name__ + "Create")
 
 		await db.execute(query)
-		await db.commit()
 
 		return schema(**kwargs)
 

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from loguru import logger
 
-from ..exceptions import UpdatingError, GettingDataError
+from ..exceptions import UpdatingError, GettingDataError, CreatingError
 from ..models.stations import Station, StationSettings, StationControl, StationProgram
 from ..models.relations import LaundryStation
 from .crud_logs import CRUDLog
@@ -163,6 +163,14 @@ async def create_station(db: AsyncSession,
 
 	if programs:
 		created_station_obj = await StationProgram.create_station_programs(created_station_obj, station.programs, db)
+	else:
+		try:
+			default_programs = await StationProgram.get_default_programs(
+				station_washing_agents=station_washing_services["station_washing_agents"]
+			)
+			created_station_obj = await StationProgram.create_station_programs(created_station_obj, default_programs, db)
+		except GettingDataError as err:
+			raise CreatingError(str(err))
 
 	await db.flush()
 	return created_station_obj
@@ -444,6 +452,9 @@ async def update_station_program(
 			raise UpdatingError("Can't change program step number to existing program step number")
 		except StopIteration:
 			pass
+
+	if not updated_program.name:
+		updated_program.name = current_program.name
 
 	updated_program = await StationProgram.update_relation_data(
 		station, updated_program, db, washing_agents=station_washing_agents,

@@ -345,6 +345,7 @@ async def create_station_washing_services(
 		created_obj = await model.create_object(
 			db=db, station_id=station.id, object_number=object_number, **params_dict
 		)
+		await db.commit()
 	except CreatingError as e:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 	return created_obj

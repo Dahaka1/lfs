@@ -7,3 +7,4 @@ logs
 alembic/__pycache__
 .env
 venv
+app/creds

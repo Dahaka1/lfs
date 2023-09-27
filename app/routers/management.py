@@ -331,11 +331,11 @@ async def create_station_washing_services(
 	match dataset:
 		case WashingServicesEnum.WASHING_MACHINES:
 			schema = washing.WashingMachineCreateMixedInfo
-			object_number = params_dict.pop("machine_number")
+			object_number = params_dict.pop("machine_number", None)
 			model = WashingMachine
 		case WashingServicesEnum.WASHING_AGENTS:
 			schema = washing.WashingAgentCreateMixedInfo
-			object_number = params_dict.pop("agent_number")
+			object_number = params_dict.pop("agent_number", None)
 			model = WashingAgent
 
 	if not isinstance(creating_params, schema):
